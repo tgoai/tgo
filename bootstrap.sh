@@ -78,8 +78,28 @@ detect_os() {
 
 confirm() {
   local prompt="$1"
-  echo "$prompt"
-  read -r answer
+  local answer=""
+
+  # Print prompt and read from real TTY when possible so that
+  #   - running via "curl ... | bash" still works interactively
+  #   - leftover stdin data does not auto-answer the question
+  printf "%s " "$prompt"
+
+  if [ -r /dev/tty ]; then
+    if ! read -r answer < /dev/tty; then
+      echo "[FATAL] Unable to read user input from /dev/tty. Please run this script from an interactive shell." >&2
+      exit 1
+    fi
+  else
+    if ! read -r answer; then
+      echo "[FATAL] Unable to read user input. Please run this script from an interactive shell." >&2
+      exit 1
+    fi
+  fi
+
+  # Normalize answer: strip a single trailing CR in case of odd TTY settings
+  answer=${answer%$'\r'}
+
   case "$answer" in
     y|Y|yes|YES) return 0 ;;
     *)          return 1 ;;
