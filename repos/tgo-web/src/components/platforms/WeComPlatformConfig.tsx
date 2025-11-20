@@ -103,11 +103,13 @@ const WeComPlatformConfig: React.FC<Props> = ({ platform }) => {
     }
   };
 
+  const displayName = platform.display_name || platform.name;
+
   return (
     <main className="flex flex-col flex-1 min-h-0 bg-gradient-to-br from-gray-50 to-gray-100">
       <header className="px-6 py-4 border-b border-gray-200/80 flex justify-between items-center bg-white/60 backdrop-blur-lg sticky top-0 z-10">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">{platform.name} - {t('platforms.wecom.header.title', '企业微信配置')}</h2>
+          <h2 className="text-lg font-semibold text-gray-800">{t('platforms.wecom.header.title', {"name":displayName})}</h2>
           <p className="text-xs text-gray-500 mt-0.5">{t('platforms.wecom.header.subtitle', '配置企业微信（WeCom）对接所需的凭据与回调。')}</p>
         </div>
         <div className="flex items-center gap-3">
@@ -278,8 +280,8 @@ const WeComPlatformConfig: React.FC<Props> = ({ platform }) => {
           <h3 className="text-lg font-semibold text-gray-800">{t('platforms.wecom.guide.title', '企业微信（WeCom）配置指南')}</h3>
 
           <div className="bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-md p-3">
-            <p className="font-medium">{t('platforms.wecom.guide.overviewTitle', '快速概览')}</p>
-            <p className="mt-1">{t('platforms.wecom.guide.overviewMessage', '完成以下四步：①查找企业ID → ②获取应用 AgentId/Secret → ③配置服务器回调（URL/Token/EncodingAESKey）→ ④保存测试。')}</p>
+            <p className="font-medium">{t('platforms.wecom.guide.overview', '快速概览')}</p>
+            <p className="mt-1">{t('platforms.wecom.guide.overviewText', '完成以下四步：①查找企业ID → ②获取应用 AgentId/Secret → ③配置服务器回调（URL/Token/EncodingAESKey）→ ④保存测试。')}</p>
           </div>
 
           <details className="rounded-md border border-gray-200 p-3 bg-white/70">
@@ -305,8 +307,8 @@ const WeComPlatformConfig: React.FC<Props> = ({ platform }) => {
                 <li>{t('platforms.wecom.guide.step2Item3', '点击「Secret」显示或重置，复制后填入左侧表单「应用 Secret」。')}</li>
               </ol>
               <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs text-yellow-800">
-                <p className="font-semibold">{t('platforms.wecom.guide.securityTitle', '安全提示')}</p>
-                <p>{t('platforms.wecom.guide.securityMessage', '请妥善保管 Secret，不要泄露；生产环境建议使用最小权限与定期轮换。')}</p>
+                <p className="font-semibold">{t('platforms.wecom.guide.step2SecurityTitle', '安全提示')}</p>
+                <p>{t('platforms.wecom.guide.step2SecurityText', '请妥善保管 Secret，不要泄露；生产环境建议使用最小权限与定期轮换。')}</p>
               </div>
             </div>
           </details>
@@ -322,7 +324,7 @@ const WeComPlatformConfig: React.FC<Props> = ({ platform }) => {
                 <li>{t('platforms.wecom.guide.step3Item5', '消息加解密方式：建议选择「兼容模式」或「安全模式」。')}</li>
               </ol>
               <div>
-                <h4 className="text-sm font-semibold text-gray-800">{t('platforms.wecom.guide.exampleTitle', '示例占位（仅供参考）')}</h4>
+                <h4 className="text-sm font-semibold text-gray-800">{t('platforms.wecom.guide.step3ExampleTitle', '示例占位（仅供参考）')}</h4>
                 <div className="bg-gray-50 border border-gray-200 rounded p-2 text-xs">
                   <pre className="font-mono overflow-x-auto">{`URL:    https://your-domain.com/api/wecom/callback/{platformId}
 Token:  your_token_string
@@ -330,7 +332,7 @@ AESKey: your_43_chars_encoding_aes_key`}</pre>
                 </div>
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-800">
-                <p>{t('platforms.wecom.guide.validationNote', '保存后，企业微信会进行 URL 校验，请确保服务端已正确返回校验响应。')}</p>
+                <p>{t('platforms.wecom.guide.step3Note', '保存后，企业微信会进行 URL 校验，请确保服务端已正确返回校验响应。')}</p>
               </div>
             </div>
           </details>
@@ -339,20 +341,20 @@ AESKey: your_43_chars_encoding_aes_key`}</pre>
             <summary className="cursor-pointer font-semibold text-gray-800">{t('platforms.wecom.guide.step4Title', '4️⃣ 常见问题与排查')}</summary>
             <div className="text-sm text-gray-700 mt-2 space-y-2">
               <ul className="list-disc pl-5 space-y-1">
-                <li>{t('platforms.wecom.guide.troubleshootItem1', 'URL 校验失败：检查你的回调服务是否可公网访问，TLS 证书是否有效。')}</li>
-                <li>{t('platforms.wecom.guide.troubleshootItem2', '消息解密失败：确认 EncodingAESKey 正确且未包含多余空格。')}</li>
-                <li>{t('platforms.wecom.guide.troubleshootItem3', '403/权限问题：确认应用已启用并授予所需权限；必要时重新生成 Secret。')}</li>
+                <li>{t('platforms.wecom.guide.step4Item1', 'URL 校验失败：检查你的回调服务是否可公网访问，TLS 证书是否有效。')}</li>
+                <li>{t('platforms.wecom.guide.step4Item2', '消息解密失败：确认 EncodingAESKey 正确且未包含多余空格。')}</li>
+                <li>{t('platforms.wecom.guide.step4Item3', '403/权限问题：确认应用已启用并授予所需权限；必要时重新生成 Secret。')}</li>
               </ul>
               <a className="text-blue-600 hover:underline" href="https://developer.work.weixin.qq.com/document/path/90968" target="_blank" rel="noreferrer">{t('platforms.wecom.guide.docsLink', '企业微信消息回调开发文档')}</a>
             </div>
           </details>
 
           <div className="bg-green-50 border border-green-200 text-green-800 text-sm rounded-md p-3">
-            <p className="font-semibold">最佳实践</p>
+            <p className="font-semibold">{t('platforms.wecom.guide.bestPracticesTitle', '最佳实践')}</p>
             <ul className="list-disc pl-5 mt-1 space-y-1">
-              <li>将 Secret 存放于密钥管理服务（如 Vault、KMS），避免明文出现在代码库。</li>
-              <li>为不同环境（开发/测试/生产）使用不同的 Token/AESKey。</li>
-              <li>定期轮换 Secret，并在失效前完成服务端配置更新。</li>
+              <li>{t('platforms.wecom.guide.bestPracticesItem1', '将 Secret 存放于密钥管理服务（如 Vault、KMS），避免明文出现在代码库。')}</li>
+              <li>{t('platforms.wecom.guide.bestPracticesItem2', '为不同环境（开发/测试/生产）使用不同的 Token/AESKey。')}</li>
+              <li>{t('platforms.wecom.guide.bestPracticesItem3', '定期轮换 Secret，并在失效前完成服务端配置更新。')}</li>
             </ul>
           </div>
         </section>

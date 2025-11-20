@@ -2,7 +2,6 @@
 Search service implementing hybrid search with vector similarity and keyword matching.
 """
 
-import logging
 import time
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
@@ -12,12 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
 from ..database import get_db_session
+from ..logging_config import get_logger
 from ..models import FileDocument
 from ..schemas.search import SearchMetadata, SearchResult, SearchResponse
 from .vector_store import get_vector_store_service
 from .embedding import get_embedding_service_for_project
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SearchService:

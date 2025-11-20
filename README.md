@@ -16,21 +16,26 @@
 - cd tgo-deploy
 
 2) 准备配置
-- 首次运行 `bash deploy.sh` 会自动：
+- 首次运行 `./tgo.sh install` 会自动：
   - 如无 `.env`，从 `.env.example` 复制生成
   - 如无 `envs/`，从 `envs.docker/` 复制生成
   - 如 `envs/tgo-api.env` 中 `SECRET_KEY` 缺失/占位，将自动生成安全随机值
 - 如需自定义，先编辑 `.env`（端口、数据库 DSN、API_BASE_URL 等），以及 `envs/<service>.env`
 
 3) 启动
-- bash deploy.sh
-- 首次会完成镜像构建并以后台方式启动全部服务
+- ./tgo.sh install
+- 首次会完成镜像构建、数据库迁移并以后台方式启动全部服务
 
-## deploy.sh 会做什么
-- 确保 `.env` 存在（从 `.env.example` 复制）
-- 确保 `envs/` 存在（从 `envs.docker/` 初始复制）
-- 生成/修复 `envs/tgo-api.env` 的 `SECRET_KEY`（仅缺失或占位时生成）
-- 执行 `docker compose up -d --build`
+## tgo.sh 命令一览
+- `./tgo.sh help`：查看所有命令及用法
+- `./tgo.sh install`：构建镜像、执行迁移并启动全部服务
+- `./tgo.sh uninstall`：停止并移除所有服务，可选择是否删除 `./data/`
+- `./tgo.sh service start`：启动核心服务（等同 `docker compose up -d`）
+- `./tgo.sh service stop`：停止核心服务（等同 `docker compose down`）
+- `./tgo.sh service remove`：停止核心服务并移除镜像（等同 `docker compose down --rmi local`）
+- `./tgo.sh tools start`：启动调试工具（kafka-ui、adminer）
+- `./tgo.sh tools stop`：停止调试工具
+- `./tgo.sh build <service>`：重建并重启指定服务（api|rag|ai|platform|web|widget|all）
 
 ## 目录结构与持久化数据
 - `docker-compose.yml`：服务编排

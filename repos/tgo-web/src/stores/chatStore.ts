@@ -17,6 +17,7 @@ import { useChannelStore } from './channelStore';
 import type { ChannelInfo } from '@/types';
 import { getChannelKey, isSameChannel } from '@/utils/channelUtils';
 import { CHANNEL_TYPE, DEFAULT_CHANNEL_TYPE, MESSAGE_SENDER_TYPE, CHAT_STATUS as CHAT_STATUS_CONST, CHAT_PRIORITY as CHAT_PRIORITY_CONST, VISITOR_STATUS, STORAGE_KEYS, STAFF_UID_SUFFIX } from '@/constants';
+import { useOnboardingStore } from './onboardingStore';
 
 
 
@@ -836,6 +837,13 @@ export const useChatStore = create<ChatState>()(
               };
               return { chats: [newChat, ...state.chats] } as any;
             }, false, 'handleRealtimeMessage:autoCreateConversation');
+
+            // Mark onboarding task as completed when receiving a visitor message
+            try {
+              useOnboardingStore.getState().markTaskCompleted('messageReceived');
+            } catch (error) {
+              console.error('Failed to mark onboarding task completed:', error);
+            }
           }
 
           // 1. Update conversation list (always)

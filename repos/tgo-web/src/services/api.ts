@@ -3,8 +3,25 @@
  * Handles all HTTP requests to the backend API
  */
 
+import i18n from '../i18n';
+
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+/**
+ * Get current user language for API requests
+ * Returns the current i18n language code (e.g., 'zh', 'en')
+ */
+const getCurrentLanguage = (): string => {
+  try {
+    // Get current language from i18n, default to 'zh' if not available
+    const lang = i18n.language || 'zh';
+    // Return base language code (e.g., 'zh' from 'zh-CN')
+    return lang.split('-')[0];
+  } catch {
+    return 'zh';
+  }
+};
 
 // API Response Types based on OpenAPI specification
 export interface StaffLoginRequest {
@@ -93,7 +110,7 @@ class APIClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -103,6 +120,9 @@ class APIClient {
     if (this.token) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
     }
+
+    // Add user language header
+    (headers as Record<string, string>)['X-User-Language'] = getCurrentLanguage();
 
     const config: RequestInit = {
       ...options,
@@ -216,6 +236,8 @@ class APIClient {
     if (this.token) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
     }
+    // Add user language header
+    (headers as Record<string, string>)['X-User-Language'] = getCurrentLanguage();
     const config: RequestInit = {
       method: 'POST',
       headers,
@@ -274,6 +296,8 @@ class APIClient {
     if (this.token) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
     }
+    // Add user language header
+    (headers as Record<string, string>)['X-User-Language'] = getCurrentLanguage();
     const config: RequestInit = { method: 'GET', headers };
     const response = await fetch(url, config);
     if (!response.ok) {

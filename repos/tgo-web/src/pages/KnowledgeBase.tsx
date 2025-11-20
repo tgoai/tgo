@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Plus, Search, ArrowUpDown, FolderOpen, Clock, Pencil, Trash2 } from 'lucide-react';
+import { RefreshCw, Plus, Search, ArrowUpDown, FolderOpen, Clock, Eye, Pencil, Trash2 } from 'lucide-react';
 import { useKnowledgeStore, knowledgeSelectors } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import { showKnowledgeBaseSuccess, showKnowledgeBaseError } from '@/utils/toastHelpers';
@@ -356,7 +356,15 @@ const KnowledgeBase: React.FC = () => {
 
                 <div className="flex justify-end space-x-2">
                   <button
-                    className="text-gray-400 hover:text-blue-600"
+                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                    title={t('common.details', '详情')}
+                    onClick={() => navigate(`/knowledge/${kb.id}`)}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    className="text-gray-400 hover:text-blue-600 transition-colors"
                     title={t('common.edit', '编辑')}
                     onClick={() => handleKnowledgeBaseAction('edit', kb)}
                   >
@@ -364,7 +372,7 @@ const KnowledgeBase: React.FC = () => {
                   </button>
 
                   <button
-                    className="text-gray-400 hover:text-red-600"
+                    className="text-gray-400 hover:text-red-600 transition-colors"
                     title={t('common.delete', '删除')}
                     onClick={() => handleKnowledgeBaseAction('delete', kb)}
                   >

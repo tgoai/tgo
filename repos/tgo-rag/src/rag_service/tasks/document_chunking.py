@@ -20,7 +20,6 @@ Features:
 - Performance optimization for large documents
 """
 
-import logging
 import re
 from typing import Any, Dict, List
 from uuid import UUID, uuid4
@@ -36,8 +35,9 @@ from .document_processing_types import (
     TextSplitter as TextSplitterProtocol
 )
 from ..config import get_settings
+from ..logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def chunk_documents(

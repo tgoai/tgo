@@ -34,7 +34,8 @@ export const useStoreInitialization = () => {
     };
 
     initializeStores();
-  }, [initializeChatStore]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount (store functions are stable)
 };
 
 export default useStoreInitialization;

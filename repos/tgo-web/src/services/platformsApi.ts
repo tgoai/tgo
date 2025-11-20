@@ -7,6 +7,8 @@ export interface PlatformTypeDefinitionResponse {
   id: string; // uuid
   type: string; // e.g., wechat, website, email, phone, custom, tiktok, etc.
   name: string; // human-readable
+  display_name?: string; // display name for UI (preferred over name)
+  is_supported?: boolean; // whether this platform type is currently supported
   icon?: string | null; // optional SVG markup or identifier
   created_at: string;
   updated_at: string;
@@ -25,7 +27,9 @@ export interface PlatformResponse {
   id: string; // uuid
   project_id: string; // uuid
   name: string;
+  display_name?: string; // display name for UI (preferred over name)
   type: PlatformType;
+  is_supported?: boolean; // whether this platform type is currently supported
   // Some APIs also return api_key at the top level (e.g., website widget)
   api_key?: string | null; // optional API key (top-level)
   config?: Record<string, any> | null;

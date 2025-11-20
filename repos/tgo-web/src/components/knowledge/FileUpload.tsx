@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { UploadCloud, X, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { UploadCloud, X, CheckCircle, AlertCircle, Loader, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface FileUploadProgress {
   fileId: string;
@@ -15,6 +16,8 @@ interface FileUploadProps {
   isVisible: boolean;
   onToggle: () => void;
   uploadProgress?: Map<string, FileUploadProgress>;
+  hasEmbeddingModel?: boolean;
+  isCheckingEmbedding?: boolean;
 }
 
 interface UploadFile extends File {
@@ -31,12 +34,18 @@ interface UploadFile extends File {
 export const FileUpload: React.FC<FileUploadProps> = ({
   onUpload,
   isVisible,
-  uploadProgress
+  uploadProgress,
+  hasEmbeddingModel = true,
+  isCheckingEmbedding = false
 }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // Determine if upload should be disabled
+  const isUploadDisabled = isCheckingEmbedding || !hasEmbeddingModel;
 
   // Convert service progress to display format
   const displayUploadFiles = React.useMemo(() => {
@@ -114,6 +123,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
   // Process selected files
   const handleFiles = (files: File[]) => {
+    // Block upload if embedding model is not configured
+    if (isUploadDisabled) {
+      return;
+    }
+
     const validFiles = files.filter(file => {
       // Check file size (10MB limit)
       if (file.size > 10 * 1024 * 1024) {
@@ -175,40 +189,83 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
   return (
     <div className="mx-6 mt-4 p-6 bg-white/80 backdrop-blur-md rounded-lg shadow-sm border border-gray-200/60">
+      {/* Embedding Model Warning */}
+      {!isCheckingEmbedding && !hasEmbeddingModel && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-amber-900 mb-1">
+                {t('knowledge.upload.noEmbeddingModel.title', '⚠️ 无法上传文件')}
+              </h4>
+              <p className="text-sm text-amber-800 mb-3">
+                {t('knowledge.upload.noEmbeddingModel.description', '系统尚未配置嵌入模型。知识库文件需要嵌入模型进行向量化处理，请先前往 AI 模型提供商设置页面配置默认嵌入模型。')}
+              </p>
+              <button
+                onClick={() => navigate('/settings/providers')}
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-600 text-white text-sm rounded-md hover:bg-amber-700 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                {t('knowledge.upload.noEmbeddingModel.goToSettings', '前往配置')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upload Area */}
       <div
         className={`upload-area rounded-lg p-8 text-center border-2 border-dashed transition-all duration-300 ${
-          isDragOver 
-            ? 'border-blue-500 bg-blue-50/50' 
-            : 'border-gray-300 hover:border-gray-400'
+          isUploadDisabled
+            ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+            : isDragOver
+              ? 'border-blue-500 bg-blue-50/50'
+              : 'border-gray-300 hover:border-gray-400'
         }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        onDragOver={isUploadDisabled ? undefined : handleDragOver}
+        onDragLeave={isUploadDisabled ? undefined : handleDragLeave}
+        onDrop={isUploadDisabled ? undefined : handleDrop}
       >
-        <UploadCloud className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-800 mb-2">
-          {t('knowledge.upload.title')}
-        </h3>
-        <p className="text-sm text-gray-500 mb-4">
-          {t('knowledge.upload.supportedFormats')}
-        </p>
-        
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept=".pdf,.doc,.docx,.txt,.xlsx,.xls,.ppt,.pptx,.md,.markdown,.html,.htm"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-        
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"
-        >
-          {t('knowledge.upload.selectFiles')}
-        </button>
+        {isCheckingEmbedding ? (
+          <>
+            <Loader className="w-12 h-12 mx-auto text-gray-400 mb-4 animate-spin" />
+            <h3 className="text-lg font-medium text-gray-600 mb-2">
+              {t('knowledge.upload.checkingEmbedding', '检查嵌入模型配置...')}
+            </h3>
+          </>
+        ) : (
+          <>
+            <UploadCloud className={`w-12 h-12 mx-auto mb-4 ${isUploadDisabled ? 'text-gray-300' : 'text-gray-400'}`} />
+            <h3 className={`text-lg font-medium mb-2 ${isUploadDisabled ? 'text-gray-500' : 'text-gray-800'}`}>
+              {t('knowledge.upload.title')}
+            </h3>
+            <p className={`text-sm mb-4 ${isUploadDisabled ? 'text-gray-400' : 'text-gray-500'}`}>
+              {t('knowledge.upload.supportedFormats')}
+            </p>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.txt,.xlsx,.xls,.ppt,.pptx,.md,.markdown,.html,.htm"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={isUploadDisabled}
+            />
+
+            <button
+              onClick={() => !isUploadDisabled && fileInputRef.current?.click()}
+              disabled={isUploadDisabled}
+              className={`px-4 py-2 rounded-md transition-colors duration-200 ${
+                isUploadDisabled
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-500 text-white hover:bg-blue-600'
+              }`}
+            >
+              {t('knowledge.upload.selectFiles')}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Upload Progress */}

@@ -14,7 +14,6 @@ Key Components:
 - System health monitoring
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any
 
@@ -24,9 +23,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from .celery_app import celery_app
 from .document_processing_errors import ProcessingStatus
 from ..database import get_db_session
+from ..logging_config import get_logger
 from ..models import File, FileDocument
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @celery_app.task(name="src.rag_service.tasks.maintenance.cleanup_failed_tasks")

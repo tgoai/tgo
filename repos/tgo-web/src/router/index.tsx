@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import RootLayout from '../components/layout/RootLayout';
 import Layout from '../components/layout/Layout';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import ChatPage from '../pages/ChatPage';
@@ -38,28 +39,33 @@ import MarkdownTestPage from '../pages/MarkdownTestPage';
  * Router configuration for the application
  */
 export const router = createBrowserRouter([
-  // Setup wizard route (outside of Layout and ProtectedRoute)
-  {
-    path: '/setup',
-    element: <SetupWizard />
-  },
-  // Authentication routes (outside of Layout)
-  {
-    path: '/login',
-    element: <LoginPage />
-  },
-  {
-    path: '/register',
-    element: <RegisterPage />
-  },
   {
     path: '/',
-    element: (
-      <ProtectedRoute>
-        <Layout />
-      </ProtectedRoute>
-    ),
+    element: <RootLayout />,
     children: [
+      // Setup wizard route (outside of Layout and ProtectedRoute)
+      {
+        path: 'setup',
+        element: <SetupWizard />
+      },
+      // Authentication routes (outside of Layout)
+      {
+        path: 'login',
+        element: <LoginPage />
+      },
+      {
+        path: 'register',
+        element: <RegisterPage />
+      },
+      // Main application routes
+      {
+        path: '/',
+        element: (
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        ),
+        children: [
       {
         index: true,
         element: <Navigate to="/chat" replace />
@@ -125,6 +131,8 @@ export const router = createBrowserRouter([
       {
         path: 'test/markdown',
         element: <MarkdownTestPage />
+      }
+    ]
       }
     ]
   }

@@ -21,7 +21,6 @@ Features:
 """
 
 import asyncio
-import logging
 from typing import Any, Dict, List
 from uuid import UUID
 
@@ -35,10 +34,11 @@ from .document_processing_types import (
     MetadataDict,
     VectorStoreService as VectorStoreServiceProtocol
 )
+from ..logging_config import get_logger
 from ..services.embedding import get_embedding_service, get_embedding_service_for_project
 from ..services.vector_store import get_vector_store_service
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def generate_embeddings(

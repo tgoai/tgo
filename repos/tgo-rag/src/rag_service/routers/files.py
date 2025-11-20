@@ -2,7 +2,6 @@
 File management endpoints.
 """
 
-import logging
 import os
 import mimetypes
 from pathlib import Path
@@ -16,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
 from ..database import get_db_session_dependency
+from ..logging_config import get_logger
 from ..models import Collection, File as FileModel
 from ..schemas.common import PaginationMetadata
 from ..schemas.files import (
@@ -29,7 +29,7 @@ from ..schemas.files import (
 from ..schemas.common import ErrorResponse
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @router.get(

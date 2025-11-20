@@ -15,7 +15,6 @@ from app import __version__
 from app.api import api_router
 from app.config import settings
 from app.database import close_db, init_db
-from app.dev_seed import seed_development_data
 from app.exceptions import TGOAIServiceException
 
 
@@ -28,7 +27,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager."""
     # Startup
     await init_db()
-    await seed_development_data()
 
     # Start periodic embedding sync retry loop (if enabled)
     from app.tasks.embedding_sync_retry import start_embedding_sync_retry_loop

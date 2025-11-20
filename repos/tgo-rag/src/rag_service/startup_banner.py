@@ -6,7 +6,7 @@ import sys
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-import structlog
+from .logging_config import get_logger
 
 # Try to import colorama for colored output, fallback to no colors if not available
 try:
@@ -23,7 +23,7 @@ except ImportError:
     Fore = Back = Style = _NoColor()
     COLORAMA_AVAILABLE = False
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 # Color constants
 class Colors:

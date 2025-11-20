@@ -5,7 +5,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Header, UploadFile, File
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, contains_eager
 
 from app.core.database import get_db
 from app.core.logging import get_logger
@@ -50,10 +50,70 @@ def _sanitize_filename(name: str, limit: int = 100) -> str:
     return name[:limit]
 
 
+def _build_platform_list_item(platform: Platform, language: str = "zh") -> PlatformListItemResponse:
+    """Build PlatformListItemResponse with language-aware name/display_name.
+
+    Priority:
+    1) If ``Platform.name`` is set, always use it.
+    2) Otherwise, pick from the related PlatformTypeDefinition based on language:
+       - ``zh`` (default): use ``name`` (Chinese), fallback to "未命名平台".
+       - non-``zh``: use ``name_en`` when available, otherwise ``name``,
+         finally "Unnamed Platform".
+    """
+    item = PlatformListItemResponse.model_validate(platform)
+    try:
+        if platform.name:
+            localized_name = platform.name
+        elif platform.platform_type:
+            if language == "zh":
+                localized_name = getattr(platform.platform_type, "name", None) or "未命名平台"
+            else:
+                localized_name = (
+                    getattr(platform.platform_type, "name_en", None)
+                    or getattr(platform.platform_type, "name", None)
+                    or "Unnamed Platform"
+                )
+        else:
+            localized_name = "未命名平台" if language == "zh" else "Unnamed Platform"
+
+        item.name = localized_name
+        item.display_name = localized_name
+    except Exception:
+        # In case anything unexpected happens, keep the original values.
+        pass
+    return item
+
+
+def _build_platform_response(platform: Platform, language: str = "zh") -> PlatformResponse:
+    """Build PlatformResponse with language-aware name/display_name."""
+    response = PlatformResponse.model_validate(platform)
+    try:
+        if platform.name:
+            localized_name = platform.name
+        elif platform.platform_type:
+            if language == "zh":
+                localized_name = getattr(platform.platform_type, "name", None) or "未命名平台"
+            else:
+                localized_name = (
+                    getattr(platform.platform_type, "name_en", None)
+                    or getattr(platform.platform_type, "name", None)
+                    or "Unnamed Platform"
+                )
+        else:
+            localized_name = "未命名平台" if language == "zh" else "Unnamed Platform"
+
+        response.name = localized_name
+        response.display_name = localized_name
+    except Exception:
+        pass
+    return response
+
+
 @router.get("/types", response_model=list[PlatformTypeDefinitionResponse])
 async def list_platform_types(
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> list[PlatformTypeDefinitionResponse]:
     """List available platform type definitions."""
     logger.info(f"User {current_user.username} listing platform types")
@@ -64,7 +124,25 @@ async def list_platform_types(
         .all()
     )
 
-    return [PlatformTypeDefinitionResponse.model_validate(item) for item in platform_types]
+    responses: list[PlatformTypeDefinitionResponse] = []
+    for item in platform_types:
+        resp = PlatformTypeDefinitionResponse.model_validate(item)
+        try:
+            if x_user_language == "zh":
+                display_name = item.name or "未命名平台类型"
+            else:
+                display_name = (
+                    item.name_en
+                    or item.name
+                    or "Unnamed Platform Type"
+                )
+            resp.display_name = display_name
+        except Exception:
+            # Best-effort: fall back to Chinese name or generic string
+            resp.display_name = item.name or "Unnamed Platform Type"
+        responses.append(resp)
+
+    return responses
 
 
 @router.get("", response_model=PlatformListResponse)
@@ -72,6 +150,7 @@ async def list_platforms(
     params: PlatformListParams = Depends(),
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> PlatformListResponse:
     """
     List platforms.
@@ -83,7 +162,8 @@ async def list_platforms(
     # Build query
     query = (
         db.query(Platform)
-        .options(joinedload(Platform.platform_type))
+        .outerjoin(Platform.platform_type)
+        .options(contains_eager(Platform.platform_type))
         .filter(
             Platform.project_id == current_user.project_id,
             Platform.deleted_at.is_(None),
@@ -100,10 +180,21 @@ async def list_platforms(
     total = query.count()
 
     # Apply pagination and ordering
-    platforms = query.order_by(Platform.name).offset(params.offset).limit(params.limit).all()
+    platforms = (
+        query
+        .order_by(
+            PlatformTypeDefinition.is_supported.desc(),
+            Platform.created_at.desc(),
+        )
+        .offset(params.offset)
+        .limit(params.limit)
+        .all()
+    )
 
     # Convert to response models (using list item schema without sensitive fields)
-    platform_responses = [PlatformListItemResponse.model_validate(platform) for platform in platforms]
+    platform_responses = [
+        _build_platform_list_item(platform, language=x_user_language) for platform in platforms
+    ]
 
     return PlatformListResponse(
         data=platform_responses,
@@ -127,6 +218,7 @@ async def get_platform_info(
     platform_api_key: str | None = None,
     db: Session = Depends(get_db),
     x_platform_api_key: str | None = Header(None, alias="X-Platform-API-Key"),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> PlatformResponse:
     """Get platform information by Platform API key.
 
@@ -161,7 +253,7 @@ async def get_platform_info(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Platform is disabled")
 
     logger.info("Platform info retrieved", extra={"platform_id": str(platform.id)})
-    return PlatformResponse.model_validate(platform)
+    return _build_platform_response(platform, language=x_user_language)
 
 
 @router.post("", response_model=PlatformResponse, status_code=status.HTTP_201_CREATED)
@@ -169,26 +261,28 @@ async def create_platform(
     platform_data: PlatformCreate,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> PlatformResponse:
     """
     Create platform.
 
     Create a new communication platform configuration.
     """
-    logger.info(f"User {current_user.username} creating platform: {platform_data.name}")
+    logger.info(f"User {current_user.username} creating platform: {platform_data.name or '[auto]'}")
 
-    # Check if platform name already exists for this project
-    existing_platform = db.query(Platform).filter(
-        Platform.project_id == current_user.project_id,
-        Platform.name == platform_data.name,
-        Platform.deleted_at.is_(None)
-    ).first()
+    # Check if platform name already exists for this project (only when a name is provided)
+    if platform_data.name:
+        existing_platform = db.query(Platform).filter(
+            Platform.project_id == current_user.project_id,
+            Platform.name == platform_data.name,
+            Platform.deleted_at.is_(None)
+        ).first()
 
-    if existing_platform:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Platform name already exists"
-        )
+        if existing_platform:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Platform name already exists"
+            )
 
     # Create platform
     platform = Platform(
@@ -207,7 +301,7 @@ async def create_platform(
 
     logger.info(f"Created platform {platform.id} with name: {platform.name}")
 
-    return PlatformResponse.model_validate(platform)
+    return _build_platform_response(platform, language=x_user_language)
 
 
 @router.get("/{platform_id}", response_model=PlatformResponse)
@@ -215,6 +309,7 @@ async def get_platform(
     platform_id: UUID,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> PlatformResponse:
     """Get platform details."""
     logger.info(f"User {current_user.username} getting platform: {platform_id}")
@@ -236,7 +331,7 @@ async def get_platform(
             detail="Platform not found"
         )
 
-    return PlatformResponse.model_validate(platform)
+    return _build_platform_response(platform, language=x_user_language)
 
 
 @router.patch("/{platform_id}", response_model=PlatformResponse)
@@ -245,6 +340,7 @@ async def update_platform(
     platform_data: PlatformUpdate,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> PlatformResponse:
     """
     Update platform.
@@ -298,7 +394,7 @@ async def update_platform(
 
     logger.info(f"Updated platform {platform.id}")
 
-    return PlatformResponse.model_validate(platform)
+    return _build_platform_response(platform, language=x_user_language)
 
 
 @router.delete("/{platform_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -380,6 +476,7 @@ async def enable_platform(
     platform_id: UUID,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> PlatformResponse:
     """Enable a platform (set is_active=True)."""
     logger.info("User %s enabling platform %s", current_user.username, str(platform_id))
@@ -403,7 +500,7 @@ async def enable_platform(
     db.refresh(platform)
 
     logger.info("Platform %s enabled by user %s", str(platform.id), current_user.username)
-    return PlatformResponse.model_validate(platform)
+    return _build_platform_response(platform, language=x_user_language)
 
 
 @router.post("/{platform_id}/disable", response_model=PlatformResponse)
@@ -411,6 +508,7 @@ async def disable_platform(
     platform_id: UUID,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> PlatformResponse:
     """Disable a platform (set is_active=False)."""
     logger.info("User %s disabling platform %s", current_user.username, str(platform_id))
@@ -434,7 +532,7 @@ async def disable_platform(
     db.refresh(platform)
 
     logger.info("Platform %s disabled by user %s", str(platform.id), current_user.username)
-    return PlatformResponse.model_validate(platform)
+    return _build_platform_response(platform, language=x_user_language)
 
 
 
@@ -443,6 +541,7 @@ async def enable_ai_for_platform(
     platform_id: UUID,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> PlatformResponse:
     """Enable AI for a platform (set ai_disabled=False)."""
     logger.info("User %s enabling AI for platform %s", current_user.username, str(platform_id))
@@ -466,7 +565,7 @@ async def enable_ai_for_platform(
     db.refresh(platform)
 
     logger.info("Platform %s AI enabled by user %s", str(platform.id), current_user.username)
-    return PlatformResponse.model_validate(platform)
+    return _build_platform_response(platform, language=x_user_language)
 
 
 @router.post("/{platform_id}/disable-ai", response_model=PlatformResponse)
@@ -474,9 +573,31 @@ async def disable_ai_for_platform(
     platform_id: UUID,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> PlatformResponse:
     """Disable AI for a platform (set ai_disabled=True)."""
     logger.info("User %s disabling AI for platform %s", current_user.username, str(platform_id))
+
+    platform = (
+        db.query(Platform)
+        .options(joinedload(Platform.platform_type))
+        .filter(
+            Platform.id == platform_id,
+            Platform.project_id == current_user.project_id,
+            Platform.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not platform:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Platform not found")
+
+    platform.ai_disabled = True
+    platform.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(platform)
+
+    logger.info("Platform %s AI disabled by user %s", str(platform.id), current_user.username)
+    return _build_platform_response(platform, language=x_user_language)
 
 
 @router.post("/{platform_id}/logo", response_model=PlatformResponse)
@@ -485,6 +606,7 @@ async def upload_platform_logo(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
+    x_user_language: str = Header("zh", alias="X-User-Language"),
 ) -> PlatformResponse:
     """Upload or replace the logo image for a platform (staff-only).
 
@@ -580,7 +702,7 @@ async def upload_platform_logo(
     db.refresh(platform)
 
     logger.info("Platform logo uploaded", extra={"platform_id": str(platform.id), "size": total, "mime": mime})
-    return PlatformResponse.model_validate(platform)
+    return _build_platform_response(platform, language=x_user_language)
 
 
 @router.get("/{platform_id}/logo")

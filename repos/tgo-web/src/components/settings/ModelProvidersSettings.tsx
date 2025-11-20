@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useContext, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiCpu, FiPlus, FiEdit2, FiTrash2, FiEye, FiEyeOff, FiLoader } from 'react-icons/fi';
+import { FiCpu, FiPlus, FiEdit2, FiTrash2, FiEye, FiEyeOff, FiLoader, FiHelpCircle } from 'react-icons/fi';
 import Button from '@/components/ui/Button';
 import Toggle from '@/components/ui/Toggle';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -76,6 +76,10 @@ const ModelProvidersSettings: React.FC = () => {
   // Track last auto-filled name to avoid overriding custom user input
   const autoNameRef = useRef<string | null>(null);
 
+  // Embedding help tooltip state
+  const [showEmbeddingHelp, setShowEmbeddingHelp] = useState(false);
+  const embeddingHelpRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     if (!isModelsOpen) return;
     const onDoc = (e: MouseEvent) => {
@@ -86,6 +90,18 @@ const ModelProvidersSettings: React.FC = () => {
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [isModelsOpen]);
+
+  // Close embedding help tooltip when clicking outside
+  useEffect(() => {
+    if (!showEmbeddingHelp) return;
+    const onDoc = (e: MouseEvent) => {
+      if (embeddingHelpRef.current && !embeddingHelpRef.current.contains(e.target as Node)) {
+        setShowEmbeddingHelp(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [showEmbeddingHelp]);
 
   // Reset options when provider kind changes in the current draft
   useEffect(() => {
@@ -728,9 +744,48 @@ const ModelProvidersSettings: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('settings.models.defaults.embeddingLabel', '默认嵌入模型')}
-            </label>
+            <div className="flex items-center gap-1 mb-1">
+              <label className="text-sm font-medium text-gray-700">
+                {t('settings.models.defaults.embeddingLabel', '默认嵌入模型')}
+              </label>
+              <div className="relative" ref={embeddingHelpRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowEmbeddingHelp(!showEmbeddingHelp)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="查看推荐的嵌入模型"
+                >
+                  <FiHelpCircle className="w-4 h-4" />
+                </button>
+                {showEmbeddingHelp && (
+                  <div className="absolute left-0 top-6 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3">
+                      {t('settings.models.defaults.embeddingHelp.title', '推荐的嵌入模型')}
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-1">
+                          {t('settings.models.defaults.embeddingHelp.providers.openai.name', 'OpenAI')}
+                        </div>
+                        <ul className="text-xs text-gray-600 space-y-1 ml-2">
+                          <li>• text-embedding-3-small</li>
+                          <li>• text-embedding-3-large</li>
+                          <li>• text-embedding-ada-002</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-1">
+                          {t('settings.models.defaults.embeddingHelp.providers.qwen.name', '千问/DashScope')}
+                        </div>
+                        <ul className="text-xs text-gray-600 space-y-1 ml-2">
+                          <li>• text-embedding-v4</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
             <select
               className="w-full rounded-md border-gray-300 focus:border-gray-400 focus:ring-0"
               value={embSelection}

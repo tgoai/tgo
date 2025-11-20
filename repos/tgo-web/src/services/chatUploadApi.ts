@@ -1,4 +1,17 @@
 import { apiClient, APIError } from './api';
+import i18n from '../i18n';
+
+/**
+ * Get current user language for API requests
+ */
+const getCurrentLanguage = (): string => {
+  try {
+    const lang = i18n.language || 'zh';
+    return lang.split('-')[0];
+  } catch {
+    return 'zh';
+  }
+};
 
 export interface ChatFileUploadResponse {
   file_id: string;
@@ -49,6 +62,8 @@ export const uploadChatImageWithProgress = (
     if (token) {
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
+    // Add user language header
+    xhr.setRequestHeader('X-User-Language', getCurrentLanguage());
 
     xhr.upload.addEventListener('progress', (event: ProgressEvent) => {
       if (!event.lengthComputable) return;
@@ -132,6 +147,8 @@ export const uploadChatFileWithProgress = (
     if (token) {
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
+    // Add user language header
+    xhr.setRequestHeader('X-User-Language', getCurrentLanguage());
 
     xhr.upload.addEventListener('progress', (event: ProgressEvent) => {
       if (!event.lengthComputable) return;

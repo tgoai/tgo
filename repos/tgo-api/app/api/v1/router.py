@@ -25,6 +25,7 @@ from app.api.v1.endpoints import (
     ai_providers,
     ai_runs,
     setup,
+    system,
 )
 
 api_router = APIRouter()
@@ -168,4 +169,11 @@ api_router.include_router(
     search.router,
     prefix="/search",
     tags=["Search"],
+)
+
+# System information endpoints
+api_router.include_router(
+    system.router,
+    prefix="/system",
+    tags=["System"],
 )

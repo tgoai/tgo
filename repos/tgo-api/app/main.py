@@ -8,7 +8,7 @@ from fastapi.openapi.utils import get_openapi
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.dev_data import initialize_development_data, log_development_warnings, log_startup_banner
+from app.core.dev_data import  log_startup_banner
 from app.core.exceptions import (
     TGOAPIException,
     general_exception_handler,
@@ -123,9 +123,6 @@ async def startup_event():
     # Display startup banner
     log_startup_banner()
 
-    # Log environment information
-    log_development_warnings()
-
     # Database connection
     # Ensure platform types seeded (idempotent)
     try:
@@ -137,9 +134,6 @@ async def startup_event():
 
     startup_log("🗄️  Connecting to database...")
 
-    # Initialize development data if in development mode
-    if settings.is_development:
-        initialize_development_data()
 
     # Start background sync monitor
     try:

@@ -2,7 +2,6 @@
 Vector store service using langchain-postgres for vector operations.
 """
 
-import logging
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -18,10 +17,11 @@ from sqlalchemy import create_engine
 
 from ..config import get_settings
 from ..database import get_db_session
+from ..logging_config import get_logger
 from ..models import FileDocument
 from .embedding import get_embedding_service
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 TABLE_NAME = FileDocument.table_name
 ID_COLUMN = "id"

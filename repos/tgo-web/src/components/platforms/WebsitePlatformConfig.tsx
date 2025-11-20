@@ -167,11 +167,13 @@ const WebsitePlatformConfig: React.FC<WebsitePlatformConfigProps> = ({ platform 
     }
   };
 
+  const displayName = platform.display_name || platform.name;
+
   return (
     <main className="flex flex-col flex-1 min-h-0 bg-gradient-to-br from-gray-50 to-gray-100">
       <header className="px-6 py-4 border-b border-gray-200/80 flex justify-between items-center bg-white/60 backdrop-blur-lg sticky top-0 z-10">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">{platform.name} - {t('platforms.website.header.title', '网站小部件配置')}</h2>
+          <h2 className="text-lg font-semibold text-gray-800">{t('platforms.website.header.title', {"name":displayName})}</h2>
           <p className="text-xs text-gray-500 mt-1">{t('platforms.website.header.subtitle', '调整左侧配置，右侧预览会实时更新')}</p>
         </div>
         <div className="flex items-center gap-3">

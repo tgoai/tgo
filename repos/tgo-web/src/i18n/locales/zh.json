@@ -46,7 +46,8 @@
     "active": "活跃",
     "inactive": "未激活",
     "copied": "已复制",
-    "copyFailed": "复制失败"
+    "copyFailed": "复制失败",
+    "enable": "启用"
   },
   "settings": {
     "title": "设置",
@@ -101,7 +102,20 @@
         "llmLabel": "默认 LLM",
         "embeddingLabel": "默认嵌入模型",
         "selectPlaceholder": "请选择模型",
-        "none": "未设置"
+        "none": "未设置",
+        "embeddingHelp": {
+          "title": "推荐的嵌入模型",
+          "providers": {
+            "openai": {
+              "name": "OpenAI",
+              "models": ["text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"]
+            },
+            "qwen": {
+              "name": "千问/DashScope",
+              "models": ["text-embedding-v4"]
+            }
+          }
+        }
       },
       "toast": {
         "saved": "默认模型已保存",
@@ -160,7 +174,7 @@
 
 
 	      "placeholders": {
-	        "apiKeyMasked": "已配置：{mask}，留空则不更新",
+	        "apiKeyMasked": "已配置：{{mask}}，留空则不更新",
 	        "apiKey": "粘贴密钥",
 	        "modelsSearch": "搜索或输入模型ID...",
 	        "baseUrl": { "custom": "自定义 Base URL" }
@@ -277,10 +291,21 @@
     }
   },
   "about": {
+    "title": "系统信息",
     "version": "版本",
     "environment": "环境",
-    "apiEndpoint": "接口地址",
-    "copyright": "保留所有权利。"
+    "apiVersion": "API 版本",
+    "pythonVersion": "Python 版本",
+    "buildTime": "构建时间",
+    "gitCommit": "Git 提交",
+    "github": "GitHub 开源地址",
+    "website": "官网地址",
+    "copyright": "保留所有权利。",
+    "loading": "加载中...",
+    "loadError": "加载系统信息失败",
+    "systemInfo": "系统信息",
+    "technicalDetails": "技术详情",
+    "links": "相关链接"
   },
   "agents": {
     "title": "智能体管理",
@@ -322,21 +347,21 @@
       "retryFailed": "重试失败",
       "retryFailedDesc": "无法加载智能体列表，请稍后重试",
       "createSuccess": "创建成功",
-      "createSuccessDesc": "智能体 \"{name}\" 已成功创建",
+      "createSuccessDesc": "智能体 \"{{name}}\" 已成功创建",
       "createFailed": "创建失败",
       "updateSuccess": "更新成功",
-      "updateSuccessDesc": "智能体 \"{name}\" 已成功更新",
+      "updateSuccessDesc": "智能体 \"{{name}}\" 已成功更新",
       "updateFailed": "更新失败",
       "deleteSuccess": "删除成功",
-      "deleteSuccessDesc": "智能体 \"{name}\" 已删除",
+      "deleteSuccessDesc": "智能体 \"{{name}}\" 已删除",
       "deleteFailed": "删除失败",
       "deleteFailedDesc": "删除智能体时发生错误",
       "copySuccess": "复制成功",
-      "copySuccessDesc": "智能体 \"{name}\" 已成功复制",
+      "copySuccessDesc": "智能体 \"{{name}}\" 已成功复制",
       "copyFailed": "复制失败",
       "copyFailedDesc": "复制智能体时发生错误",
       "statusUpdateSuccess": "刷新成功",
-      "statusUpdateSuccessDesc": "智能体 \"{name}\" 状态已更新",
+      "statusUpdateSuccessDesc": "智能体 \"{{name}}\" 状态已更新",
       "statusUpdateFailed": "刷新失败",
       "statusUpdateFailedDesc": "更新智能体状态时发生错误"
     },
@@ -376,7 +401,7 @@
       },
       "delete": {
         "title": "删除智能体",
-        "message": "确定要删除智能体 \"{name}\" 吗？此操作不可撤销。",
+        "message": "确定要删除智能体 \"{{name}}\" 吗？此操作不可撤销。",
         "confirm": "删除",
         "cancel": "取消"
       }
@@ -400,11 +425,11 @@
         "selectPlaceholder": "请选择模型",
         "loadFailedTitle": "加载失败",
         "loadFailedDesc": "无法加载模型列表，请稍后重试",
-        "loadFailedInline": "模型加载失败: {error}"
+        "loadFailedInline": "模型加载失败: {{error}}"
       },
       "tools": {
         "shortNoMissingTitle": "工具短号缺失",
-        "shortNoMissingDesc": "以下工具缺少 short_no 或名称：{names}，请刷新工具商店或重新选择后重试"
+        "shortNoMissingDesc": "以下工具缺少 short_no 或名称：{{names}}，请刷新工具商店或重新选择后重试"
       }
     }
     ,
@@ -639,7 +664,13 @@
       "uploadFailed": "上传失败",
       "maxFileSize": "文件大小不能超过 10MB",
       "unsupportedFormat": "不支持的文件格式",
-      "multipleSuccessMessage": "{{count}} 个文件上传成功"
+      "multipleSuccessMessage": "{{count}} 个文件上传成功",
+      "checkingEmbedding": "检查嵌入模型配置...",
+      "noEmbeddingModel": {
+        "title": "⚠️ 无法上传文件",
+        "description": "系统尚未配置嵌入模型。知识库文件需要嵌入模型进行向量化处理，请先前往 AI 模型提供商设置页面配置默认嵌入模型。",
+        "goToSettings": "前往配置"
+      }
     }
   },
   "channels": {
@@ -654,7 +685,7 @@
     }
   },
   "footer": {
-    "copyright": "© 2024 Tgo CS. 保留所有权利。"
+    "copyright": "© 2025 Tgo CS. 保留所有权利。"
   },
   "brand": {
     "name": "Tgo CS"
@@ -700,7 +731,7 @@
     },
     "header": {
       "staffFallback": "客服",
-      "visitorFallback": "访客{{suffix}}"
+      "visitorFallback": "访客 {{suffix}}"
     },
     "suggestions": {
       "label": "✨ 建议："
@@ -1166,7 +1197,8 @@
         "connected": "已连接",
         "error": "连接失败",
         "pending": "待配置",
-        "notConfigured": "未配置"
+        "notConfigured": "未配置",
+        "unsupported": "即将到来"
       },
       "toast": {
         "createSuccessTitle": "创建成功",
@@ -1178,7 +1210,8 @@
       "loading": "正在加载可用平台类型...",
       "loadError": "加载平台类型失败，请稍后重试",
       "loadFailed": "加载失败",
-      "emptyTypes": "暂无可用平台类型"
+      "emptyTypes": "暂无可用平台类型",
+      "unsupported": "暂不支持"
     },
     "config": {
       "basic": {
@@ -1228,8 +1261,10 @@
       }
     },
     "website": {
-      "title": "{{name}} - 网站小部件配置",
-      "subtitle": "调整左侧配置，右侧预览会实时更新",
+      "header": {
+        "title": "{{name}} - 网站小部件配置",
+        "subtitle": "调整左侧配置，右侧预览会实时更新"
+      },
       "buttons": {
         "delete": "删除",
         "deleting": "删除中…",
@@ -1255,6 +1290,7 @@
         "logo": "Logo",
         "logoUploading": "上传中…",
         "logoHint": "建议尺寸：72x72 像素。支持 PNG/JPG/SVG，最大 2MB。",
+        "clickUpload": "点击上传",
         "welcomeMessage": "欢迎语",
         "position": "位置",
         "positionBottomRight": "右下角",
@@ -1267,7 +1303,8 @@
       },
       "embed": {
         "title": "网站集成代码",
-        "description": "将以下代码复制并粘贴到您网站的 <code>&lt;head&gt;</code> 或 <code>&lt;body&gt;</code> 中："
+        "description": "将以下代码复制并粘贴到您网站的 <code>&lt;head&gt;</code> 或 <code>&lt;body&gt;</code> 中：",
+        "instruction": "将以下代码复制并粘贴到您网站的 <code>&lt;head&gt;</code> 或 <code>&lt;body&gt;</code> 中："
       },
       "messages": {
         "saveSuccess": "保存成功",
@@ -1305,8 +1342,10 @@
       }
     },
     "wecom": {
-      "title": "{{name}} - 企业微信配置",
-      "subtitle": "配置企业微信（WeCom）对接所需的凭据与回调。",
+      "header": {
+        "title": "企业微信配置",
+        "subtitle": "配置企业微信（WeCom）对接所需的凭据与回调。"
+      },
       "buttons": {
         "delete": "删除",
         "deleting": "删除中…",
@@ -1369,6 +1408,7 @@
         "step4Item1": "URL 校验失败：检查你的回调服务是否可公网访问，TLS 证书是否有效。",
         "step4Item2": "消息解密失败：确认 EncodingAESKey 正确且未包含多余空格。",
         "step4Item3": "403/权限问题：确认应用已启用并授予所需权限；必要时重新生成 Secret。",
+        "docsLink": "企业微信消息回调开发文档",
         "bestPracticesTitle": "最佳实践",
         "bestPracticesItem1": "将 Secret 存放于密钥管理服务（如 Vault、KMS），避免明文出现在代码库。",
         "bestPracticesItem2": "为不同环境（开发/测试/生产）使用不同的 Token/AESKey。",
@@ -1651,7 +1691,7 @@
       "llm": "大模型配置",
       "verify": "验证安装"
     },
-    "stepIndicator": "步骤 {current} / {total}",
+    "stepIndicator": "步骤 {{current}} / {{total}}",
     "admin": {
       "title": "设置管理员账号",
       "description": "创建系统管理员账号，用于登录和管理系统",
@@ -1743,6 +1783,25 @@
     "success": {
       "adminCreated": "管理员账号创建成功",
       "llmConfigured": "大模型配置成功"
+    },
+    "guard": {
+      "checking": "正在检查系统状态...",
+      "serverError": "无法连接到服务器",
+      "retryButton": "重试"
+    }
+  },
+  "onboarding": {
+    "title": "快速开始",
+    "progress": "{{completed}}/{{total}} 已完成",
+    "expand": "展开",
+    "collapse": "收起",
+    "dismiss": "关闭",
+    "dismissButton": "不再显示",
+    "tasks": {
+      "platformCreated": "设置平台",
+      "knowledgeBaseUploaded": "上传知识库",
+      "agentCreated": "创建 AI Agent 并关联知识库",
+      "messageReceived": "收到平台发的消息"
     }
   }
 }

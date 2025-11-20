@@ -32,10 +32,11 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // React core libraries
+          // React core libraries + react-i18next (must be together)
           if (id.includes('node_modules/react/') ||
               id.includes('node_modules/react-dom/') ||
-              id.includes('node_modules/scheduler/')) {
+              id.includes('node_modules/scheduler/') ||
+              id.includes('node_modules/react-i18next')) {
             return 'vendor-react';
           }
 
@@ -45,9 +46,9 @@ export default defineConfig({
             return 'vendor-router';
           }
 
-          // Internationalization
-          if (id.includes('node_modules/i18next') ||
-              id.includes('node_modules/react-i18next')) {
+          // Internationalization (i18next core only, without react-i18next)
+          if (id.includes('node_modules/i18next') &&
+              !id.includes('node_modules/react-i18next')) {
             return 'vendor-i18n';
           }
 
@@ -91,9 +92,11 @@ export default defineConfig({
             return 'app-components';
           }
 
-          if (id.includes('/src/stores/')) {
-            return 'app-stores';
-          }
+          // Don't manually chunk stores - let Vite handle dependencies
+          // to avoid initialization order issues
+          // if (id.includes('/src/stores/')) {
+          //   return 'app-stores';
+          // }
 
           if (id.includes('/src/services/')) {
             return 'app-services';

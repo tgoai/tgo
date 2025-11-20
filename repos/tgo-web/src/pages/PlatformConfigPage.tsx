@@ -34,7 +34,8 @@ const PlatformConfigPage: React.FC = () => {
         console.error('Failed to load platform detail:', error);
       });
     }
-  }, [platformId, fetchPlatformById]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platformId]); // Only depend on platformId, not fetchPlatformById (it's a stable store function)
 
   // Show loading state while fetching platform detail
   if (isLoadingDetail) {

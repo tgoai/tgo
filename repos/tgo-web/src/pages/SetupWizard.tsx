@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { setupApiService, SetupCheckResult } from '@/services/setupApi';
+import { useSetupStore } from '@/stores/setupStore';
 import { CheckCircle, XCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 
 // Types
@@ -37,6 +38,7 @@ type SetupStep = 1 | 2 | 3;
 const SetupWizard: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { checkSetupStatus, hasAdmin } = useSetupStore();
 
   // Current step state
   const [currentStep, setCurrentStep] = useState<SetupStep>(1);
@@ -66,7 +68,7 @@ const SetupWizard: React.FC = () => {
   const [verificationStatus, setVerificationStatus] = useState<any>(null);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // Check if system is already installed
+  // Check if system is already installed and determine initial step
   useEffect(() => {
     const checkInstallation = async () => {
       try {
@@ -74,9 +76,23 @@ const SetupWizard: React.FC = () => {
         if (status.is_installed) {
           // System already installed, redirect to login
           navigate('/login', { replace: true });
+        } else {
+          // System not installed, determine which step to show
+          if (!status.has_admin) {
+            // No admin account yet, show step 1
+            setCurrentStep(1);
+          } else if (status.has_admin && !status.has_llm_config) {
+            // Admin account exists but no LLM config, show step 2
+            setCurrentStep(2);
+          } else if (status.has_admin && status.has_llm_config) {
+            // Both admin and LLM config exist, show step 3 (verification)
+            setCurrentStep(3);
+          }
         }
       } catch (error) {
         console.error('Failed to check installation status:', error);
+        // On error, default to step 1
+        setCurrentStep(1);
       }
     };
     checkInstallation();
@@ -176,9 +192,13 @@ const SetupWizard: React.FC = () => {
     } else if (currentStep === 2) {
       if (!validateLLMForm()) return;
 
-      if (llmData.provider !== 'none') {
-        setIsLoading(true);
-        try {
+      setIsLoading(true);
+      try {
+        if (llmData.provider === 'none') {
+          // Call skip-llm API when user selects "none" and clicks next
+          await setupApiService.skipLLM();
+        } else {
+          // Configure LLM when user selects a provider
           await setupApiService.configureLLM({
             provider: llmData.provider,
             name: llmData.name,
@@ -187,13 +207,13 @@ const SetupWizard: React.FC = () => {
             default_model: llmData.defaultModel || undefined,
             is_active: llmData.isActive,
           });
-        } catch (error: any) {
-          setErrors({ apiKey: error?.message || t('setup.errors.configureLLMFailed') });
-          setIsLoading(false);
-          return;
-        } finally {
-          setIsLoading(false);
         }
+      } catch (error: any) {
+        setErrors({ apiKey: error?.message || t('setup.errors.configureLLMFailed') });
+        setIsLoading(false);
+        return;
+      } finally {
+        setIsLoading(false);
       }
 
       setCurrentStep(3);
@@ -210,10 +230,22 @@ const SetupWizard: React.FC = () => {
   };
 
   // Handle Skip button (Step 2 only)
-  const handleSkip = () => {
+  const handleSkip = async () => {
     if (currentStep === 2) {
-      setCurrentStep(3);
-      verifyInstallation();
+      setIsLoading(true);
+      try {
+        // Call skip-llm API
+        await setupApiService.skipLLM();
+        setCurrentStep(3);
+        verifyInstallation();
+      } catch (error: any) {
+        console.error('Failed to skip LLM configuration:', error);
+        // Even if the API call fails, we still proceed to the next step
+        setCurrentStep(3);
+        verifyInstallation();
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -240,7 +272,15 @@ const SetupWizard: React.FC = () => {
   };
 
   // Handle Finish button
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    // Refresh setup status to update the global state
+    try {
+      await checkSetupStatus();
+      console.log('✅ Setup status refreshed after installation');
+    } catch (error) {
+      console.error('❌ Failed to refresh setup status:', error);
+    }
+
     // Redirect to login page
     setTimeout(() => {
       navigate('/login', { replace: true });
@@ -629,7 +669,8 @@ const SetupWizard: React.FC = () => {
           {/* Navigation Buttons */}
           <div className="mt-8 flex items-center justify-between">
             {/* Previous Button */}
-            {currentStep > 1 && currentStep < 3 && (
+            {/* Only show "Previous" button if we're on step 2 and admin hasn't been created yet */}
+            {currentStep === 2 && !hasAdmin && (
               <button
                 onClick={handlePrevious}
                 disabled={isLoading}

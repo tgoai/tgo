@@ -8,9 +8,9 @@ import time
 from typing import Optional
 from uuid import UUID
 
-import structlog
+from ..logging_config import get_logger
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def generate_api_key(length: int = 32) -> str:

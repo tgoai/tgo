@@ -62,9 +62,61 @@ fi
 # Generate a secure SECRET_KEY for tgo-api if needed
 ensure_api_secret_key
 
+# Helper: wait for Postgres healthy
+wait_for_postgres() {
+  echo "[INFO] Waiting for Postgres to be ready..."
+  local retries=60
+  local user="${POSTGRES_USER:-tgo}"
+  local db="${POSTGRES_DB:-tgo}"
+  for i in $(seq 1 "$retries"); do
+    if docker compose exec -T postgres pg_isready -U "$user" -d "$db" >/dev/null 2>&1; then
+      echo "[OK] Postgres is ready"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "[ERROR] Postgres was not ready in time"
+  return 1
+}
 
-# Build & start all services
-docker compose --env-file .env up -d --build
+# Allow ./deploy.sh stop/remove to manage lifecycle without redeploy
+CMD=${1:-}
+if [ "$CMD" = "stop" ]; then
+  echo "[INFO] Stopping all core services (docker compose down)..."
+  docker compose --env-file .env down
+  exit 0
+elif [ "$CMD" = "remove" ]; then
+  echo "[INFO] Stopping all core services and removing related images (docker compose down --rmi local)..."
+  docker compose --env-file .env down --rmi local
+  exit 0
+fi
+
+
+# 1) Build application images first so migrations use the latest code
+#    This ensures we don't run Alembic with a missing or outdated image.
+docker compose --env-file .env build
+
+# 2) Start core infra first (DB/Cache/Message)
+docker compose --env-file .env up -d postgres redis kafka wukongim
+
+# 3) Wait for DB ready (required by migrations)
+wait_for_postgres
+
+# 4) Run database migrations so users don't need to run them manually
+echo "[INFO] Running Alembic migrations for tgo-rag..."
+docker compose --env-file .env run --rm tgo-rag poetry run alembic upgrade head
+
+echo "[INFO] Running Alembic migrations for tgo-ai..."
+docker compose --env-file .env run --rm tgo-ai poetry run alembic upgrade head
+
+echo "[INFO] Running Alembic migrations for tgo-api..."
+docker compose --env-file .env run --rm tgo-api poetry run alembic upgrade head
+
+echo "[INFO] Running Alembic migrations for tgo-platform..."
+docker compose --env-file .env run --rm -e PYTHONPATH=. tgo-platform poetry run alembic upgrade head
+
+# 5) Start all services (images already built above)
+docker compose --env-file .env up -d
 
 echo "\nAll services are starting. Use 'docker compose ps' and logs to check status."
 

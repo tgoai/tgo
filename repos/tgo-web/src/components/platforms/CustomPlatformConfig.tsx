@@ -146,12 +146,14 @@ const CustomPlatformConfig: React.FC<Props> = ({ platform }) => {
     }
   };
 
+  const displayName = platform.display_name || platform.name;
+
   return (
     <main className="flex flex-col flex-1 min-h-0 bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
       <header className="px-6 py-4 border-b border-gray-200/80 flex justify-between items-center bg-white/60 backdrop-blur-lg sticky top-0 z-10">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">{platform.name} - {t('platforms.custom.title', '自定义平台配置')}</h2>
+          <h2 className="text-lg font-semibold text-gray-800">{displayName} - {t('platforms.custom.title', '自定义平台配置')}</h2>
           <p className="text-xs text-gray-500 mt-0.5">{t('platforms.custom.subtitle', '配置第三方程序集成所需的 API 信息与回调地址。')}</p>
         </div>
         <div className="flex items-center gap-3">

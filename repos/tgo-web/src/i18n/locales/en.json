@@ -46,7 +46,8 @@
     "active": "Active",
     "inactive": "Inactive",
     "copied": "Copied",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "enable": "Enable"
   },
   "settings": {
     "title": "Settings",
@@ -101,7 +102,20 @@
         "llmLabel": "Default LLM",
         "embeddingLabel": "Default Embedding",
         "selectPlaceholder": "Please select a model",
-        "none": "Not Set"
+        "none": "Not Set",
+        "embeddingHelp": {
+          "title": "Recommended Embedding Models",
+          "providers": {
+            "openai": {
+              "name": "OpenAI",
+              "models": ["text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"]
+            },
+            "qwen": {
+              "name": "Qwen/DashScope",
+              "models": ["text-embedding-v4"]
+            }
+          }
+        }
       },
       "toast": {
         "saved": "Default models saved",
@@ -158,7 +172,7 @@
         "modelsCustom": "If the list is empty or you can't find the model you need, you can manually enter a custom model name"
 	      },
 	      "placeholders": {
-	        "apiKeyMasked": "Configured: {mask}, leave empty to keep",
+	        "apiKeyMasked": "Configured: {{mask}}, leave empty to keep",
 	        "apiKey": "Paste API Key",
 	        "modelsSearch": "Search or enter model ID...",
 	        "baseUrl": { "custom": "Custom Base URL" }
@@ -193,10 +207,21 @@
 	    }
   },
   "about": {
+    "title": "System Information",
     "version": "Version",
     "environment": "Environment",
-    "apiEndpoint": "API Endpoint",
-    "copyright": "All rights reserved."
+    "apiVersion": "API Version",
+    "pythonVersion": "Python Version",
+    "buildTime": "Build Time",
+    "gitCommit": "Git Commit",
+    "github": "GitHub Repository",
+    "website": "Official Website",
+    "copyright": "All rights reserved.",
+    "loading": "Loading...",
+    "loadError": "Failed to load system information",
+    "systemInfo": "System Information",
+    "technicalDetails": "Technical Details",
+    "links": "Links"
   },
   "agents": {
     "title": "Agent Management",
@@ -238,21 +263,21 @@
       "retryFailed": "Retry Failed",
       "retryFailedDesc": "Unable to load agent list, please try again later",
       "createSuccess": "Create Successful",
-      "createSuccessDesc": "Agent \"{name}\" has been successfully created",
+      "createSuccessDesc": "Agent \"{{name}}\" has been successfully created",
       "createFailed": "Create Failed",
       "updateSuccess": "Update Successful",
-      "updateSuccessDesc": "Agent \"{name}\" has been successfully updated",
+      "updateSuccessDesc": "Agent \"{{name}}\" has been successfully updated",
       "updateFailed": "Update Failed",
       "deleteSuccess": "Delete Successful",
-      "deleteSuccessDesc": "Agent \"{name}\" has been deleted",
+      "deleteSuccessDesc": "Agent \"{{name}}\" has been deleted",
       "deleteFailed": "Delete Failed",
       "deleteFailedDesc": "An error occurred while deleting the agent",
       "copySuccess": "Copy Successful",
-      "copySuccessDesc": "Agent \"{name}\" has been successfully copied",
+      "copySuccessDesc": "Agent \"{{name}}\" has been successfully copied",
       "copyFailed": "Copy Failed",
       "copyFailedDesc": "An error occurred while copying the agent",
       "statusUpdateSuccess": "Refresh Successful",
-      "statusUpdateSuccessDesc": "Agent \"{name}\" status has been updated",
+      "statusUpdateSuccessDesc": "Agent \"{{name}}\" status has been updated",
       "statusUpdateFailed": "Refresh Failed",
       "statusUpdateFailedDesc": "An error occurred while updating agent status"
     },
@@ -298,7 +323,7 @@
       },
       "delete": {
         "title": "Delete Agent",
-        "message": "Are you sure you want to delete agent \"{name}\"? This action cannot be undone.",
+        "message": "Are you sure you want to delete agent \"{{name}}\"? This action cannot be undone.",
         "confirm": "Delete",
         "cancel": "Cancel"
       }
@@ -322,11 +347,11 @@
         "selectPlaceholder": "Please select a model",
         "loadFailedTitle": "Load Failed",
         "loadFailedDesc": "Unable to load model list, please try again later",
-        "loadFailedInline": "Model load failed: {error}"
+        "loadFailedInline": "Model load failed: {{error}}"
       },
       "tools": {
         "shortNoMissingTitle": "Missing Tool Short No",
-        "shortNoMissingDesc": "The following tools are missing short_no or name: {names}, please refresh the tool store or reselect and try again"
+        "shortNoMissingDesc": "The following tools are missing short_no or name: {{names}}, please refresh the tool store or reselect and try again"
       }
     },
 
@@ -361,7 +386,7 @@
         "avgResponseTime": "Avg Response Time"
       },
       "noKnowledgeBases": "No knowledge bases associated",
-      "knowledgeBasePrefix": "KB {id}",
+      "knowledgeBasePrefix": "KB {{id}}",
       "closeButton": "Close"
     },
     "toolsSection": {
@@ -379,10 +404,10 @@
       "emptyDescription": "Click \"Add Knowledge Base\" to select knowledge bases"
     },
     "apiTest": {
-      "title": "Test {name}",
+      "title": "Test {{name}}",
       "authMethod": "Auth Method",
       "autoDetected": "Auto-detected",
-      "autoDetectedTitle": "Auto-detected from OpenAPI ({level})",
+      "autoDetectedTitle": "Auto-detected from OpenAPI ({{level}})",
       "autoLevel": {
         "operation": "operation-level",
         "global": "global-level"
@@ -390,9 +415,9 @@
       "authDisplay": {
         "none": "None",
         "header": "Header",
-        "headerWithPrefix": "Header ({prefix})",
+        "headerWithPrefix": "Header ({{prefix}})",
         "query": "Query",
-        "autoDetected": "Auto-detected: {type}"
+        "autoDetected": "Auto-detected: {{type}}"
       },
       "paramsAndValues": "Parameters & Values",
       "param": "Parameter",
@@ -406,8 +431,8 @@
       "pattern": "Pattern",
       "selectPlaceholder": "Please select",
       "inputPlaceholder": "Please enter",
-      "examplePrefix": "Example: {value}",
-      "defaultPrefix": "Default: {value}",
+      "examplePrefix": "Example: {{value}}",
+      "defaultPrefix": "Default: {{value}}",
       "noParams": "This endpoint has no parameters",
       "button": {
         "testing": "Testing...",
@@ -650,7 +675,13 @@
       "uploadFailed": "Upload Failed",
       "maxFileSize": "File size cannot exceed 10MB",
       "unsupportedFormat": "Unsupported file format",
-      "multipleSuccessMessage": "{{count}} files uploaded successfully"
+      "multipleSuccessMessage": "{{count}} files uploaded successfully",
+      "checkingEmbedding": "Checking embedding model configuration...",
+      "noEmbeddingModel": {
+        "title": "⚠️ Cannot Upload Files",
+        "description": "No embedding model configured. Knowledge base files require an embedding model for vectorization. Please configure a default embedding model in AI Provider Settings first.",
+        "goToSettings": "Go to Settings"
+      }
     }
   },
   "channels": {
@@ -665,7 +696,7 @@
     }
   },
   "footer": {
-    "copyright": "© 2024 Tgo CS. All rights reserved."
+    "copyright": "© 2025 Tgo CS. All rights reserved."
   },
   "brand": {
     "name": "Tgo CS"
@@ -794,7 +825,7 @@
     },
     "header": {
       "staffFallback": "Agent",
-      "visitorFallback": "Visitor{{suffix}}"
+      "visitorFallback": "Visitor {{suffix}}"
     },
     "suggestions": {
       "label": "✨ Suggestions:"
@@ -871,7 +902,7 @@
         }
       },
       "preview": {
-        "imageAlt": "Preview image{{index}}",
+        "imageAlt": "Preview image {{index}}",
         "removeAria": "Remove preview"
       },
       "upload": {
@@ -1260,7 +1291,8 @@
         "connected": "Connected",
         "error": "Connection Failed",
         "pending": "Pending Configuration",
-        "notConfigured": "Not Configured"
+        "notConfigured": "Not Configured",
+        "unsupported": "Coming Soon"
       },
       "toast": {
         "createSuccessTitle": "Created Successfully",
@@ -1272,7 +1304,8 @@
       "loading": "Loading available platform types...",
       "loadError": "Failed to load platform types, please try again later",
       "loadFailed": "Load Failed",
-      "emptyTypes": "No available platform types"
+      "emptyTypes": "No available platform types",
+      "unsupported": "Not Supported"
     },
     "config": {
       "basic": {
@@ -1322,8 +1355,10 @@
       }
     },
     "website": {
-      "title": "{{name}} - Website Widget Configuration",
-      "subtitle": "Adjust the configuration on the left, the preview on the right will update in real-time",
+      "header": {
+        "title": "{{name}} - Website Widget Configuration",
+        "subtitle": "Adjust the configuration on the left, the preview on the right will update in real-time"
+      },
       "buttons": {
         "delete": "Delete",
         "deleting": "Deleting...",
@@ -1349,6 +1384,7 @@
         "logo": "Logo",
         "logoUploading": "Uploading...",
         "logoHint": "Recommended size: 72x72 pixels. Supports PNG/JPG/SVG, max 2MB.",
+        "clickUpload": "Click to Upload",
         "welcomeMessage": "Welcome Message",
         "position": "Position",
         "positionBottomRight": "Bottom Right",
@@ -1361,7 +1397,8 @@
       },
       "embed": {
         "title": "Website Integration Code",
-        "description": "Copy and paste the following code into the <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code> of your website:"
+        "description": "Copy and paste the following code into the <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code> of your website:",
+        "instruction": "Copy and paste the following code into the <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code> of your website:"
       },
       "messages": {
         "saveSuccess": "Saved Successfully",
@@ -1399,8 +1436,10 @@
       }
     },
     "wecom": {
-      "title": "{{name}} - WeCom Configuration",
-      "subtitle": "Configure credentials and callbacks required for WeCom integration.",
+      "header": {
+        "title": "{{name}} - WeCom Configuration",
+        "subtitle": "Configure credentials and callbacks required for WeCom integration."
+      },
       "buttons": {
         "delete": "Delete",
         "deleting": "Deleting...",
@@ -1463,6 +1502,7 @@
         "step4Item1": "URL verification failed: Check if your callback service is publicly accessible and if the TLS certificate is valid.",
         "step4Item2": "Message decryption failed: Confirm that EncodingAESKey is correct and does not contain extra spaces.",
         "step4Item3": "403/Permission issues: Confirm that the application is enabled and granted the required permissions; regenerate Secret if necessary.",
+        "docsLink": "WeCom Message Callback Development Documentation",
         "bestPracticesTitle": "Best Practices",
         "bestPracticesItem1": "Store Secret in a key management service (such as Vault, KMS) to avoid appearing in plain text in the code repository.",
         "bestPracticesItem2": "Use different Token/AESKey for different environments (development/testing/production).",
@@ -1745,7 +1785,7 @@
       "llm": "LLM Configuration",
       "verify": "Verify Installation"
     },
-    "stepIndicator": "Step {current} / {total}",
+    "stepIndicator": "Step {{current}} / {{total}}",
     "admin": {
       "title": "Setup Administrator Account",
       "description": "Create a system administrator account for login and management",
@@ -1837,6 +1877,25 @@
     "success": {
       "adminCreated": "Administrator account created successfully",
       "llmConfigured": "LLM configured successfully"
+    },
+    "guard": {
+      "checking": "Checking system status...",
+      "serverError": "Unable to Connect to Server",
+      "retryButton": "Retry"
+    }
+  },
+  "onboarding": {
+    "title": "Quick Start",
+    "progress": "{{completed}}/{{total}} Completed",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "dismiss": "Close",
+    "dismissButton": "Don't Show Again",
+    "tasks": {
+      "platformCreated": "Setup Platform",
+      "knowledgeBaseUploaded": "Upload Knowledge Base",
+      "agentCreated": "Create AI Agent and Link Knowledge Base",
+      "messageReceived": "Receive Message from Platform"
     }
   }
 }

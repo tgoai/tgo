@@ -11,7 +11,7 @@ from app.schemas.base import BaseSchema
 
 class SetupStatusResponse(BaseSchema):
     """Response schema for setup status check."""
-    
+
     is_installed: bool = Field(
         ...,
         description="Whether the system has completed initial installation"
@@ -24,6 +24,10 @@ class SetupStatusResponse(BaseSchema):
         ...,
         description="Whether at least one LLM provider is configured and enabled"
     )
+    skip_llm_config: bool = Field(
+        ...,
+        description="Whether LLM configuration step was explicitly skipped"
+    )
     setup_completed_at: Optional[datetime] = Field(
         None,
         description="Timestamp when setup was completed (if applicable)"
@@ -32,7 +36,7 @@ class SetupStatusResponse(BaseSchema):
 
 class CreateAdminRequest(BaseSchema):
     """Request schema for creating the first admin account."""
-    
+
     username: str = Field(
         ...,
         min_length=3,
@@ -56,11 +60,15 @@ class CreateAdminRequest(BaseSchema):
         max_length=255,
         description="Name for the default project"
     )
+    skip_llm_config: bool = Field(
+        default=False,
+        description="Whether to skip LLM configuration during setup (can be configured later)"
+    )
 
 
 class CreateAdminResponse(BaseSchema):
     """Response schema for admin creation."""
-    
+
     id: UUID = Field(..., description="Created admin staff ID")
     username: str = Field(..., description="Admin username")
     nickname: Optional[str] = Field(None, description="Admin display name")
@@ -71,7 +79,7 @@ class CreateAdminResponse(BaseSchema):
 
 class ConfigureLLMRequest(BaseSchema):
     """Request schema for configuring LLM provider."""
-    
+
     provider: str = Field(
         ...,
         min_length=1,
@@ -112,7 +120,7 @@ class ConfigureLLMRequest(BaseSchema):
         None,
         description="Additional provider-specific configuration (e.g., temperature, max_tokens)"
     )
-    
+
     @field_validator('available_models')
     @classmethod
     def validate_available_models(cls, v: List[str]) -> List[str]:
@@ -124,7 +132,7 @@ class ConfigureLLMRequest(BaseSchema):
 
 class ConfigureLLMResponse(BaseSchema):
     """Response schema for LLM configuration."""
-    
+
     id: UUID = Field(..., description="AI Provider configuration ID")
     provider: str = Field(..., description="Provider name")
     name: str = Field(..., description="Display name")
@@ -136,14 +144,14 @@ class ConfigureLLMResponse(BaseSchema):
 
 class SetupCheckResult(BaseSchema):
     """Individual check result for setup verification."""
-    
+
     passed: bool = Field(..., description="Whether the check passed")
     message: str = Field(..., description="Check result message")
 
 
 class VerifySetupResponse(BaseSchema):
     """Response schema for setup verification."""
-    
+
     is_valid: bool = Field(
         ...,
         description="Whether the installation is valid and complete"
@@ -161,3 +169,18 @@ class VerifySetupResponse(BaseSchema):
         description="List of warnings"
     )
 
+
+
+
+class SkipLLMConfigResponse(BaseSchema):
+    """Response schema for skipping LLM configuration during setup."""
+
+    message: str = Field(..., description="Success message for skip LLM operation")
+    is_installed: bool = Field(
+        ...,
+        description="Updated installation status after skipping LLM configuration",
+    )
+    setup_completed_at: datetime = Field(
+        ...,
+        description="Timestamp when setup was marked as completed",
+    )

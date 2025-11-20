@@ -35,6 +35,8 @@ const PlatformListItem: React.FC<PlatformListItemProps> = ({ platform }) => {
   };
 
   const statusConfig = getStatusConfig(platform.status);
+  const isSupported = platform.is_supported !== false; // default to true if not specified
+  const displayName = platform.display_name || platform.name;
 
   const renderIcon = () => {
     const type = toPlatformType(platform.type as any);
@@ -42,10 +44,34 @@ const PlatformListItem: React.FC<PlatformListItemProps> = ({ platform }) => {
     const label = getPlatformLabel(type);
     return (
       <span title={label}>
-        <IconComp size={20} className={`w-6 h-6 mr-3 flex-shrink-0 ${getPlatformColor(type)}`} />
+        <IconComp size={20} className={`w-6 h-6 mr-3 flex-shrink-0 ${getPlatformColor(type)} ${!isSupported ? 'opacity-50' : ''}`} />
       </span>
     );
   };
+
+  // If platform type is not supported, render as disabled (non-clickable)
+  if (!isSupported) {
+    return (
+      <div
+        className="flex items-center p-3 rounded-lg opacity-60 cursor-not-allowed bg-gray-50"
+      >
+        <div className="text-gray-500">
+          {renderIcon()}
+        </div>
+        <div className="flex-grow overflow-hidden">
+          <p className="text-sm font-medium truncate text-gray-500">
+            {displayName}
+          </p>
+          <div className="flex items-center mt-1">
+            <span className={`w-2 h-2 ${statusConfig.color} rounded-full mr-1.5 flex-shrink-0 opacity-50`}></span>
+            <span className="text-xs text-gray-400">
+              {t('platforms.list.status.unsupported', '平台类型暂不支持')}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <NavLink
@@ -67,7 +93,7 @@ const PlatformListItem: React.FC<PlatformListItemProps> = ({ platform }) => {
             <p className={`text-sm font-medium truncate ${
               isActive ? 'text-blue-800' : 'text-gray-800'
             }`}>
-              {platform.name}
+              {displayName}
             </p>
             <div className="flex items-center mt-1">
               <span className={`w-2 h-2 ${statusConfig.color} rounded-full mr-1.5 flex-shrink-0`}></span>
@@ -111,7 +137,8 @@ const PlatformList: React.FC = () => {
     } finally {
       setIsRetrying(false);
     }
-  }, [initializeStore]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - initializeStore is a stable store function
 
   const handleTypeSelect = useCallback(async ({ type, name }: { type: string; name: string }) => {
     try {

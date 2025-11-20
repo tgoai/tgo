@@ -3,12 +3,14 @@
 export interface Platform {
   id: string;
   name: string;
+  display_name?: string; // display name for UI (preferred over name)
   icon: string;
   iconColor: string;
   status: PlatformStatus;
   statusText: string;
   statusColor: string;
   type: string; // Use API-returned type directly
+  is_supported?: boolean; // whether this platform type is currently supported
   description: string;
   config: PlatformConfig;
   // Top-level callback URL from API (not nested in config)

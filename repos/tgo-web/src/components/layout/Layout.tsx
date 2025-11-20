@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import OnboardingChecklist from '@/components/onboarding/OnboardingChecklist';
 
 /**
  * Main layout component with sidebar and content area
@@ -15,6 +16,9 @@ const Layout: React.FC = () => {
         {/* Main Content */}
         <Outlet />
       </div>
+
+      {/* Onboarding Checklist */}
+      <OnboardingChecklist />
     </div>
   );
 };

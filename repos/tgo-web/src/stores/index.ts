@@ -5,6 +5,7 @@ export { useKnowledgeStore } from './knowledgeStore';
 export { usePlatformStore } from './platformStore';
 export { useUIStore } from './uiStore';
 export { useAuthStore } from './authStore';
+export { useSetupStore } from './setupStore';
 
 // 常用选择器 - 避免在选择器中调用计算方法
 export const chatSelectors = {

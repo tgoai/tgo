@@ -19,9 +19,22 @@ import { useWuKongIMWebSocket } from '@/hooks/useWuKongIMWebSocket';
 import { toAbsoluteApiUrl } from '@/utils/url';
 import { getFileIcon } from '@/utils/fileIcons';
 import { chatMessagesApiService } from '@/services/chatMessagesApi';
+import { APIError } from '@/services/api';
 
 import { Smile, Scissors, Image as ImageIcon, Folder } from 'lucide-react';
 
+/**
+ * Extract error message from error object (supports APIError and generic Error)
+ */
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof APIError) {
+    return error.getUserMessage();
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return '上传失败';
+};
 
 interface MessageInputProps {
   onSendMessage?: (message: string) => void;
@@ -736,13 +749,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
           if (!isConnected) throw new Error(t('chat.input.errors.websocketNotConnected.image', 'WebSocket 未连接，无法发送图片消息'));
           console.log("Sending image message via WebSocket", payload);
           await sendWsMessage(channelId, channelType, payload);
+          updateMessageByClientMsgNo(nowId, { metadata: { ws_sent: true, ws_send_error: false } });
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : t('chat.input.errors.websocketFailed', 'WebSocket 发送失败，请检查网络连接');
           updateMessageByClientMsgNo(nowId, { metadata: { ws_send_error: true, error_text: errMsg } });
           showApiError(showToast, err);
         }
       }).catch((err) => {
-        updateMessageByClientMsgNo(nowId, { metadata: { upload_status: 'error' } });
+        const errorMessage = getErrorMessage(err);
+        updateMessageByClientMsgNo(nowId, { metadata: { upload_status: 'error', error_text: errorMessage } });
         showApiError(showToast, err);
       });
     }
@@ -840,13 +855,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
           }
           if (!isConnected) throw new Error(t('chat.input.errors.websocketNotConnected.file', 'WebSocket 未连接，无法发送文件消息'));
           await sendWsMessage(channelId, channelType, payload);
+          updateMessageByClientMsgNo(nowId, { metadata: { ws_sent: true, ws_send_error: false } });
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : t('chat.input.errors.websocketFailed', 'WebSocket 发送失败，请检查网络连接');
           updateMessageByClientMsgNo(nowId, { metadata: { ws_send_error: true, error_text: errMsg } });
           showApiError(showToast, err);
         }
       }).catch((err) => {
-        updateMessageByClientMsgNo(nowId, { metadata: { upload_status: 'error' } });
+        const errorMessage = getErrorMessage(err);
+        updateMessageByClientMsgNo(nowId, { metadata: { upload_status: 'error', error_text: errorMessage } });
         showApiError(showToast, err);
       });
     }
@@ -957,7 +974,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
         showApiError(showToast, err);
       }
     } catch (err) {
-      updateMessageByClientMsgNo(nowId, { metadata: { upload_status: 'error' } });
+      const errorMessage = getErrorMessage(err);
+      updateMessageByClientMsgNo(nowId, { metadata: { upload_status: 'error', error_text: errorMessage } });
       showApiError(showToast, err);
       return;
     }
@@ -1025,7 +1043,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
         imagesMeta = imagesMeta.map((img, i) => i === idx ? { ...img, upload_progress: 100, upload_status: 'completed', url } : img);
         updateMessageByClientMsgNo(nowId, { metadata: { images: imagesMeta } });
       }).catch((err) => {
-        imagesMeta = imagesMeta.map((img, i) => i === idx ? { ...img, upload_status: 'error' } : img);
+        const errorMessage = getErrorMessage(err);
+        imagesMeta = imagesMeta.map((img, i) => i === idx ? { ...img, upload_status: 'error', error_text: errorMessage } : img);
         updateMessageByClientMsgNo(nowId, { metadata: { images: imagesMeta } });
         showApiError(showToast, err);
         throw err;

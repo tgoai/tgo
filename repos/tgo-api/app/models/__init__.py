@@ -3,6 +3,7 @@
 from app.models.assignment import AssignmentType, VisitorAssignment
 from app.models.platform import Platform, PlatformType, PlatformTypeDefinition
 from app.models.project import Project
+from app.models.system_setup import SystemSetup
 from app.models.staff import Staff, StaffRole, StaffStatus
 from app.models.tag import Tag, TagCategory
 from app.models.visitor import Visitor
@@ -40,6 +41,7 @@ __all__ = [
     "AIProvider",
     "AIModel",
     "ProjectAIConfig",
+    "SystemSetup",
     # Enums
     "PlatformType",
     "StaffRole",

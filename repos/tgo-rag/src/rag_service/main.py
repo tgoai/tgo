@@ -2,13 +2,12 @@
 Main FastAPI application for TGO RAG Service.
 """
 
-import logging
 import time
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Dict
 
-import structlog
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -18,7 +17,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import get_settings
 from .database import close_database, database_health_check, init_database
-from .dev_utils import ensure_development_setup
+from .logging_config import get_logger, init_logging_from_settings, set_request_context, clear_request_context
 from .routers import collections, files, health, monitoring, embedding_config
 from .schemas.common import ErrorResponse
 from .startup_banner import (
@@ -33,26 +32,11 @@ from .startup_banner import (
     Symbols
 )
 
-# Configure structured logging
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
-    ],
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    wrapper_class=structlog.stdlib.BoundLogger,
-    cache_logger_on_first_use=True,
-)
+# Initialize centralized logging configuration
+init_logging_from_settings()
 
-logger = structlog.get_logger(__name__)
+# Get logger for this module
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -102,7 +86,6 @@ async def lifespan(app: FastAPI):
                 result = await db.execute(query)
                 existing_project = result.scalar_one_or_none()
 
-            await ensure_development_setup()
 
             # Check if project was created during setup
             async with get_db_session() as db:
@@ -217,43 +200,59 @@ def setup_middleware(app: FastAPI, settings) -> None:
     if settings.environment == "production":
         app.add_middleware(
             TrustedHostMiddleware,
-            allowed_hosts=["*.tgo-tech.com", "localhost"]
+            allowed_hosts=["*"]
         )
 
-    # Request logging middleware
+    # Request context and logging middleware
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
-        """Log all HTTP requests with timing information."""
+        """
+        Log all HTTP requests with timing information and set request context.
+
+        Automatically generates a request_id and sets it in the logging context
+        so all logs within this request will include the request_id.
+        """
         start_time = time.time()
 
-        # Log request
-        logger.info(
-            "Request started",
-            method=request.method,
-            url=str(request.url),
-            client_ip=request.client.host if request.client else None,
-            user_agent=request.headers.get("user-agent"),
-        )
+        # Generate unique request ID
+        request_id = str(uuid.uuid4())
 
-        # Process request
-        response = await call_next(request)
+        # Set request context for automatic inclusion in all logs
+        set_request_context(request_id=request_id)
 
-        # Calculate processing time
-        process_time = time.time() - start_time
+        try:
+            # Log request (will automatically include request_id from context)
+            logger.info(
+                "Request started",
+                method=request.method,
+                url=str(request.url),
+                client_ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
 
-        # Log response
-        logger.info(
-            "Request completed",
-            method=request.method,
-            url=str(request.url),
-            status_code=response.status_code,
-            process_time_ms=round(process_time * 1000, 2),
-        )
+            # Process request
+            response = await call_next(request)
 
-        # Add timing header
-        response.headers["X-Process-Time"] = str(process_time)
+            # Calculate processing time
+            process_time = time.time() - start_time
 
-        return response
+            # Log response (will automatically include request_id from context)
+            logger.info(
+                "Request completed",
+                method=request.method,
+                url=str(request.url),
+                status_code=response.status_code,
+                process_time_ms=round(process_time * 1000, 2),
+            )
+
+            # Add timing and request ID headers
+            response.headers["X-Process-Time"] = str(process_time)
+            response.headers["X-Request-ID"] = request_id
+
+            return response
+        finally:
+            # Clean up request context
+            clear_request_context()
 
 
 def setup_routers(app: FastAPI) -> None:
@@ -302,10 +301,12 @@ def setup_exception_handlers(app: FastAPI) -> None:
         app: FastAPI application instance
     """
 
-    @app.exception_handler(StarletteHTTPException)
-    async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
-        """Handle Starlette HTTPException (including FastAPI security exceptions) with consistent ErrorResponse format."""
-        # Map HTTP status codes to error codes
+    # Unified HTTP exception handler for both Starlette and FastAPI HTTP exceptions
+    async def _http_exception_handler(request: Request, exc):
+        """Handle HTTP exceptions with a single handler and consistent ErrorResponse format."""
+        # DEBUG: Print to console to verify handler is called
+        print(f"[DEBUG] HTTP exception handler called! Exception type: {type(exc).__name__}")
+
         error_code_map = {
             400: "BAD_REQUEST",
             401: "UNAUTHORIZED",
@@ -320,71 +321,41 @@ def setup_exception_handlers(app: FastAPI) -> None:
             500: "INTERNAL_SERVER_ERROR",
             502: "BAD_GATEWAY",
             503: "SERVICE_UNAVAILABLE",
-            504: "GATEWAY_TIMEOUT"
+            504: "GATEWAY_TIMEOUT",
         }
 
-        error_code = error_code_map.get(exc.status_code, "HTTP_ERROR")
+        status_code = getattr(exc, "status_code", 500)
+        detail = getattr(exc, "detail", "HTTP error")
+        error_code = error_code_map.get(status_code, "HTTP_ERROR")
+
+        # DEBUG: Print before logging
+        print(f"[DEBUG] About to log warning: status_code={status_code}, detail={detail}")
 
         logger.warning(
-            "Starlette HTTP exception occurred",
-            status_code=exc.status_code,
-            detail=exc.detail,
+            "HTTP exception occurred",
+            status_code=status_code,
+            detail=detail,
             url=str(request.url),
-            method=request.method
+            method=request.method,
         )
 
+        # DEBUG: Print after logging
+        print(f"[DEBUG] Warning logged successfully")
+
         return JSONResponse(
-            status_code=exc.status_code,
+            status_code=status_code,
             content=ErrorResponse(
                 error={
                     "code": error_code,
-                    "message": exc.detail,
-                    "details": {"status_code": exc.status_code}
+                    "message": detail,
+                    "details": {"status_code": status_code},
                 }
-            ).model_dump()
+            ).model_dump(),
         )
 
-    @app.exception_handler(HTTPException)
-    async def http_exception_handler(request: Request, exc: HTTPException):
-        """Handle FastAPI HTTPException with consistent ErrorResponse format."""
-        # Map HTTP status codes to error codes
-        error_code_map = {
-            400: "BAD_REQUEST",
-            401: "UNAUTHORIZED",
-            403: "FORBIDDEN",
-            404: "NOT_FOUND",
-            405: "METHOD_NOT_ALLOWED",
-            409: "CONFLICT",
-            413: "PAYLOAD_TOO_LARGE",
-            415: "UNSUPPORTED_MEDIA_TYPE",
-            422: "UNPROCESSABLE_ENTITY",
-            429: "TOO_MANY_REQUESTS",
-            500: "INTERNAL_SERVER_ERROR",
-            502: "BAD_GATEWAY",
-            503: "SERVICE_UNAVAILABLE",
-            504: "GATEWAY_TIMEOUT"
-        }
-
-        error_code = error_code_map.get(exc.status_code, "HTTP_ERROR")
-
-        logger.warning(
-            "FastAPI HTTP exception occurred",
-            status_code=exc.status_code,
-            detail=exc.detail,
-            url=str(request.url),
-            method=request.method
-        )
-
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=ErrorResponse(
-                error={
-                    "code": error_code,
-                    "message": exc.detail,
-                    "details": {"status_code": exc.status_code}
-                }
-            ).model_dump()
-        )
+    # Register the same handler for both FastAPI and Starlette HTTP exceptions to avoid duplication
+    app.add_exception_handler(StarletteHTTPException, _http_exception_handler)
+    app.add_exception_handler(HTTPException, _http_exception_handler)
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -454,4 +425,6 @@ if __name__ == "__main__":
         port=settings.port,
         reload=settings.reload,
         log_level=settings.log_level.lower(),
+        # Disable uvicorn's log config to prevent it from overriding our logging setup
+        # log_config=None,  # Uncomment this if warning logs don't appear
     )

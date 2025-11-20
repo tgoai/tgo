@@ -13,10 +13,8 @@ from app.core.config import settings
 class PlatformBase(BaseSchema):
     """Base platform schema."""
 
-    name: str = Field(
-        ...,
-        min_length=1,
-        max_length=100,
+    name: Optional[str] = Field(
+        None,
         description="Platform name (e.g., WeChat, WhatsApp)"
     )
     type: PlatformType = Field(
@@ -84,11 +82,14 @@ class PlatformListItemResponse(BaseSchema, TimestampMixin, SoftDeleteMixin):
 
     id: UUID = Field(..., description="Platform ID")
     project_id: UUID = Field(..., description="Associated project ID")
-    name: str = Field(..., description="Platform name")
+    name: Optional[str] = Field(None, description="Platform name (may be null)")
+    display_name: str = Field("", description="Display name with fallback to platform type name")
     type: PlatformType = Field(..., description="Platform type")
     is_active: bool = Field(..., description="Whether the platform is active")
     icon: Optional[str] = Field(None, description="SVG icon markup for the platform type")
     ai_disabled: Optional[bool] = Field(None, description="Whether AI responses are disabled for this platform")
+    is_supported: Optional[bool] = Field(None, description="Whether this platform type is currently supported")
+    name_en: Optional[str] = Field(None, description="English name of the platform type")
 
     @computed_field  # type: ignore[misc]
     @property
@@ -123,6 +124,9 @@ class PlatformResponse(PlatformInDB):
     """Schema for platform detail response (with all fields including sensitive data)."""
     icon: Optional[str] = Field(None, description="SVG icon markup for the platform type")
     ai_disabled: Optional[bool] = Field(None, description="Whether AI responses are disabled for this platform")
+    is_supported: Optional[bool] = Field(None, description="Whether this platform type is currently supported")
+    name_en: Optional[str] = Field(None, description="English name of the platform type")
+    display_name: str = Field("", description="Display name with fallback to platform type name")
 
 
     @computed_field  # type: ignore[misc]
@@ -152,6 +156,18 @@ class PlatformResponse(PlatformInDB):
             base = settings.API_BASE_URL.rstrip("/")
             return f"{base}/v1/chat/completions"
         return None
+    
+    @computed_field  # type: ignore[misc]
+    @property
+    def callback_url(self) -> str:
+        """Webhook callback URL for this platform.
+
+        Constructed as: {API_BASE_URL}/v1/platforms/callback/{platform_api_key}
+        """
+        base = settings.API_BASE_URL.rstrip("/")
+        v1 = settings.API_V1_STR.rstrip("/")
+        key = self.api_key or ""
+        return f"{base}{v1}/platforms/callback/{key}"
 
 
 class PlatformListParams(BaseSchema):
@@ -189,8 +205,11 @@ class PlatformTypeDefinitionResponse(BaseSchema, TimestampMixin):
 
     id: UUID = Field(..., description="Platform type definition ID")
     type: str = Field(..., description="Stable identifier (e.g., wechat, website, email)")
-    name: str = Field(..., description="Human-readable platform name")
+    name: str = Field(..., description="Human-readable platform name (Chinese)")
+    name_en: Optional[str] = Field(None, description="English name of the platform type")
+    is_supported: bool = Field(..., description="Whether this platform type is currently supported")
     icon: Optional[str] = Field(None, description="SVG icon markup for display")
+    display_name: str = Field("", description="Localized display name based on request language")
 
 
 class PlatformAPIKeyResponse(BaseSchema):

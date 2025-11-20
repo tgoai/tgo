@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { Platform, PlatformConfig, PlatformType } from '@/types';
 import platformsApiService, { PlatformResponse } from '@/services/platformsApi';
+import { useOnboardingStore } from './onboardingStore';
 
 interface PlatformState {
   // 平台数据
@@ -139,6 +140,13 @@ export const usePlatformStore = create<PlatformState>()(
               'createPlatformSuccess'
             );
 
+            // Mark onboarding task as completed
+            try {
+              useOnboardingStore.getState().markTaskCompleted('platformCreated');
+            } catch (error) {
+              console.error('Failed to mark onboarding task completed:', error);
+            }
+
             return createdPlatform;
           } catch (error) {
             console.error('创建平台失败:', error);
@@ -226,12 +234,14 @@ export const usePlatformStore = create<PlatformState>()(
             const mapped: Platform = {
               id: p.id,
               name: p.name,
+              display_name: (p as any).display_name,
               icon: (p as any).icon || '',
               iconColor: '',
               status,
               statusText,
               statusColor,
               type: (p as any).type as any,
+              is_supported: (p as any).is_supported,
               description: state.platforms.find(pp => pp.id === p.id)?.description || '',
               config: ({ ...(p.config || {}), ...(p.api_key ? { apiKey: p.api_key } : {}) }) as PlatformConfig,
               callback_url: (p as any).callback_url || '',
@@ -555,12 +565,14 @@ export const usePlatformStore = create<PlatformState>()(
                 return {
                   id: p.id,
                   name: p.name,
+                  display_name: (p as any).display_name,
                   icon: (p as any).icon || '',
                   iconColor: '',
                   status,
                   statusText,
                   statusColor,
                   type: (p as any).type as any,
+                  is_supported: (p as any).is_supported,
                   description: '',
                   config: ({ ...(p.config || {}), ...(p.api_key ? { apiKey: p.api_key } : {}) }) as PlatformConfig,
                   callback_url: (p as any).callback_url || '',

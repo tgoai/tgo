@@ -112,6 +112,28 @@
         }
       }
     },
+    "/v1/setup/skip-llm": {
+      "post": {
+        "tags": [
+          "Setup"
+        ],
+        "summary": "Skip LLM configuration during setup",
+        "description": "Explicitly skip the LLM configuration step in the installation wizard. This is useful when you want to complete the installation now and configure AI providers later via the normal management endpoints.",
+        "operationId": "skip_llm_configuration_v1_setup_skip_llm_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkipLLMConfigResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/setup/verify": {
       "get": {
         "tags": [
@@ -2576,27 +2598,49 @@
         "summary": "List Platform Types",
         "description": "List available platform type definitions.",
         "operationId": "list_platform_types_v1_platforms_types_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/PlatformTypeDefinitionResponse"
                   },
-                  "type": "array",
                   "title": "Response List Platform Types V1 Platforms Types Get"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/v1/platforms": {
@@ -2664,6 +2708,16 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -2699,6 +2753,18 @@
         "security": [
           {
             "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
+            }
           }
         ],
         "requestBody": {
@@ -2775,6 +2841,16 @@
               ],
               "title": "X-Platform-Api-Key"
             }
+          },
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -2824,6 +2900,16 @@
               "format": "uuid",
               "title": "Platform Id"
             }
+          },
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -2870,6 +2956,16 @@
               "type": "string",
               "format": "uuid",
               "title": "Platform Id"
+            }
+          },
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
             }
           }
         ],
@@ -3019,6 +3115,16 @@
               "format": "uuid",
               "title": "Platform Id"
             }
+          },
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -3067,6 +3173,16 @@
               "type": "string",
               "format": "uuid",
               "title": "Platform Id"
+            }
+          },
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
             }
           }
         ],
@@ -3117,6 +3233,16 @@
               "format": "uuid",
               "title": "Platform Id"
             }
+          },
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -3166,6 +3292,16 @@
               "format": "uuid",
               "title": "Platform Id"
             }
+          },
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -3214,6 +3350,16 @@
               "type": "string",
               "format": "uuid",
               "title": "Platform Id"
+            }
+          },
+          {
+            "name": "X-User-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "X-User-Language"
             }
           }
         ],
@@ -8117,6 +8263,29 @@
         }
       }
     },
+    "/v1/system/info": {
+      "get": {
+        "tags": [
+          "System",
+          "System"
+        ],
+        "summary": "Get System Info",
+        "description": "Return basic system version and environment information.\n\nThis endpoint is intentionally unauthenticated so that external systems\ncan quickly inspect the running version/environment for diagnostics.",
+        "operationId": "get_system_info_v1_system_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -11352,6 +11521,12 @@
             "title": "Project Name",
             "description": "Name for the default project",
             "default": "Default Project"
+          },
+          "skip_llm_config": {
+            "type": "boolean",
+            "title": "Skip Llm Config",
+            "description": "Whether to skip LLM configuration during setup (can be configured later)",
+            "default": false
           }
         },
         "type": "object",
@@ -12189,9 +12364,14 @@
       "PlatformCreate": {
         "properties": {
           "name": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name",
             "description": "Platform name (e.g., WeChat, WhatsApp)"
           },
@@ -12221,7 +12401,6 @@
         },
         "type": "object",
         "required": [
-          "name",
           "type"
         ],
         "title": "PlatformCreate",
@@ -12267,9 +12446,22 @@
             "description": "Associated project ID"
           },
           "name": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name",
-            "description": "Platform name"
+            "description": "Platform name (may be null)"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Display name with fallback to platform type name",
+            "default": ""
           },
           "type": {
             "$ref": "#/components/schemas/PlatformType",
@@ -12304,6 +12496,30 @@
             "title": "Ai Disabled",
             "description": "Whether AI responses are disabled for this platform"
           },
+          "is_supported": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Supported",
+            "description": "Whether this platform type is currently supported"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En",
+            "description": "English name of the platform type"
+          },
           "logo_url": {
             "anyOf": [
               {
@@ -12337,7 +12553,6 @@
           "updated_at",
           "id",
           "project_id",
-          "name",
           "type",
           "is_active",
           "logo_url",
@@ -12397,9 +12612,14 @@
             "description": "Last update timestamp"
           },
           "name": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name",
             "description": "Platform name (e.g., WeChat, WhatsApp)"
           },
@@ -12474,6 +12694,36 @@
             "title": "Ai Disabled",
             "description": "Whether AI responses are disabled for this platform"
           },
+          "is_supported": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Supported",
+            "description": "Whether this platform type is currently supported"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En",
+            "description": "English name of the platform type"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Display name with fallback to platform type name",
+            "default": ""
+          },
           "logo_url": {
             "anyOf": [
               {
@@ -12505,7 +12755,6 @@
         "required": [
           "created_at",
           "updated_at",
-          "name",
           "type",
           "id",
           "project_id",
@@ -12531,7 +12780,6 @@
           "discord",
           "slack",
           "teams",
-          "webchat",
           "phone",
           "douyin",
           "tiktok",
@@ -12569,7 +12817,24 @@
           "name": {
             "type": "string",
             "title": "Name",
-            "description": "Human-readable platform name"
+            "description": "Human-readable platform name (Chinese)"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En",
+            "description": "English name of the platform type"
+          },
+          "is_supported": {
+            "type": "boolean",
+            "title": "Is Supported",
+            "description": "Whether this platform type is currently supported"
           },
           "icon": {
             "anyOf": [
@@ -12582,6 +12847,12 @@
             ],
             "title": "Icon",
             "description": "SVG icon markup for display"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Localized display name based on request language",
+            "default": ""
           }
         },
         "type": "object",
@@ -12590,7 +12861,8 @@
           "updated_at",
           "id",
           "type",
-          "name"
+          "name",
+          "is_supported"
         ],
         "title": "PlatformTypeDefinitionResponse",
         "description": "Schema describing platform type metadata."
@@ -13140,6 +13412,11 @@
             "title": "Has Llm Config",
             "description": "Whether at least one LLM provider is configured and enabled"
           },
+          "skip_llm_config": {
+            "type": "boolean",
+            "title": "Skip Llm Config",
+            "description": "Whether LLM configuration step was explicitly skipped"
+          },
           "setup_completed_at": {
             "anyOf": [
               {
@@ -13158,10 +13435,39 @@
         "required": [
           "is_installed",
           "has_admin",
-          "has_llm_config"
+          "has_llm_config",
+          "skip_llm_config"
         ],
         "title": "SetupStatusResponse",
         "description": "Response schema for setup status check."
+      },
+      "SkipLLMConfigResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Success message for skip LLM operation"
+          },
+          "is_installed": {
+            "type": "boolean",
+            "title": "Is Installed",
+            "description": "Updated installation status after skipping LLM configuration"
+          },
+          "setup_completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Setup Completed At",
+            "description": "Timestamp when setup was marked as completed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "is_installed",
+          "setup_completed_at"
+        ],
+        "title": "SkipLLMConfigResponse",
+        "description": "Response schema for skipping LLM configuration during setup."
       },
       "StaffCreate": {
         "properties": {
@@ -13523,6 +13829,63 @@
         "type": "object",
         "title": "StaffUpdate",
         "description": "Schema for updating a staff member."
+      },
+      "SystemInfoResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Application version"
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment",
+            "description": "Current runtime environment"
+          },
+          "api_version": {
+            "type": "string",
+            "title": "Api Version",
+            "description": "API version (e.g., v1)"
+          },
+          "python_version": {
+            "type": "string",
+            "title": "Python Version",
+            "description": "Python runtime version"
+          },
+          "build_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Time",
+            "description": "Build time in ISO8601 format or similar, if available"
+          },
+          "git_commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Git Commit",
+            "description": "Git commit hash for the running build, if available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "environment",
+          "api_version",
+          "python_version"
+        ],
+        "title": "SystemInfoResponse",
+        "description": "Response schema for system information endpoint."
       },
       "TagCategory": {
         "type": "string",

@@ -102,8 +102,7 @@ class Settings(BaseSettings):
     )
     INTERNAL_CORS_ORIGINS: List[str] = Field(
         default_factory=lambda: [
-            "http://localhost:*",
-            "http://127.0.0.1:*",
+            "*",
         ],
         description="List of allowed CORS origins for internal services"
     )
@@ -317,14 +316,15 @@ class Settings(BaseSettings):
         gt=0
     )
     ALLOWED_FILE_TYPES: List[str] = Field(
-        default_factory=lambda: [
-            "image/jpeg",
-            "image/png",
-            "image/gif",
-            "image/webp",
-            "application/pdf",
-            "text/plain",
-        ],
+        # default_factory=lambda: [
+        #     "image/jpeg",
+        #     "image/png",
+        #     "image/gif",
+        #     "image/webp",
+        #     "application/pdf",
+        #     "text/plain",
+        # ],
+        default_factory=lambda: [],
         description="Allowed file MIME types"
     )
 
@@ -339,10 +339,11 @@ class Settings(BaseSettings):
         gt=0,
     )
     ALLOWED_UPLOAD_EXTENSIONS: List[str] = Field(
-        default_factory=lambda: [
-            "jpg", "jpeg", "png", "gif", "webp",
-            "pdf", "doc", "docx", "txt", "zip",
-        ],
+        # default_factory=lambda: [
+        #     "jpg", "jpeg", "png", "gif", "webp",
+        #     "pdf", "doc", "docx", "txt", "zip",
+        # ],
+        default_factory=lambda: [],
         description="Allowed file extensions for uploads",
     )
 

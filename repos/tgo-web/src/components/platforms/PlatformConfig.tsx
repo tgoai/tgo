@@ -295,6 +295,8 @@ const PlatformConfig: React.FC<PlatformConfigProps> = ({ platform, onUpdate, onT
 
   const isEnabled = platform.status === 'connected';
 
+  const displayName = platform.display_name || platform.name;
+
   return (
     <main className="flex-grow flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
@@ -302,7 +304,7 @@ const PlatformConfig: React.FC<PlatformConfigProps> = ({ platform, onUpdate, onT
         <div className="flex items-center space-x-3">
           <Webhook className="w-6 h-6 text-purple-600" />
           <h2 className="text-lg font-semibold text-gray-800">
-            {t('platforms.config.header.title', '{{name}} 配置', { name: platform.name })}
+            {t('platforms.config.header.title', '{{name}} 配置', { name: displayName })}
           </h2>
         </div>
         <div className="flex items-center space-x-3">

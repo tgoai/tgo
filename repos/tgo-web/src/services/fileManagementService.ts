@@ -7,6 +7,7 @@ import { KnowledgeBaseApiService, isAuthenticated } from './knowledgeBaseApi';
 import { transformFilesToKnowledgeFiles } from '@/utils/knowledgeBaseTransforms';
 import { uploadFileWithProgress, type UploadProgressEvent } from './fileUploadService';
 import type { KnowledgeFile } from '@/types';
+import { useOnboardingStore } from '@/stores/onboardingStore';
 
 export interface FileUploadProgress {
   fileId: string;
@@ -159,6 +160,13 @@ export class FileManagementService {
       this.setState({
         files: [newFile, ...this.state.files],
       });
+
+      // Mark onboarding task as completed
+      try {
+        useOnboardingStore.getState().markTaskCompleted('knowledgeBaseUploaded');
+      } catch (error) {
+        console.error('Failed to mark onboarding task completed:', error);
+      }
 
       // Remove from upload progress immediately after success
       const updatedProgress = new Map(this.state.uploadProgress);

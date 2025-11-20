@@ -24,16 +24,16 @@ This module serves as the main entry point for Celery tasks while delegating
 specific functionality to specialized modules for better maintainability.
 """
 
-import logging
 from typing import Any, Dict
 from uuid import UUID
 
 from .celery_app import celery_app
 from .document_processing_core import process_file_async
 from .document_processing_errors import ProcessingStatus
+from ..logging_config import get_logger
 
 # Configure logger with structured formatting
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @celery_app.task(bind=True, name="process_file_task")

@@ -85,6 +85,14 @@ export interface SetupStatusResponse {
 }
 
 /**
+ * Response schema for skipping LLM configuration
+ */
+export interface SkipLLMResponse {
+  message: string;
+  skipped: boolean;
+}
+
+/**
  * Setup API Service Class
  */
 class SetupApiService extends BaseApiService {
@@ -92,6 +100,7 @@ class SetupApiService extends BaseApiService {
     status: '/v1/setup/status',
     admin: '/v1/setup/admin',
     llmConfig: '/v1/setup/llm-config',
+    skipLLM: '/v1/setup/skip-llm',
     verify: '/v1/setup/verify',
   } as const;
 
@@ -119,6 +128,14 @@ class SetupApiService extends BaseApiService {
    */
   async configureLLM(data: ConfigureLLMRequest): Promise<ConfigureLLMResponse> {
     return this.post<ConfigureLLMResponse>(this.endpoints.llmConfig, data);
+  }
+
+  /**
+   * Skip LLM configuration
+   * POST /v1/setup/skip-llm
+   */
+  async skipLLM(): Promise<SkipLLMResponse> {
+    return this.post<SkipLLMResponse>(this.endpoints.skipLLM, {});
   }
 
   /**

@@ -28,7 +28,6 @@ class PlatformType(str, Enum):
     DISCORD = "discord"
     SLACK = "slack"
     TEAMS = "teams"
-    WEBCHAT = "webchat"
     PHONE = "phone"
     DOUYIN = "douyin"
     TIKTOK = "tiktok"
@@ -55,6 +54,17 @@ class PlatformTypeDefinition(Base):
         String(100),
         nullable=False,
         comment="Human-readable platform name"
+    )
+    name_en: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="English name of the platform type (e.g., 'WeCom', 'Website')",
+    )
+    is_supported: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        comment="Whether this platform type is currently supported",
     )
     icon: Mapped[Optional[str]] = mapped_column(
         Text,
@@ -110,9 +120,9 @@ class Platform(Base):
     )
 
     # Basic fields
-    name: Mapped[str] = mapped_column(
+    name: Mapped[Optional[str]] = mapped_column(
         String(100),
-        nullable=False,
+        nullable=True,
         comment="Platform name (e.g., WeChat, WhatsApp)"
     )
     type: Mapped[str] = mapped_column(
@@ -226,6 +236,22 @@ class Platform(Base):
     def icon(self) -> Optional[str]:
         """Return SVG icon markup for the platform type, when available."""
         return self.platform_type.icon if self.platform_type else None
+
+    @property
+    def is_supported(self) -> Optional[bool]:
+        """Whether this platform type is currently supported.
+
+        Delegates to the related PlatformTypeDefinition when available.
+        """
+        return self.platform_type.is_supported if self.platform_type else None
+
+    @property
+    def name_en(self) -> Optional[str]:
+        """English name of the platform type.
+
+        Delegates to the related PlatformTypeDefinition when available.
+        """
+        return self.platform_type.name_en if self.platform_type else None
 
 
 # --- SQLAlchemy event listeners to trigger synchronization ---

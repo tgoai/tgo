@@ -103,32 +103,42 @@ const PlatformTypeSelector: React.FC<PlatformTypeSelectorProps> = ({ open, onClo
 
           {!isLoading && !error && (
             <div className="grid grid-cols-2 gap-3">
-              {types?.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => onSelect({ type: t.type, name: t.name })}
-                  className="p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/50 transition flex items-start gap-3 text-left"
-                >
-                  {/* Icon based on platform type (react-icons) */}
-                  {(() => {
-                    const type = toPlatformType(t.type as any);
-                    const IconComp = getPlatformIconComponent(type);
-                    return (
-                      <span className="w-8 h-8 rounded bg-gray-50 flex items-center justify-center">
-                        <IconComp
-                          size={20}
-                          className={` ${getPlatformColor(type)}`}
-                        />
-                      </span>
-                    );
-                  })()}
-                  <div>
-                    <div className="text-sm font-medium text-gray-800">{t.name}</div>
-                    <div className="text-xs text-gray-500">{t.type}</div>
-                  </div>
-                </button>
-              ))}
-              {!types?.length && (
+              {types
+                ?.filter((platformType) => platformType.is_supported !== false) // Only show supported types
+                .map((platformType) => {
+                  const displayName = platformType.display_name || platformType.name;
+
+                  return (
+                    <button
+                      key={platformType.id}
+                      onClick={() => {
+                        onSelect({ type: platformType.type, name: platformType.name });
+                      }}
+                      className="p-3 border border-gray-200 rounded-lg transition flex items-start gap-3 text-left hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer"
+                    >
+                      {/* Icon based on platform type (react-icons) */}
+                      {(() => {
+                        const type = toPlatformType(platformType.type as any);
+                        const IconComp = getPlatformIconComponent(type);
+                        return (
+                          <span className="w-8 h-8 rounded flex items-center justify-center bg-gray-50">
+                            <IconComp
+                              size={20}
+                              className={getPlatformColor(type)}
+                            />
+                          </span>
+                        );
+                      })()}
+                      <div>
+                        <div className="text-sm font-medium text-gray-800">
+                          {displayName}
+                        </div>
+                        <div className="text-xs text-gray-500">{platformType.type}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              {!types?.filter((platformType) => platformType.is_supported !== false).length && (
                 <div className="col-span-2 text-center text-gray-500 py-8 text-sm">
                   {t('platforms.typeSelector.emptyTypes', '暂无可用平台类型')}
                 </div>

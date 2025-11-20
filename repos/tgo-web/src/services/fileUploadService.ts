@@ -5,6 +5,19 @@
 
 import { apiClient } from './api';
 import type { FileResponse } from './knowledgeBaseApi';
+import i18n from '../i18n';
+
+/**
+ * Get current user language for API requests
+ */
+const getCurrentLanguage = (): string => {
+  try {
+    const lang = i18n.language || 'zh';
+    return lang.split('-')[0];
+  } catch {
+    return 'zh';
+  }
+};
 
 export interface UploadProgressEvent {
   fileId: string;
@@ -211,6 +224,9 @@ export const uploadFileWithProgress = (
     if (token) {
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
+
+    // Add user language header
+    xhr.setRequestHeader('X-User-Language', getCurrentLanguage());
 
     // Start upload
     xhr.send(formData);

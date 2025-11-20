@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/useToast';
 import { showApiError, showFileSuccess, showFileError } from '@/utils/toastHelpers';
 import type { KnowledgeBase, KnowledgeFile } from '@/types';
 import { useTranslation } from 'react-i18next';
+import ProjectConfigApiService from '@/services/projectConfigApi';
+import { useAuthStore } from '@/stores/authStore';
 
 /**
  * Knowledge Base Detail Page Component
@@ -33,10 +35,53 @@ const KnowledgeBaseDetail: React.FC = () => {
   const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
   const [deletingFiles, setDeletingFiles] = useState<Set<string>>(new Set());
 
+  // Embedding model check state
+  const [hasEmbeddingModel, setHasEmbeddingModel] = useState<boolean>(true);
+  const [isCheckingEmbedding, setIsCheckingEmbedding] = useState<boolean>(true);
+
   // File management service
   const fileServiceRef = useRef<FileManagementService | null>(null);
 
+  // Get project ID from auth store
+  const projectId = useAuthStore(state => state.user?.project_id);
 
+
+
+  // Check if embedding model is configured
+  useEffect(() => {
+    const checkEmbeddingModel = async () => {
+      if (!projectId) {
+        console.warn('No project ID available, skipping embedding model check');
+        setIsCheckingEmbedding(false);
+        setHasEmbeddingModel(false);
+        return;
+      }
+
+      setIsCheckingEmbedding(true);
+      try {
+        const configService = new ProjectConfigApiService();
+        const aiConfig = await configService.getAIConfig(projectId);
+
+        // Check if default embedding model is configured
+        const hasEmbedding = !!(aiConfig.default_embedding_provider_id && aiConfig.default_embedding_model);
+        setHasEmbeddingModel(hasEmbedding);
+
+        console.log('Embedding model check:', {
+          hasEmbedding,
+          providerId: aiConfig.default_embedding_provider_id,
+          model: aiConfig.default_embedding_model
+        });
+      } catch (error) {
+        console.error('Failed to check embedding model configuration:', error);
+        // On error, assume no embedding model to be safe
+        setHasEmbeddingModel(false);
+      } finally {
+        setIsCheckingEmbedding(false);
+      }
+    };
+
+    checkEmbeddingModel();
+  }, [projectId]);
 
   // Initialize page and load knowledge base data
   useEffect(() => {
@@ -98,7 +143,7 @@ const KnowledgeBaseDetail: React.FC = () => {
     return () => {
       cleanup?.then(unsubscribe => unsubscribe?.());
     };
-  }, [id, navigate]);
+  }, [id, navigate, t]);
 
   // Handle back navigation
   const handleBack = () => {
@@ -347,6 +392,8 @@ const KnowledgeBaseDetail: React.FC = () => {
               isVisible={isUploadVisible}
               onToggle={handleToggleUpload}
               uploadProgress={uploadProgress}
+              hasEmbeddingModel={hasEmbeddingModel}
+              isCheckingEmbedding={isCheckingEmbedding}
             />
 
             {/* Document List */}

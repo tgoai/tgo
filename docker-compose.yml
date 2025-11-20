@@ -9,8 +9,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-tgo}
       POSTGRES_USER: ${POSTGRES_USER:-tgo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tgo}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    # ports:
+      # - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
@@ -25,8 +25,6 @@ services:
     image: redis:7-alpine
     container_name: tgo-redis
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - ./data/redis:/data
     healthcheck:
@@ -45,12 +43,10 @@ services:
     volumes:
       - ./data/wukongim:/root/wukongim
     ports:
-      - "5001:5001"   # http api
       - "5100:5100"   # tcp
       - "5200:5200"   # websocket
-      - "5300:5300"   # admin
-      - "5172:5172"   # demo
-      - "11110:11110" # cluster
+      # - "5300:5300"   # admin
+      # - "11110:11110" # cluster
     healthcheck:
       test: ["CMD-SHELL", "wget -q -Y off -O /dev/null http://localhost:5001/health > /dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -61,9 +57,6 @@ services:
   kafka:
     image: apache/kafka:latest
     container_name: tgo-api-kafka
-    ports:
-      - "9092:9092"  # INTERNAL for containers
-      - "9094:9094"  # EXTERNAL for host clients
     environment:
       - KAFKA_NODE_ID=1
       - KAFKA_PROCESS_ROLES=broker,controller
@@ -89,31 +82,6 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # Kafka UI
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: tgo-api-kafka-ui
-    ports:
-      - "8088:8080"
-    environment:
-      - KAFKA_CLUSTERS_0_NAME=local
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
-    depends_on:
-      kafka:
-        condition: service_started
-    restart: unless-stopped
-
-  adminer:
-    image: adminer:latest
-    ports:
-      - "8888:8080"
-    environment:
-      - ADMINER_DEFAULT_SERVER=postgres
-      - ADMINER_DESIGN=pepa-linha-dark
-      - ADMINER_PLUGINS=tables-filter tinymce
-    depends_on:
-      postgres:
-        condition: service_healthy
   # RAG Celery worker
   tgo-rag-worker:
     build:
@@ -168,8 +136,6 @@ services:
         condition: service_healthy
       tgo-rag:
         condition: service_started
-    ports:
-      - "5555:5555"
     command: >
       sh -c "poetry run celery -A src.rag_service.tasks.celery_app flower --port=5555"
     restart: unless-stopped
@@ -185,8 +151,6 @@ services:
     depends_on:
       - postgres
       - redis
-    ports:
-      - "${RAG_PORT:-8082}:8082"
     volumes:
       - ./data/tgo-rag/uploads:/app/uploads
 
@@ -210,8 +174,6 @@ services:
         condition: service_started
     command: >
       sh -c "poetry run alembic upgrade head && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8081"
-    ports:
-      - "${AI_PORT:-8002}:8081"
     restart: unless-stopped
 
   # API service
@@ -229,6 +191,9 @@ services:
       - redis
     ports:
       - "${API_PORT:-8000}:8000"
+    volumes:
+      # Persist API uploads (chat files, platform logos, etc.) under unified data directory
+      - ./data/tgo-api/uploads:/app/uploads
     restart: unless-stopped
 
   # Platform service
@@ -244,8 +209,6 @@ services:
       - postgres
       - redis
       - wukongim
-    ports:
-      - "${PLATFORM_PORT:-8003}:8003"
     restart: unless-stopped
 
   # Customer service web (React build -> nginx)

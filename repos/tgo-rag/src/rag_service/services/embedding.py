@@ -7,7 +7,6 @@ Supports:
 """
 
 import asyncio
-import logging
 from abc import abstractmethod
 from enum import Enum
 from typing import List, Optional
@@ -16,8 +15,9 @@ from langchain_openai import OpenAIEmbeddings
 from openai import OpenAI
 
 from ..config import get_settings
+from ..logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class EmbeddingProvider(Enum):

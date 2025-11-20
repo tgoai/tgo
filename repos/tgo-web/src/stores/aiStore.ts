@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { Agent, MCPTool, CreateAgentFormData, FormValidationErrors, AgentQueryParams, ToolSummary } from '@/types';
 import { AIAgentsApiService, AIAgentsTransformUtils } from '@/services/aiAgentsApi';
+import { useOnboardingStore } from './onboardingStore';
 
 interface AIState {
   // 智能体相关
@@ -174,6 +175,13 @@ export const useAIStore = create<AIState>()(
               false,
               'createAgent:success'
             );
+
+            // Mark onboarding task as completed
+            try {
+              useOnboardingStore.getState().markTaskCompleted('agentCreated');
+            } catch (error) {
+              console.error('Failed to mark onboarding task completed:', error);
+            }
 
             // 重置表单
             get().resetCreateAgentForm();

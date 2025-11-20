@@ -2,11 +2,9 @@
 Authentication dependencies for API key-based multi-tenant access.
 """
 
-import logging
 from typing import Optional
 from uuid import UUID
 
-import structlog
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import APIKeyHeader
 from sqlalchemy import select
@@ -14,12 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
 from ..database import get_db_session_dependency
-from ..dev_utils import validate_development_api_key_usage
+from ..logging_config import get_logger
 from ..models.projects import Project
 from .models import ApiKeyValidationResult, ProjectAccess
 from .security import SecurityAuditLogger
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 # Define the API key security scheme for OpenAPI documentation
 api_key_header = APIKeyHeader(
@@ -75,30 +73,6 @@ async def validate_api_key(
     user_agent = request.headers.get("user-agent") if request else None
 
     try:
-        # First, validate development API key usage restrictions
-        is_dev_key_valid, dev_key_error = validate_development_api_key_usage(api_key)
-
-        if not is_dev_key_valid:
-            # Log security violation for development key misuse
-            SecurityAuditLogger.log_api_key_validation(
-                api_key_prefix=api_key_prefix,
-                project_id=None,
-                success=False,
-                ip_address=ip_address,
-                user_agent=user_agent
-            )
-            SecurityAuditLogger.log_security_violation(
-                violation_type="development_api_key_misuse",
-                details=f"Development API key used in non-development environment: {dev_key_error}",
-                api_key_prefix=api_key_prefix,
-                ip_address=ip_address
-            )
-
-            return ApiKeyValidationResult(
-                is_valid=False,
-                error=dev_key_error
-            )
-
         # Query project by API key
         query = select(Project).where(
             Project.api_key == api_key,

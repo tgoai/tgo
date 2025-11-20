@@ -13,7 +13,6 @@ Key Components:
 - Error handling utilities for graceful failure recovery
 """
 
-import logging
 from enum import Enum
 from typing import Optional
 from uuid import UUID
@@ -22,9 +21,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..database import get_db_session
+from ..logging_config import get_logger
 from ..models import File
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ProcessingStep(Enum):

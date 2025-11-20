@@ -2,7 +2,6 @@
 Collections management endpoints.
 """
 
-import logging
 from typing import List, Optional
 from uuid import UUID
 
@@ -12,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db_session_dependency
+from ..logging_config import get_logger
 from ..models import Collection, FileDocument, File as FileModel
 from ..schemas.collections import (
     CollectionBatchRequest,
@@ -30,8 +30,7 @@ from ..schemas.search import SearchResponse
 from ..services.search import get_search_service
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @router.get(

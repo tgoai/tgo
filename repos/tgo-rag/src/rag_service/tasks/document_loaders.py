@@ -19,7 +19,6 @@ Supported File Types:
 - Other: MimeTypeBasedParser with TextParser fallback
 """
 
-import logging
 import os
 from typing import Any, List
 
@@ -29,6 +28,7 @@ from langchain_community.document_loaders.parsers.msword import MsWordParser
 from langchain_community.document_loaders.parsers.txt import TextParser
 from langchain_community.document_loaders.generic import GenericLoader
 
+from ..logging_config import get_logger
 from .document_processing_errors import DocumentProcessingError, ProcessingStep
 from .document_processing_types import (
     DocumentLoader as DocumentLoaderProtocol,
@@ -37,7 +37,7 @@ from .document_processing_types import (
     PARSER_MAPPING
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def get_document_loader(file_path: str, content_type: str, file_id: str) -> GenericLoader:

@@ -25,7 +25,8 @@ const PlatformManagement: React.FC = () => {
       hasAttemptedInit.current = true;
       initializePlatformStore();
     }
-  }, [initializePlatformStore, isLoading, loadError, platforms.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, loadError, platforms.length]); // Don't include initializePlatformStore (it's a stable store function)
 
   return (
     <div className="flex h-full w-full">

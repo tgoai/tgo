@@ -2,7 +2,6 @@
 Embedding configuration endpoints (no authentication required).
 """
 
-import logging
 from typing import List
 from uuid import UUID
 
@@ -11,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_session_dependency
+from ..logging_config import get_logger
 from ..models.embedding_config import EmbeddingConfig
 from ..schemas.embedding_config import (
     EmbeddingConfigBatchSyncRequest,
@@ -20,7 +20,7 @@ from ..schemas.embedding_config import (
 )
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @router.post(

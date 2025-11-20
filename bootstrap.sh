@@ -53,14 +53,21 @@ check_prereqs() {
 main() {
   check_prereqs
 
-  # If we're already inside a tgo-deploy working dir, just run deploy.sh
+  # If we're already inside a tgo-deploy working dir, run tgo.sh install
+  if [ -f "./tgo.sh" ] && [ -f "./docker-compose.yml" ]; then
+    echo "[INFO] Detected existing tgo-deploy checkout in $(pwd). Running ./tgo.sh install..."
+    ./tgo.sh install
+    return
+  fi
+
+  # Backward compatibility: legacy deploy.sh
   if [ -f "./deploy.sh" ] && [ -f "./docker-compose.yml" ]; then
-    echo "[INFO] Detected existing tgo-deploy checkout in $(pwd). Running deploy.sh..."
+    echo "[INFO] Detected legacy deploy.sh in $(pwd). Running bash ./deploy.sh..."
     bash ./deploy.sh
     return
   fi
 
-  # Otherwise, clone the repo to DIR and run deploy.sh
+  # Otherwise, clone the repo to DIR and run tgo.sh install
   if [ -d "$DIR/.git" ]; then
     echo "[OK] Repository already present: $DIR"
   else
@@ -74,8 +81,16 @@ main() {
     git -C "$DIR" checkout -q "$REF"
   fi
 
-  echo "[RUN] bash $DIR/deploy.sh"
-  bash "$DIR/deploy.sh"
+  if [ -f "$DIR/tgo.sh" ]; then
+    echo "[RUN] (cd $DIR && ./tgo.sh install)"
+    (cd "$DIR" && ./tgo.sh install)
+  elif [ -f "$DIR/deploy.sh" ]; then
+    echo "[RUN] bash $DIR/deploy.sh (legacy)"
+    bash "$DIR/deploy.sh"
+  else
+    echo "[FATAL] Neither tgo.sh nor deploy.sh found in $DIR" >&2
+    exit 1
+  fi
 
   echo "\n[HINT] Use 'docker compose ps' inside $DIR to see status, and 'docker compose logs -f <service>' to tail logs."
 }

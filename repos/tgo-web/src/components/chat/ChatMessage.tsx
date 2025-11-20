@@ -58,12 +58,28 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSuggestionClick })
   const meta: any = message.metadata || {};
   const platformSendError = Boolean(meta.platform_send_error);
   const wsSendError = Boolean(meta.ws_send_error);
-  const hasError = platformSendError || wsSendError;
-  const errorText = (typeof meta.error_text === 'string' && meta.error_text.trim().length > 0)
-    ? meta.error_text
-    : platformSendError
-      ? t('chat.input.errors.platformFailed', '平台消息发送失败，请稍后重试')
-      : (wsSendError ? t('chat.input.errors.websocketFailed', 'WebSocket 发送失败，请检查网络连接') : '');
+  const uploadError = meta.upload_status === 'error';
+  const hasError = platformSendError || wsSendError || uploadError;
+
+  // Determine error text based on error type
+  const getErrorText = () => {
+    if (typeof meta.error_text === 'string' && meta.error_text.trim().length > 0) {
+      return meta.error_text;
+    }
+    if (platformSendError) {
+      return t('chat.input.errors.platformFailed', '平台消息发送失败，请稍后重试');
+    }
+    if (wsSendError) {
+      return t('chat.input.errors.websocketFailed', 'WebSocket 发送失败，请检查网络连接');
+    }
+    if (uploadError) {
+      // Check message type for appropriate upload error message
+      const isImageMsg = message.payloadType === MessagePayloadType.IMAGE || Boolean(meta.image_url || meta.image_preview_url);
+      return isImageMsg ? t('chat.messages.image.uploadFailed', '上传失败') : t('chat.input.upload.failed', '上传失败');
+    }
+    return '';
+  };
+  const errorText = getErrorText();
   const [errorOpen, setErrorOpen] = React.useState(false);
 
   // Sending status indicator

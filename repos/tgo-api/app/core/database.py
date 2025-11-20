@@ -126,6 +126,7 @@ async def init_db() -> None:
             ai_provider,
             ai_model,
             project_ai_config,
+            system_setup,
         )
 
         # Create all tables
