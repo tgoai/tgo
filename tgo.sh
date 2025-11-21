@@ -160,6 +160,59 @@ cmd_install() {
     fi
   fi
 
+  # Create data directories with correct permissions
+  echo "[INFO] Creating data directories..."
+
+  # Determine the target user for directory ownership
+  # If running with sudo, use the actual user; otherwise use current user
+  if [ -n "${SUDO_USER:-}" ]; then
+    TARGET_USER="$SUDO_USER"
+    TARGET_UID=$(id -u "$SUDO_USER")
+    TARGET_GID=$(id -g "$SUDO_USER")
+  else
+    TARGET_USER="${USER:-$(whoami)}"
+    TARGET_UID=$(id -u)
+    TARGET_GID=$(id -g)
+  fi
+
+  # List of data directories to create
+  DATA_DIRS=(
+    "./data/postgres"
+    "./data/redis"
+    "./data/wukongim"
+    "./data/kafka/data"
+    "./data/tgo-rag/uploads"
+    "./data/tgo-api/uploads"
+  )
+
+  # Create directories and set permissions
+  for dir in "${DATA_DIRS[@]}"; do
+    if [ ! -d "$dir" ]; then
+      echo "  Creating $dir..."
+      mkdir -p "$dir"
+    fi
+
+    # Set ownership to target user
+    # Use sudo if we're running as root but want to set ownership to a different user
+    if [ "$(id -u)" -eq 0 ] && [ "$TARGET_UID" -ne 0 ]; then
+      chown -R "$TARGET_UID:$TARGET_GID" "$dir"
+      echo "  Set ownership of $dir to $TARGET_USER ($TARGET_UID:$TARGET_GID)"
+    elif [ "$(id -u)" -eq 0 ]; then
+      # Running as root and target is also root, but we want containers to write
+      # Set to 1000:1000 which is the common non-root user in Docker containers
+      chown -R 1000:1000 "$dir"
+      echo "  Set ownership of $dir to 1000:1000 (Docker default)"
+    else
+      # Not running as root, just ensure directory exists
+      echo "  Directory $dir exists with current user ownership"
+    fi
+
+    # Ensure directory is writable
+    chmod -R 755 "$dir"
+  done
+
+  echo "[INFO] Data directories created and permissions set."
+
   echo "[INFO] Starting core infrastructure (postgres, redis, kafka, wukongim)..."
   docker compose --env-file "$ENV_FILE" $compose_file_args up -d postgres redis kafka wukongim
 
