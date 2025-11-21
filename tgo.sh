@@ -38,8 +38,8 @@ Notes:
 EOF
 }
 
-# Removed: generate_cn_compose_override() function
-# docker-compose.cn.yml is now a static file in the repository
+# Note: docker-compose.cn.yml is now a static file in the repository
+# (no longer auto-generated)
 
 ensure_env_files() {
   if [ ! -f "$ENV_FILE" ]; then
