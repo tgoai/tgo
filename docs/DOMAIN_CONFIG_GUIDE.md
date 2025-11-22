@@ -285,18 +285,18 @@ docker compose up -d
 
 ---
 
-## 更新 API_BASE_URL
+## 更新 VITE_API_BASE_URL
 
 配置域名后，需要更新前端的 API 地址。在 `.env` 中设置：
 
 ```bash
-API_BASE_URL=https://api.talkgo.cn
+VITE_API_BASE_URL=https://api.talkgo.cn
 ```
 
 或者在启动容器时传入：
 
 ```bash
-docker compose -e API_BASE_URL=https://api.talkgo.cn up -d
+docker compose -e VITE_API_BASE_URL=https://api.talkgo.cn up -d
 ```
 
 ---

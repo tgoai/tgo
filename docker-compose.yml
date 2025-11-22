@@ -205,15 +205,12 @@ services:
     image: ghcr.io/tgoai/tgo/tgo-web:latest
     container_name: tgo-web
     environment:
-      # Runtime environment variables (injected by docker-entrypoint.sh)
-      API_BASE_URL: ${API_BASE_URL:-http://tgo-api:8000}
-      DEBUG_MODE: ${DEBUG_MODE:-false}
-      # Frontend environment variables for Nginx
+      # Runtime environment variables (injected by docker-entrypoint.sh into env-config.js)
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://tgo-api:8000}
+      VITE_DEBUG_MODE: ${VITE_DEBUG_MODE:-false}
       VITE_WIDGET_PREVIEW_URL: ${VITE_WIDGET_PREVIEW_URL:-http://localhost/widget}
     env_file:
       - ./envs/tgo-web.env
-    volumes:
-      - ./scripts/inject-frontend-env.sh:/docker-entrypoint.d/05-inject-frontend-env.sh:ro
     restart: unless-stopped
 
   # Widget app (React build -> nginx)
@@ -222,7 +219,7 @@ services:
     container_name: tgo-widget-app
     environment:
       # Runtime environment variables (injected by docker-entrypoint.sh)
-      API_BASE_URL: ${API_BASE_URL:-http://tgo-api:8000}
+      VITE_API_BASE: ${VITE_API_BASE:-http://tgo-api:8000}
     env_file:
       - ./envs/tgo-widget-app.env
     restart: unless-stopped

@@ -21,6 +21,8 @@ Usage: ./tgo.sh <command> [options]
 Commands:
   help                                Show this help message
   install [--source] [--cn]           Deploy all services (migrate, start; default: use pre-built images)
+  up [--source] [--cn]                Start all services (without re-initialization)
+  down [--volumes]                    Stop and remove all service containers
   upgrade [--source] [--cn]           Upgrade to latest version (remembers install mode if no options provided)
   uninstall [--source] [--cn]         Stop and remove all services (prompts for data deletion)
   service <start|stop|remove> [--source] [--cn]
@@ -49,6 +51,9 @@ Notes:
   - Pass --source to build and run services from local source (docker-compose.yml + docker-compose.source.yml).
   - Pass --cn to use China-based mirrors for faster access in mainland China.
   - Options can be combined: ./tgo.sh install --source --cn
+  - The 'install' command performs full initialization and then starts services.
+  - The 'up' command starts services without re-initialization (useful after 'down').
+  - The 'down' command stops all services; use --volumes to also remove data volumes.
 
 Domain Configuration Examples:
   ./tgo.sh config web_domain www.talkgo.cn
@@ -187,6 +192,121 @@ wait_for_postgres() {
   return 1
 }
 
+cmd_up() {
+  local mode="image"
+  local use_cn=false
+  local has_args=false
+
+  # Parse arguments (support --source and --cn in any order)
+  while [ "$#" -gt 0 ]; do
+    has_args=true
+    case "$1" in
+      --source)
+        mode="source"
+        shift
+        ;;
+      --cn)
+        use_cn=true
+        USE_CN_MIRROR=true
+        shift
+        ;;
+      *)
+        echo "[ERROR] Unknown argument to up: $1" >&2
+        usage
+        exit 1
+        ;;
+    esac
+  done
+
+  # If no arguments provided, load saved install mode configuration
+  if [ "$has_args" = false ]; then
+    echo "[INFO] Loading saved install mode configuration..."
+    read -r mode use_cn <<< "$(load_install_mode)"
+    if [ "$use_cn" = "true" ]; then
+      USE_CN_MIRROR=true
+    fi
+  fi
+
+  ensure_env_files
+
+  local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
+  if [ "$mode" = "source" ]; then
+    if [ ! -f "$MAIN_COMPOSE_SOURCE" ]; then
+      echo "[ERROR] $MAIN_COMPOSE_SOURCE not found. Cannot run in --source mode." >&2
+      exit 1
+    fi
+    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
+    echo "[INFO] Starting services in SOURCE mode."
+  else
+    if [ "$use_cn" = true ]; then
+      compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
+      echo "[INFO] Starting services in IMAGE mode (China mirrors)."
+    else
+      echo "[INFO] Starting services in IMAGE mode (GHCR)."
+    fi
+  fi
+
+  echo "[INFO] Starting core infrastructure (postgres, redis, kafka, wukongim)..."
+  docker compose --env-file "$ENV_FILE" $compose_file_args up -d postgres redis kafka wukongim
+
+  wait_for_postgres "$compose_file_args"
+
+  echo "[INFO] Starting all core services..."
+  docker compose --env-file "$ENV_FILE" $compose_file_args up -d
+  echo "[INFO] All services are starting. Use 'docker compose ps' to inspect status."
+}
+
+cmd_down() {
+  local remove_volumes=false
+
+  # Parse arguments
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --volumes)
+        remove_volumes=true
+        shift
+        ;;
+      *)
+        echo "[ERROR] Unknown argument to down: $1" >&2
+        usage
+        exit 1
+        ;;
+    esac
+  done
+
+  ensure_env_files
+
+  # Load saved install mode configuration
+  echo "[INFO] Loading saved install mode configuration..."
+  local mode=""
+  local use_cn=""
+  read -r mode use_cn <<< "$(load_install_mode)"
+
+  # Determine compose file arguments based on saved install mode
+  local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
+  if [ "$mode" = "source" ]; then
+    if [ -f "$MAIN_COMPOSE_SOURCE" ]; then
+      compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
+      echo "[INFO] Using SOURCE mode configuration."
+    fi
+  elif [ "$use_cn" = "true" ]; then
+    if [ -f "$MAIN_COMPOSE_CN" ]; then
+      compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
+      echo "[INFO] Using IMAGE mode with China mirrors configuration."
+    fi
+  else
+    echo "[INFO] Using IMAGE mode with GHCR configuration."
+  fi
+
+  if [ "$remove_volumes" = true ]; then
+    echo "[INFO] Stopping all services and removing containers and volumes..."
+    docker compose --env-file "$ENV_FILE" $compose_file_args down -v
+  else
+    echo "[INFO] Stopping all services and removing containers (data preserved)..."
+    docker compose --env-file "$ENV_FILE" $compose_file_args down
+  fi
+}
+
 cmd_install() {
   local mode="image"
   local use_cn=false
@@ -320,13 +440,27 @@ cmd_install() {
   ensure_domain_config
   regenerate_nginx_config
 
+  # Start services and run migrations
+  echo ""
+  echo "[INFO] Starting services..."
+
+  # Determine compose file arguments for service startup
+  local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
+  if [ "$mode" = "source" ]; then
+    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
+  elif [ "$use_cn" = true ]; then
+    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
+  fi
+
+  # Start core infrastructure services first
   echo "[INFO] Starting core infrastructure (postgres, redis, kafka, wukongim)..."
   docker compose --env-file "$ENV_FILE" $compose_file_args up -d postgres redis kafka wukongim
 
   wait_for_postgres "$compose_file_args"
 
+  # Run database migrations
   echo "[INFO] Running Alembic migrations for tgo-rag..."
-  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm  tgo-rag alembic upgrade head
+  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm tgo-rag alembic upgrade head
 
   echo "[INFO] Running Alembic migrations for tgo-ai..."
   docker compose --env-file "$ENV_FILE" $compose_file_args run --rm tgo-ai alembic upgrade head
@@ -337,7 +471,8 @@ cmd_install() {
   echo "[INFO] Running Alembic migrations for tgo-platform..."
   docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -e PYTHONPATH=. tgo-platform alembic upgrade head
 
-  echo "[INFO] Starting all core services..."
+  # Start all remaining services
+  echo "[INFO] Starting all remaining services..."
   docker compose --env-file "$ENV_FILE" $compose_file_args up -d
   echo "[INFO] All services are starting. Use 'docker compose ps' to inspect status."
 }
@@ -955,6 +1090,8 @@ main() {
   case "$cmd" in
     help|-h|--help) usage ;;
     install) cmd_install "$@" ;;
+    up) cmd_up "$@" ;;
+    down) cmd_down "$@" ;;
     upgrade) cmd_upgrade "$@" ;;
     uninstall) cmd_uninstall "$@" ;;
     service) cmd_service "$@" ;;

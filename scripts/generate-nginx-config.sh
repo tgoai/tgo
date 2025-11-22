@@ -33,6 +33,15 @@ API_DOMAIN=${API_DOMAIN:-localhost}
 
 # Generate nginx configuration
 cat > "$NGINX_CONF_DIR/default.conf" << 'NGINX_CONFIG'
+# Shared routing helpers
+# DNS resolver for dynamic upstreams (Docker internal DNS)
+resolver 127.0.0.11 ipv6=off;
+# Decide which upstream (web vs widget) should serve frontend traffic based on Referer
+map $http_referer $assets_upstream {
+    ~*/widget(/|$)  tgo-widget-app:80;
+    default          tgo-web:80;
+}
+
 # HTTP server block - redirect to HTTPS or serve directly
 server {
     listen 80;
@@ -87,9 +96,21 @@ else
         proxy_redirect off;
     }
 
-    # Web service (default, root path)
+    # Static assets for web and widget apps
+    # Decide upstream (tgo-web vs tgo-widget-app) based on Referer
+    location /assets/ {
+        proxy_pass http://$assets_upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
+    }
+
+    # Web / widget HTML and other resources (root path)
+    # Choose upstream (tgo-web or tgo-widget-app) based on Referer
     location / {
-        proxy_pass http://tgo-web:80;
+        proxy_pass http://$assets_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

@@ -136,14 +136,14 @@ sudo ufw allow 443/tcp
 
 ---
 
-## 更新 API_BASE_URL
+## 更新 VITE_API_BASE_URL
 
 ```bash
 # 在 .env 中设置
-API_BASE_URL=https://api.talkgo.cn
+VITE_API_BASE_URL=https://api.talkgo.cn
 
 # 或在启动时传入
-docker compose -e API_BASE_URL=https://api.talkgo.cn up -d
+docker compose -e VITE_API_BASE_URL=https://api.talkgo.cn up -d
 ```
 
 ---

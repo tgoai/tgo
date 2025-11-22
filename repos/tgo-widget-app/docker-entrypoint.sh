@@ -8,19 +8,19 @@ set -e
 CONFIG_FILE="/usr/share/nginx/html/env-config.js"
 
 # Get environment variables with defaults
-API_BASE_URL="${API_BASE_URL:-http://localhost:8000}"
+VITE_API_BASE="${VITE_API_BASE:-http://localhost:8000}"
 
 # Generate env-config.js with runtime configuration
 cat > "$CONFIG_FILE" << EOF
 // Runtime environment configuration for tgo-widget-app
 // Generated at container startup from environment variables
 window.ENV = {
-  VITE_API_BASE: '$API_BASE_URL',
+  VITE_API_BASE: '$VITE_API_BASE',
 };
 EOF
 
 echo "[INFO] Generated runtime configuration:"
-echo "[INFO]   API_BASE_URL: $API_BASE_URL"
+echo "[INFO]   VITE_API_BASE: $VITE_API_BASE"
 
 # Start Nginx
 exec nginx -g "daemon off;"
