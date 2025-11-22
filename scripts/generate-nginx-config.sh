@@ -64,7 +64,9 @@ else
     cat >> "$NGINX_CONF_DIR/default.conf" << 'NGINX_CONFIG'
 
     # API service (by domain or /api path)
+    # Strip /api prefix when forwarding to backend
     location ~ ^/api(/|$) {
+        rewrite ^/api(/.*)$ $1 break;
         proxy_pass http://tgo-api:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -74,7 +76,9 @@ else
     }
 
     # Widget service (by domain or /widget path)
+    # Strip /widget prefix when forwarding to backend
     location ~ ^/widget(/|$) {
+        rewrite ^/widget(/.*)$ $1 break;
         proxy_pass http://tgo-widget-app:80;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -175,7 +179,9 @@ server {
     ssl_prefer_server_ciphers on;
 
     # API service (by /api path)
+    # Strip /api prefix when forwarding to backend
     location ~ ^/api(/|$) {
+        rewrite ^/api(/.*)$ $1 break;
         proxy_pass http://tgo-api:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -185,7 +191,9 @@ server {
     }
 
     # Widget service (by /widget path)
+    # Strip /widget prefix when forwarding to backend
     location ~ ^/widget(/|$) {
+        rewrite ^/widget(/.*)$ $1 break;
         proxy_pass http://tgo-widget-app:80;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

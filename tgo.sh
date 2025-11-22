@@ -267,7 +267,7 @@ cmd_install() {
     "./data/wukongim"
     "./data/kafka/data"
     "./data/tgo-rag/uploads"
-    "./data/tgo-api/uploads",
+    "./data/tgo-api/uploads"
     "./data/nginx"
   )
 

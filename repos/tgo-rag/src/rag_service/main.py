@@ -72,32 +72,6 @@ async def lifespan(app: FastAPI):
         await init_database()
         log_startup_success("Database initialized successfully")
 
-        # Set up development environment if needed
-        if settings.environment.lower() == "development":
-            log_startup_step("Setting up development environment...")
-            # Check if development project was created
-            from .dev_utils import DEV_API_KEY
-            from .database import get_db_session
-            from .models.projects import Project
-            from sqlalchemy import select
-
-            async with get_db_session() as db:
-                query = select(Project).where(Project.api_key == DEV_API_KEY)
-                result = await db.execute(query)
-                existing_project = result.scalar_one_or_none()
-
-
-            # Check if project was created during setup
-            async with get_db_session() as db:
-                query = select(Project).where(Project.api_key == DEV_API_KEY)
-                result = await db.execute(query)
-                project_after = result.scalar_one_or_none()
-
-            if not existing_project and project_after:
-                dev_project_created = True
-                log_startup_success("Development project created successfully")
-            elif existing_project:
-                log_startup_success("Development project already exists")
 
         # TODO: Initialize other services (Redis, Vector DB, etc.)
         log_startup_step("Initializing additional services...")

@@ -150,9 +150,6 @@ backups/
 *.db
 *.sqlite3
 
-# Alembic
-alembic/versions/*.py
-!alembic/versions/.gitkeep
 
 
 # Temporary files
