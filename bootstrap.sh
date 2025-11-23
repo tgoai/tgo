@@ -472,6 +472,34 @@ check_prereqs() {
   fi
 }
 
+# ---------- Image tag helpers ----------
+update_image_tags() {
+  local image_tag="$1"
+  local compose_main="$DIR/docker-compose.yml"
+  local compose_cn="$DIR/docker-compose.cn.yml"
+
+  echo "[INFO] Setting Docker image tags to '$image_tag' for TGO application services..."
+
+  if [ -f "$compose_main" ]; then
+    echo "[INFO] Updating $compose_main ..."
+    sed -i.bak -E "s#(ghcr.io/tgoai/tgo/tgo-[^:]+:)[^[:space:]]+#\1${image_tag}#g" "$compose_main" || {
+      echo "[WARN] Failed to update image tags in $compose_main"
+    }
+  else
+    echo "[INFO] $compose_main not found; skipping."
+  fi
+
+  if [ -f "$compose_cn" ]; then
+    echo "[INFO] Updating $compose_cn ..."
+    sed -i.bak -E "s#(registry.cn-shanghai.aliyuncs.com/tgoai/tgo-[^:]+:)[^[:space:]]+#\1${image_tag}#g" "$compose_cn" || {
+      echo "[WARN] Failed to update image tags in $compose_cn"
+    }
+  else
+    echo "[INFO] $compose_cn not found; skipping."
+  fi
+}
+
+
 # ---------- Main ----------
 main() {
   check_prereqs
@@ -513,10 +541,38 @@ main() {
     git clone --depth=1 "$REPO" "$DIR"
   fi
 
-  if [ -n "$REF" ]; then
-    echo "[CHECKOUT] $REF"
-    git -C "$DIR" fetch --depth=1 origin "$REF" || true
-    git -C "$DIR" checkout -q "$REF"
+  # Determine which git ref to checkout when REF is provided
+  resolved_ref="${REF:-}"
+  if [ "$resolved_ref" = "latest" ]; then
+    echo "[INFO] REF=latest specified. Resolving latest git tag..."
+    if git -C "$DIR" fetch --tags --quiet; then
+      latest_tag="$(git -C "$DIR" tag --list 'v*' | sort -V | tail -n 1)"
+      if [ -n "$latest_tag" ]; then
+        echo "[INFO] Latest tag detected: $latest_tag"
+        resolved_ref="$latest_tag"
+      else
+        echo "[WARN] No version tags (v*) found. Falling back to default branch."
+        resolved_ref=""
+      fi
+    else
+      echo "[WARN] Failed to fetch tags. Falling back to default branch."
+      resolved_ref=""
+    fi
+  fi
+
+  if [ -n "$resolved_ref" ]; then
+    echo "[CHECKOUT] $resolved_ref"
+    git -C "$DIR" fetch --depth=1 origin "$resolved_ref" || true
+    git -C "$DIR" checkout -q "$resolved_ref"
+  fi
+
+  # Adjust Docker image tags based on REF semantics
+  if [ "${REF:-}" = "latest" ]; then
+    # For REF=latest, use 'latest' image tag regardless of resolved git tag
+    update_image_tags "latest"
+  elif [ -n "${REF:-}" ]; then
+    # For specific ref (e.g. v1.0.0), use that as image tag
+    update_image_tags "$REF"
   fi
 
   if [ -f "$DIR/tgo.sh" ]; then
