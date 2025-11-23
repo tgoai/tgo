@@ -18,8 +18,8 @@ const config: Config = {
   // 例如：托管在 https://tgoai.github.io/tgo/ 时：
   // url: 'https://tgoai.github.io',
   // baseUrl: '/tgo/',
-  url: 'https://tgoai.github.io',
-  baseUrl: '/tgo/',
+  url: 'https://docs.tgo.ai',
+  baseUrl: '/',
 
   // GitHub Pages 部署相关配置（请按实际仓库替换）
   organizationName: 'tgoai', // GitHub org/user
