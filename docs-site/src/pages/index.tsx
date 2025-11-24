@@ -163,7 +163,7 @@ function HomepageHeader() {
           <div className={styles.buttons}>
             <Link
               className="button button--primary button--lg"
-              to="/docs/quick-start">
+              to="/quick-start">
               开启免费试用
             </Link>
             <Link
