@@ -32,11 +32,15 @@ jobs:
         working-directory: ./docs-site
         run: npm run build
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy to tgoai.github.io repository
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # 需要在当前仓库 Settings → Secrets and variables → Actions 中
+          # 创建 PERSONAL_TOKEN（具有 repo 权限的 PAT （Settings → Developer settings → Personal access tokens -> New personal access token -> repo 权限）），用于推送到 tgoai.github.io 仓库
+          personal_token: ${{ secrets.PERSONAL_TOKEN }}
+          external_repository: tgoai/tgoai.github.io
+          publish_branch: main
           publish_dir: ./docs-site/build
-          # 如果使用自定义域名，可以在 docs-site/static/CNAME 中设置
+         
 
 
