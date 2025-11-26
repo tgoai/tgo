@@ -292,7 +292,17 @@ configure_server_host() {
   echo "    - 192.168.1.100 (private IP)"
   echo "    - www.example.com (domain)"
   echo ""
-  read -r -p "Server host [$default_host]: " user_input
+  
+  # Read from /dev/tty to ensure we get input from terminal even when piped
+  local user_input=""
+  if [ -t 0 ]; then
+    # stdin is a terminal, read normally
+    read -r -p "Server host [$default_host]: " user_input
+  else
+    # stdin is not a terminal (piped), read from /dev/tty
+    printf "Server host [$default_host]: "
+    read -r user_input < /dev/tty
+  fi
   
   # Use default if empty
   local server_host="${user_input:-$default_host}"
