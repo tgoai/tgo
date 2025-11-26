@@ -291,15 +291,15 @@ const SetupWizard: React.FC = () => {
   const renderAdminStep = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
           {t('setup.admin.title')}
         </h2>
-        <p className="text-sm text-gray-600">{t('setup.admin.description')}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{t('setup.admin.description')}</p>
       </div>
 
       {/* Username */}
       <div>
-        <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
           {t('setup.admin.username')}
         </label>
         <input
@@ -308,20 +308,20 @@ const SetupWizard: React.FC = () => {
           name="username"
           value={adminData.username}
           onChange={handleAdminInputChange}
-          className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            errors.username ? 'border-red-300 bg-red-50' : 'border-gray-300'
+          className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${
+            errors.username ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950' : 'border-gray-300 dark:border-gray-600'
           }`}
           placeholder={t('setup.admin.usernamePlaceholder')}
           disabled={isLoading}
         />
         {errors.username && (
-          <p className="mt-1 text-xs text-red-600">{errors.username}</p>
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.username}</p>
         )}
       </div>
 
       {/* Password */}
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
           {t('setup.admin.password')}
         </label>
         <div className="relative">
@@ -331,8 +331,8 @@ const SetupWizard: React.FC = () => {
             name="password"
             value={adminData.password}
             onChange={handleAdminInputChange}
-            className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'
+            className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${
+              errors.password ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950' : 'border-gray-300 dark:border-gray-600'
             }`}
             placeholder={t('setup.admin.passwordPlaceholder')}
             disabled={isLoading}
@@ -340,19 +340,19 @@ const SetupWizard: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
           >
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
         {errors.password && (
-          <p className="mt-1 text-xs text-red-600">{errors.password}</p>
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.password}</p>
         )}
       </div>
 
       {/* Confirm Password */}
       <div>
-        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
           {t('setup.admin.confirmPassword')}
         </label>
         <div className="relative">
@@ -362,8 +362,8 @@ const SetupWizard: React.FC = () => {
             name="confirmPassword"
             value={adminData.confirmPassword}
             onChange={handleAdminInputChange}
-            className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.confirmPassword ? 'border-red-300 bg-red-50' : 'border-gray-300'
+            className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${
+              errors.confirmPassword ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950' : 'border-gray-300 dark:border-gray-600'
             }`}
             placeholder={t('setup.admin.confirmPasswordPlaceholder')}
             disabled={isLoading}
@@ -371,13 +371,13 @@ const SetupWizard: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
           >
             {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
         {errors.confirmPassword && (
-          <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.confirmPassword}</p>
         )}
       </div>
     </div>
@@ -387,17 +387,17 @@ const SetupWizard: React.FC = () => {
   const renderLLMStep = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
           {t('setup.llm.title')}
         </h2>
-        <p className="text-sm text-gray-600">
-          {t('setup.llm.description')} <span className="text-gray-400">{t('setup.llm.optional')}</span>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          {t('setup.llm.description')} <span className="text-gray-400 dark:text-gray-500">{t('setup.llm.optional')}</span>
         </p>
       </div>
 
       {/* Provider Selection */}
       <div>
-        <label htmlFor="provider" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="provider" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
           {t('setup.llm.provider')}
         </label>
         <select
@@ -405,7 +405,7 @@ const SetupWizard: React.FC = () => {
           name="provider"
           value={llmData.provider}
           onChange={handleLLMInputChange}
-          className="w-full px-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
           disabled={isLoading}
         >
           <option value="none">{t('setup.llm.providers.none')}</option>
@@ -422,7 +422,7 @@ const SetupWizard: React.FC = () => {
         <>
           {/* Display Name */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
               {t('setup.llm.name', 'Display Name')}
             </label>
             <input
@@ -431,21 +431,21 @@ const SetupWizard: React.FC = () => {
               name="name"
               value={llmData.name}
               onChange={handleLLMInputChange}
-              className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${
+                errors.name ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950' : 'border-gray-300 dark:border-gray-600'
               }`}
               placeholder={t('setup.llm.namePlaceholder', 'e.g., My OpenAI Provider')}
               disabled={isLoading}
             />
             {errors.name && (
-              <p className="mt-1 text-xs text-red-600">{errors.name}</p>
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.name}</p>
             )}
           </div>
 
           {/* API Key */}
           {llmData.provider !== 'local' && (
             <div>
-              <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                 {t('setup.llm.apiKey')}
               </label>
               <div className="relative">
@@ -455,8 +455,8 @@ const SetupWizard: React.FC = () => {
                   name="apiKey"
                   value={llmData.apiKey}
                   onChange={handleLLMInputChange}
-                  className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.apiKey ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${
+                    errors.apiKey ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950' : 'border-gray-300 dark:border-gray-600'
                   }`}
                   placeholder={t('setup.llm.apiKeyPlaceholder')}
                   disabled={isLoading}
@@ -464,20 +464,20 @@ const SetupWizard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                 >
                   {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
               {errors.apiKey && (
-                <p className="mt-1 text-xs text-red-600">{errors.apiKey}</p>
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.apiKey}</p>
               )}
             </div>
           )}
 
           {/* API Base URL */}
           <div>
-            <label htmlFor="apiBaseUrl" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="apiBaseUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
               {t('setup.llm.apiEndpoint')}
             </label>
             <input
@@ -486,7 +486,7 @@ const SetupWizard: React.FC = () => {
               name="apiBaseUrl"
               value={llmData.apiBaseUrl}
               onChange={handleLLMInputChange}
-              className="w-full px-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
               placeholder={t('setup.llm.apiEndpointPlaceholder')}
               disabled={isLoading}
             />
@@ -494,7 +494,7 @@ const SetupWizard: React.FC = () => {
 
           {/* Default Model */}
           <div>
-            <label htmlFor="defaultModel" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="defaultModel" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
               {t('setup.llm.model')}
             </label>
             <input
@@ -503,7 +503,7 @@ const SetupWizard: React.FC = () => {
               name="defaultModel"
               value={llmData.defaultModel}
               onChange={handleLLMInputChange}
-              className="w-full px-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
               placeholder={t('setup.llm.modelPlaceholder')}
               disabled={isLoading}
             />
@@ -517,30 +517,30 @@ const SetupWizard: React.FC = () => {
   const renderVerifyStep = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
           {t('setup.verify.title')}
         </h2>
-        <p className="text-sm text-gray-600">{t('setup.verify.description')}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{t('setup.verify.description')}</p>
       </div>
 
       {/* Installation Summary */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-        <h3 className="text-sm font-semibold text-blue-900 mb-3">
+      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4 space-y-2">
+        <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-3">
           {t('setup.verify.summary')}
         </h3>
-        <div className="flex items-center text-sm text-blue-800">
-          <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+        <div className="flex items-center text-sm text-blue-800 dark:text-blue-300">
+          <CheckCircle className="w-4 h-4 mr-2 text-green-600 dark:text-green-400" />
           {t('setup.verify.adminCreated')}: <span className="font-medium ml-1">{adminData.username}</span>
         </div>
-        <div className="flex items-center text-sm text-blue-800">
+        <div className="flex items-center text-sm text-blue-800 dark:text-blue-300">
           {llmData.provider !== 'none' ? (
             <>
-              <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+              <CheckCircle className="w-4 h-4 mr-2 text-green-600 dark:text-green-400" />
               {t('setup.verify.llmConfigured')}: <span className="font-medium ml-1">{llmData.provider}</span>
             </>
           ) : (
             <>
-              <XCircle className="w-4 h-4 mr-2 text-yellow-600" />
+              <XCircle className="w-4 h-4 mr-2 text-yellow-600 dark:text-yellow-400" />
               {t('setup.verify.llmNotConfigured')}
             </>
           )}
@@ -548,15 +548,15 @@ const SetupWizard: React.FC = () => {
       </div>
 
       {/* System Checks */}
-      <div className="border border-gray-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
           {t('setup.verify.checks.title')}
         </h3>
 
         {isVerifying ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
-            <span className="text-sm text-gray-600">{t('setup.verify.verifying')}</span>
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400 mr-2" />
+            <span className="text-sm text-gray-600 dark:text-gray-400">{t('setup.verify.verifying')}</span>
           </div>
         ) : verificationStatus ? (
           <div className="space-y-3">
@@ -565,17 +565,17 @@ const SetupWizard: React.FC = () => {
               const result = checkResult as SetupCheckResult;
               return (
                 <div key={checkName} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700 capitalize">{checkName}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{checkName}</span>
                   <div className="flex items-center">
                     {result.passed ? (
                       <>
-                        <CheckCircle className="w-4 h-4 text-green-600 mr-1" />
-                        <span className="text-xs text-green-600">{t('setup.verify.checks.status.success')}</span>
+                        <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 mr-1" />
+                        <span className="text-xs text-green-600 dark:text-green-400">{t('setup.verify.checks.status.success')}</span>
                       </>
                     ) : (
                       <>
-                        <XCircle className="w-4 h-4 text-red-600 mr-1" />
-                        <span className="text-xs text-red-600">{t('setup.verify.checks.status.failed')}</span>
+                        <XCircle className="w-4 h-4 text-red-600 dark:text-red-400 mr-1" />
+                        <span className="text-xs text-red-600 dark:text-red-400">{t('setup.verify.checks.status.failed')}</span>
                       </>
                     )}
                   </div>
@@ -588,24 +588,24 @@ const SetupWizard: React.FC = () => {
 
       {/* Success Message */}
       {verificationStatus?.is_valid && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-          <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-green-900 mb-1">
+        <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4 text-center">
+          <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-green-900 dark:text-green-200 mb-1">
             {t('setup.verify.installationComplete')}
           </p>
-          <p className="text-xs text-green-700">{t('setup.verify.redirecting')}</p>
+          <p className="text-xs text-green-700 dark:text-green-400">{t('setup.verify.redirecting')}</p>
         </div>
       )}
 
       {/* Error Messages */}
       {verificationStatus?.errors && verificationStatus.errors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-sm font-semibold text-red-900 mb-2">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-4">
+          <p className="text-sm font-semibold text-red-900 dark:text-red-200 mb-2">
             {t('setup.verify.verifyFailed')}
           </p>
           <ul className="list-disc list-inside space-y-1">
             {verificationStatus.errors.map((error: string, index: number) => (
-              <li key={index} className="text-xs text-red-700">{error}</li>
+              <li key={index} className="text-xs text-red-700 dark:text-red-400">{error}</li>
             ))}
           </ul>
         </div>
@@ -615,15 +615,15 @@ const SetupWizard: React.FC = () => {
 
   // Main render
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <img src="/logo.svg" alt="Tgo CS Logo" className="w-12 h-12" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">{t('setup.title')}</h1>
-          <p className="text-sm text-gray-600">{t('setup.subtitle')}</p>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">{t('setup.title')}</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{t('setup.subtitle')}</p>
         </div>
 
         {/* Step Indicator */}
@@ -637,7 +637,7 @@ const SetupWizard: React.FC = () => {
                       ? 'bg-blue-600 text-white'
                       : currentStep > step
                       ? 'bg-green-600 text-white'
-                      : 'bg-gray-200 text-gray-500'
+                      : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                   }`}
                 >
                   {currentStep > step ? <CheckCircle className="w-5 h-5" /> : step}
@@ -645,7 +645,7 @@ const SetupWizard: React.FC = () => {
                 {step < 3 && (
                   <div
                     className={`w-16 h-1 mx-2 ${
-                      currentStep > step ? 'bg-green-600' : 'bg-gray-200'
+                      currentStep > step ? 'bg-green-600' : 'bg-gray-200 dark:bg-gray-700'
                     }`}
                   />
                 )}
@@ -653,14 +653,14 @@ const SetupWizard: React.FC = () => {
             ))}
           </div>
           <div className="text-center mt-3">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               {t('setup.stepIndicator', { current: currentStep, total: 3 })}
             </p>
           </div>
         </div>
 
         {/* Main Card */}
-        <div className="bg-white rounded-lg shadow-lg p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
           {/* Step Content */}
           {currentStep === 1 && renderAdminStep()}
           {currentStep === 2 && renderLLMStep()}
@@ -674,7 +674,7 @@ const SetupWizard: React.FC = () => {
               <button
                 onClick={handlePrevious}
                 disabled={isLoading}
-                className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('setup.buttons.previous')}
               </button>
@@ -687,7 +687,7 @@ const SetupWizard: React.FC = () => {
               <button
                 onClick={handleSkip}
                 disabled={isLoading}
-                className="px-6 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed mr-3"
+                className="px-6 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed mr-3"
               >
                 {t('setup.buttons.skip')}
               </button>
@@ -698,7 +698,7 @@ const SetupWizard: React.FC = () => {
               <button
                 onClick={handleNext}
                 disabled={isLoading}
-                className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                className="px-6 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 rounded-md hover:bg-blue-700 dark:hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
                 {isLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 {t('setup.buttons.next')}
@@ -707,7 +707,7 @@ const SetupWizard: React.FC = () => {
               <button
                 onClick={handleFinish}
                 disabled={!verificationStatus?.is_valid}
-                className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 text-sm font-medium text-white bg-green-600 dark:bg-green-700 rounded-md hover:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('setup.buttons.finish')}
               </button>
@@ -717,7 +717,7 @@ const SetupWizard: React.FC = () => {
 
         {/* Footer */}
         <div className="text-center mt-6">
-          <p className="text-xs text-gray-500">{t('footer.copyright')}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('footer.copyright')}</p>
         </div>
       </div>
     </div>

@@ -20,6 +20,39 @@ engine = None
 async_session_factory = None
 
 
+def reset_db_state():
+    """
+    Reset the global database engine and session factory.
+    
+    This function MUST be called before creating a new asyncio event loop
+    in Celery workers to avoid 'Future attached to a different loop' errors.
+    
+    The issue occurs because:
+    1. SQLAlchemy async engine/connections are bound to a specific event loop
+    2. When Celery tasks create new event loops, old connections are still bound
+       to the previous (closed) event loop
+    3. This causes 'Event loop is closed' or 'attached to a different loop' errors
+    
+    Call this function in:
+    - Celery worker_process_init signal handler
+    - Before creating a new event loop in any Celery task
+    """
+    global engine, async_session_factory
+    
+    # Dispose of old engine if it exists (cleanup connections)
+    if engine is not None:
+        try:
+            # Note: We can't await dispose() here since we may not have an event loop
+            # The next task will create a fresh engine anyway
+            pass
+        except Exception:
+            pass
+    
+    engine = None
+    async_session_factory = None
+    logger.debug("Database state reset for new event loop")
+
+
 def create_database_engine():
     """Create and configure the database engine."""
     global engine

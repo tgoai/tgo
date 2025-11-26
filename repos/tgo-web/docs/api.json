@@ -5688,35 +5688,19 @@
       }
     },
     "/v1/ai/models": {
-      "get": {
+      "post": {
         "tags": [
           "AI Models"
         ],
         "summary": "List Ai Models",
-        "description": "List models with pagination and optional filtering/search.",
-        "operationId": "list_ai_models_v1_ai_models_get",
+        "description": "Fetch available models from a provider API.\n\nThis endpoint calls the provider's API directly to get the current list\nof available models. If api_key is not provided, returns default/common\nmodels for the specified provider.\n\n**Use Case**: Call this endpoint before creating an AIProvider to let\nusers select which models they want to use.",
+        "operationId": "list_ai_models_v1_ai_models_post",
         "security": [
           {
             "HTTPBearer": []
           }
         ],
         "parameters": [
-          {
-            "name": "provider",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Provider"
-            }
-          },
           {
             "name": "model_type",
             "in": "query",
@@ -5731,127 +5715,10 @@
                   "type": "null"
                 }
               ],
+              "description": "Filter by model type",
               "title": "Model Type"
-            }
-          },
-          {
-            "name": "is_active",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Is Active"
-            }
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Search"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "default": 20,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AIModelListResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - Invalid request data or parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - Access denied to resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "AI Models"
-        ],
-        "summary": "Create Ai Model",
-        "operationId": "create_ai_model_v1_ai_models_post",
-        "security": [
-          {
-            "HTTPBearer": []
+            },
+            "description": "Filter by model type"
           }
         ],
         "requestBody": {
@@ -5859,191 +5726,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AIModelCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AIModelResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - Invalid request data or parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - Access denied to resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict - Resource already exists or conflict with current state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/ai/models/{model_id}": {
-      "get": {
-        "tags": [
-          "AI Models"
-        ],
-        "summary": "Get Ai Model",
-        "operationId": "get_ai_model_v1_ai_models__model_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "model_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Model Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AIModelResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - Invalid request data or parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - Access denied to resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "tags": [
-          "AI Models"
-        ],
-        "summary": "Update Ai Model",
-        "operationId": "update_ai_model_v1_ai_models__model_id__patch",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "model_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Model Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AIModelUpdate"
+                "$ref": "#/components/schemas/ModelListRequest"
               }
             }
           }
@@ -6054,7 +5737,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AIModelResponse"
+                  "$ref": "#/components/schemas/ModelListResponse"
                 }
               }
             }
@@ -6081,85 +5764,6 @@
           },
           "403": {
             "description": "Forbidden - Access denied to resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "AI Models"
-        ],
-        "summary": "Delete Ai Model",
-        "operationId": "delete_ai_model_v1_ai_models__model_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "model_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Model Id"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "401": {
-            "description": "Unauthorized - Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - Access denied to resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - Resource not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8530,373 +8134,6 @@
         ],
         "title": "AICollectionResponse",
         "description": "Schema for collection API responses in AI service context."
-      },
-      "AIModelCreate": {
-        "properties": {
-          "provider": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Provider",
-            "description": "Provider key (openai, anthropic, dashscope, azure_openai)"
-          },
-          "model_id": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Model Id",
-            "description": "Model identifier (e.g., gpt-4, claude-3-opus)"
-          },
-          "model_name": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Model Name",
-            "description": "Display name for the model"
-          },
-          "model_type": {
-            "type": "string",
-            "pattern": "^(chat|embedding)$",
-            "title": "Model Type",
-            "description": "Model type: chat or embedding",
-            "default": "chat"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Model description"
-          },
-          "capabilities": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Capabilities",
-            "description": "Capabilities JSON (e.g., {vision: true})"
-          },
-          "context_window": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Context Window",
-            "description": "Context window size in tokens"
-          },
-          "max_tokens": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Tokens",
-            "description": "Maximum output tokens"
-          },
-          "is_active": {
-            "type": "boolean",
-            "title": "Is Active",
-            "description": "Whether this model is enabled",
-            "default": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "provider",
-          "model_id",
-          "model_name"
-        ],
-        "title": "AIModelCreate",
-        "description": "Create a new AI model entry."
-      },
-      "AIModelListResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/AIModelResponse"
-            },
-            "type": "array",
-            "title": "Data",
-            "description": "List of AI models"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/PaginationMetadata",
-            "description": "Pagination metadata"
-          }
-        },
-        "type": "object",
-        "required": [
-          "data",
-          "pagination"
-        ],
-        "title": "AIModelListResponse"
-      },
-      "AIModelResponse": {
-        "properties": {
-          "deleted_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Deleted At",
-            "description": "Soft deletion timestamp"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At",
-            "description": "Creation timestamp"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At",
-            "description": "Last update timestamp"
-          },
-          "provider": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Provider",
-            "description": "Provider key (openai, anthropic, dashscope, azure_openai)"
-          },
-          "model_id": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Model Id",
-            "description": "Model identifier (e.g., gpt-4, claude-3-opus)"
-          },
-          "model_name": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Model Name",
-            "description": "Display name for the model"
-          },
-          "model_type": {
-            "type": "string",
-            "pattern": "^(chat|embedding)$",
-            "title": "Model Type",
-            "description": "Model type: chat or embedding",
-            "default": "chat"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Model description"
-          },
-          "capabilities": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Capabilities",
-            "description": "Capabilities JSON (e.g., {vision: true})"
-          },
-          "context_window": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Context Window",
-            "description": "Context window size in tokens"
-          },
-          "max_tokens": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Tokens",
-            "description": "Maximum output tokens"
-          },
-          "is_active": {
-            "type": "boolean",
-            "title": "Is Active",
-            "description": "Whether this model is enabled",
-            "default": true
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id",
-            "description": "AI Model ID"
-          }
-        },
-        "type": "object",
-        "required": [
-          "created_at",
-          "updated_at",
-          "provider",
-          "model_id",
-          "model_name",
-          "id"
-        ],
-        "title": "AIModelResponse"
-      },
-      "AIModelUpdate": {
-        "properties": {
-          "provider": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 50,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider"
-          },
-          "model_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model Id"
-          },
-          "model_name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model Name"
-          },
-          "model_type": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^(chat|embedding)$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model Type"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "capabilities": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Capabilities"
-          },
-          "context_window": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Context Window"
-          },
-          "max_tokens": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Tokens"
-          },
-          "is_active": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Active"
-          }
-        },
-        "type": "object",
-        "title": "AIModelUpdate"
       },
       "AIProviderCreate": {
         "properties": {
@@ -12341,6 +11578,150 @@
         ],
         "title": "MessageSearchResult",
         "description": "Normalized result item for message search."
+      },
+      "ModelInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Model identifier"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Model display name"
+          },
+          "owned_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owned By",
+            "description": "Model owner/provider"
+          },
+          "model_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Type",
+            "description": "Model type (chat/embedding)"
+          },
+          "created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created",
+            "description": "Creation timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ModelInfo",
+        "description": "Model information from provider API."
+      },
+      "ModelListRequest": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "Provider type (openai, anthropic, dashscope, azure, etc.)"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key",
+            "description": "API key for the provider (optional, returns default models if not provided)"
+          },
+          "api_base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base Url",
+            "description": "Custom API base URL (optional)"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config",
+            "description": "Additional provider-specific config (e.g., anthropic_version, api_version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "title": "ModelListRequest",
+        "description": "Request body for fetching models from provider."
+      },
+      "ModelListResponse": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "Provider type (openai, anthropic, etc.)"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelInfo"
+            },
+            "type": "array",
+            "title": "Models",
+            "description": "List of available models"
+          },
+          "is_fallback": {
+            "type": "boolean",
+            "title": "Is Fallback",
+            "description": "True if using fallback default models (API fetch failed or returned empty)",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "title": "ModelListResponse",
+        "description": "Response for model list from provider."
       },
       "OpenAIChatCompletionRequest": {
         "properties": {

@@ -110,18 +110,39 @@ const ModelProvidersSettings: React.FC = () => {
     setIsModelsOpen(false);
   }, [draft?.kind]);
 
-  const ensureFetchModelOptions = async (kind: ProviderKind) => {
+  const ensureFetchModelOptions = async (kind: ProviderKind, apiKey?: string, apiBaseUrl?: string) => {
     try {
-
-
-
-
-
       setModelsLoading(true);
       const service = new AIProvidersApiService();
       const providerKey = AIProvidersApiService.kindToProviderKey(kind);
-      const res = await service.listModels({ provider: providerKey, limit: 50, offset: 0 });
-      const opts = (res.data || []).map((m: any) => ({ id: m.model_id, name: m.model_name })).filter((o: any) => o.id);
+      
+      // Build request body for POST /v1/ai/models
+      const requestBody: { provider: string; api_key?: string; api_base_url?: string; config?: Record<string, any> } = {
+        provider: providerKey,
+      };
+      
+      // Include api_key if provided (allows fetching actual models from provider)
+      if (apiKey?.trim()) {
+        requestBody.api_key = apiKey.trim();
+      }
+      
+      // Include api_base_url if provided
+      if (apiBaseUrl?.trim()) {
+        requestBody.api_base_url = apiBaseUrl.trim();
+      }
+      
+      // For Azure, include config with deployment info if available
+      if (kind === 'azure' && draft?.params?.azure) {
+        requestBody.config = {
+          deployment: draft.params.azure.deployment,
+          resource: draft.params.azure.resource,
+          api_version: draft.params.azure.apiVersion,
+        };
+      }
+      
+      const res = await service.listModels(requestBody);
+      // Response uses ModelListResponse format: { provider, models: ModelInfo[], is_fallback }
+      const opts = (res.models || []).map((m: any) => ({ id: m.id, name: m.name })).filter((o: any) => o.id);
       setModelOptions(opts);
     } catch (e: any) {
       toast?.showToast('error', t('settings.providers.fetchModels.failed', '获取模型失败'), e?.message);
@@ -274,7 +295,8 @@ const ModelProvidersSettings: React.FC = () => {
   const [embLoading, setEmbLoading] = useState(false);
 
   const ensureFetchChatOptions = async () => {
-    if (chatLoaded || chatLoading) return;
+    // Only prevent concurrent requests, but always refresh data on each click
+    if (chatLoading) return;
     setChatLoading(true);
     try {
       const svc = new AIProvidersApiService();
@@ -293,7 +315,8 @@ const ModelProvidersSettings: React.FC = () => {
   };
 
   const ensureFetchEmbeddingOptions = async () => {
-    if (embLoaded || embLoading) return;
+    // Only prevent concurrent requests, but always refresh data on each click
+    if (embLoading) return;
     setEmbLoading(true);
     try {
       const svc = new AIProvidersApiService();
@@ -547,7 +570,7 @@ const ModelProvidersSettings: React.FC = () => {
 
             <div
               className="flex flex-wrap items-center gap-1 rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1 focus-within:ring-2 focus-within:ring-blue-500 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
-              onClick={() => { ensureFetchModelOptions(d.kind); setIsModelsOpen(true); }}
+              onClick={() => { ensureFetchModelOptions(d.kind, d.apiKey, d.apiBaseUrl); setIsModelsOpen(true); }}
             >
               {(d.models || []).map((m, idx) => (
                 <span key={`${m}-${idx}`} className="inline-flex items-center px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
@@ -571,7 +594,7 @@ const ModelProvidersSettings: React.FC = () => {
                 className="flex-1 min-w-[120px] outline-none bg-transparent dark:text-gray-100 text-sm py-1"
                 value={modelsQuery}
                 onChange={(e) => setModelsQuery(e.target.value)}
-                onFocus={() => { ensureFetchModelOptions(d.kind); setIsModelsOpen(true); }}
+                onFocus={() => { ensureFetchModelOptions(d.kind, d.apiKey, d.apiBaseUrl); setIsModelsOpen(true); }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const val = modelsQuery.trim();

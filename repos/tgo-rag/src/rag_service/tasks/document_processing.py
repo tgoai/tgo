@@ -58,11 +58,16 @@ def process_file_task(self, file_id: str, collection_id: str) -> Dict[str, Any]:
     """
     import asyncio
     from uuid import UUID
+    from ..database import reset_db_state
     
     try:
         # Convert string IDs to UUIDs
         file_uuid = UUID(file_id)
         collection_uuid = UUID(collection_id)
+        
+        # Reset database state before creating new event loop
+        # This prevents 'Future attached to a different loop' errors
+        reset_db_state()
         
         # Run the async processing function
         loop = asyncio.new_event_loop()

@@ -1,8 +1,13 @@
 """
 Celery application configuration.
+
+This module configures Celery for async document processing tasks.
+It includes signal handlers to properly manage database connections
+across forked worker processes.
 """
 
 from celery import Celery
+from celery.signals import worker_process_init, task_prerun
 
 from ..config import get_settings
 
@@ -48,3 +53,40 @@ celery_app.conf.beat_schedule = {
         "schedule": 3600.0,  # Every hour
     },
 }
+
+
+# Signal handlers for managing database connections in forked workers
+# 
+# Problem: Celery prefork mode forks worker processes. When using SQLAlchemy
+# async engines, the database connections are bound to a specific event loop.
+# If a connection is created in one task, then the event loop closes, and a
+# new task creates a new event loop, the old connections will fail with:
+# - "RuntimeError: Event loop is closed"
+# - "Future attached to a different loop"
+#
+# Solution: Reset database state when worker processes are initialized and
+# before each task runs to ensure clean connections.
+
+@worker_process_init.connect
+def on_worker_process_init(**kwargs):
+    """
+    Called when a worker process is initialized (after fork).
+    
+    This ensures each worker starts with a clean database state,
+    avoiding inherited connections from the parent process.
+    """
+    from ..database import reset_db_state
+    reset_db_state()
+
+
+@task_prerun.connect
+def on_task_prerun(task_id, task, args, kwargs, **rest):
+    """
+    Called before each task is executed.
+    
+    This ensures database connections are reset before running any task,
+    preventing 'Future attached to a different loop' errors when tasks
+    create new event loops.
+    """
+    from ..database import reset_db_state
+    reset_db_state()

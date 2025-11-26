@@ -1297,6 +1297,17 @@ ssh = ["paramiko (>=2.4.3)"]
 websockets = ["websocket-client (>=1.3.0)"]
 
 [[package]]
+name = "docx2txt"
+version = "0.8"
+description = "A pure python-based utility to extract text and images from docx files."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "docx2txt-0.8.tar.gz", hash = "sha256:2c06d98d7cfe2d3947e5760a57d924e3ff07745b379c8737723922e7009236e5"},
+]
+
+[[package]]
 name = "effdet"
 version = "0.4.1"
 description = "EfficientDet for PyTorch"
@@ -8152,4 +8163,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "5b1018a0960facee9af71969f9b7d5b4e5f363b011a9e56d2a8a79d5fec77d74"
+content-hash = "d3a7e5b5cc49e379375221cb87df2d16d2179d04b4dfc4cf2b284b596b87bea5"

@@ -14,17 +14,16 @@ Key Components:
 Supported File Types:
 - PDF: PDFMinerParser for reliable PDF text extraction
 - Text/Markdown: TextParser for plain text and markdown files
-- Word Documents: MsWordParser for .doc and .docx files
+- Word Documents: Docx2txtLoader for .docx files (direct loader, not via GenericLoader)
 - HTML: BS4HTMLParser for HTML content extraction
 - Other: MimeTypeBasedParser with TextParser fallback
 """
 
 import os
-from typing import Any, List
+from typing import Any, List, Union
 
 from langchain_community.document_loaders.parsers import BS4HTMLParser, PDFMinerParser
 from langchain_community.document_loaders.parsers.generic import MimeTypeBasedParser
-from langchain_community.document_loaders.parsers.msword import MsWordParser
 from langchain_community.document_loaders.parsers.txt import TextParser
 from langchain_community.document_loaders.generic import GenericLoader
 
@@ -40,13 +39,13 @@ from .document_processing_types import (
 logger = get_logger(__name__)
 
 
-def get_document_loader(file_path: str, content_type: str, file_id: str) -> GenericLoader:
+def get_document_loader(file_path: str, content_type: str, file_id: str) -> Union[GenericLoader, Any]:
     """
     Get appropriate document loader based on content type using unified parser approach.
 
-    This function creates a GenericLoader instance with the appropriate parser for the
-    given content type. All file types use the same GenericLoader.from_filesystem
-    pattern for consistency and reliability.
+    This function creates a loader instance with the appropriate parser for the
+    given content type. Most file types use the GenericLoader.from_filesystem pattern,
+    but some file types (like Word documents) require specialized loaders.
 
     Args:
         file_path: Path to the file to be loaded
@@ -54,15 +53,23 @@ def get_document_loader(file_path: str, content_type: str, file_id: str) -> Gene
         file_id: File ID for error reporting and logging
 
     Returns:
-        GenericLoader instance configured with appropriate parser
+        Loader instance configured for the file type (GenericLoader or specialized loader)
 
     Raises:
         DocumentProcessingError: For unsupported content types or loader creation failures
     """
     try:
-        # Get the directory and filename for GenericLoader
-        file_dir = os.path.dirname(file_path)
         file_name = os.path.basename(file_path)
+        
+        # Word documents need specialized loaders (MsWordParser doesn't work with GenericLoader blobs)
+        if content_type in [
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ]:
+            return _get_word_document_loader(file_path, content_type, file_id)
+        
+        # For other file types, use GenericLoader with appropriate parser
+        file_dir = os.path.dirname(file_path)
         
         # Select appropriate parser based on content type
         parser = _get_parser_for_content_type(content_type, file_id)
@@ -89,12 +96,76 @@ def get_document_loader(file_path: str, content_type: str, file_id: str) -> Gene
         ) from e
 
 
+def _get_word_document_loader(file_path: str, content_type: str, file_id: str) -> Any:
+    """
+    Get appropriate loader for Word documents.
+    
+    Word documents require specialized loaders because MsWordParser doesn't
+    work correctly with GenericLoader's blob mechanism.
+    
+    Priority order:
+    1. UnstructuredWordDocumentLoader - works with unstructured[docx] (already installed)
+    2. Docx2txtLoader - lightweight alternative (requires docx2txt package)
+    
+    Args:
+        file_path: Path to the Word document
+        content_type: MIME type of the file
+        file_id: File ID for error reporting
+        
+    Returns:
+        Loader instance for Word documents
+        
+    Raises:
+        DocumentProcessingError: If no suitable loader is available
+    """
+    file_name = os.path.basename(file_path)
+    errors = []
+    
+    # Try UnstructuredWordDocumentLoader first (handles both .doc and .docx)
+    # This should work since we have unstructured[docx] installed
+    try:
+        from langchain_community.document_loaders import UnstructuredWordDocumentLoader
+        logger.debug(f"Using UnstructuredWordDocumentLoader for Word document {file_id}: {file_name}")
+        return UnstructuredWordDocumentLoader(file_path)
+    except ImportError as e:
+        errors.append(f"UnstructuredWordDocumentLoader import failed: {e}")
+        logger.warning(f"UnstructuredWordDocumentLoader not available for {file_id}: {e}")
+    except Exception as e:
+        errors.append(f"UnstructuredWordDocumentLoader error: {e}")
+        logger.warning(f"UnstructuredWordDocumentLoader failed for {file_id}: {e}")
+    
+    # Try Docx2txtLoader as fallback for .docx files (requires docx2txt package)
+    if content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        try:
+            from langchain_community.document_loaders import Docx2txtLoader
+            logger.debug(f"Using Docx2txtLoader for .docx file {file_id}: {file_name}")
+            return Docx2txtLoader(file_path)
+        except ImportError as e:
+            errors.append(f"Docx2txtLoader import failed: {e}")
+            logger.warning(f"Docx2txtLoader not available for {file_id}: {e}")
+        except Exception as e:
+            errors.append(f"Docx2txtLoader error: {e}")
+            logger.warning(f"Docx2txtLoader failed for {file_id}: {e}")
+    
+    # No loader available
+    error_details = "; ".join(errors)
+    raise DocumentProcessingError(
+        f"No suitable Word document loader available. Tried loaders failed: {error_details}. "
+        f"Ensure unstructured[docx] is properly installed or install docx2txt: pip install docx2txt",
+        file_id,
+        ProcessingStep.EXTRACTING_CONTENT
+    )
+
+
 def _get_parser_for_content_type(content_type: str, file_id: str) -> Any:
     """
-    Get appropriate parser based on content type.
+    Get appropriate parser based on content type for use with GenericLoader.
     
     This function selects the most suitable parser for each content type,
     providing specialized parsing capabilities for optimal content extraction.
+    
+    Note: Word documents are handled separately by _get_word_document_loader()
+    because they require specialized loaders instead of GenericLoader + parser.
     
     Args:
         content_type: MIME type of the file
@@ -116,14 +187,6 @@ def _get_parser_for_content_type(content_type: str, file_id: str) -> Any:
             # Use TextParser for text and markdown files - handles UTF-8 encoding
             logger.debug(f"Selected TextParser for text/markdown file {file_id}")
             return TextParser()
-            
-        elif content_type in [
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ]:
-            # Use MsWordParser for Word documents - handles both .doc and .docx
-            logger.debug(f"Selected MsWordParser for Word document {file_id}")
-            return MsWordParser()
             
         elif content_type in [
             "text/html",

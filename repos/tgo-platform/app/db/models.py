@@ -24,7 +24,7 @@ class Platform(Base):
     project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
 
     # Platform identity
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=True)
     type: Mapped[str] = mapped_column(String(20), nullable=False)
 
     # Platform-specific configuration

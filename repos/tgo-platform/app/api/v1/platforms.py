@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, status, Response
 from pydantic import BaseModel, Field, ConfigDict
@@ -55,7 +55,7 @@ class PlatformCreateRequest(BaseModel):
 
     id: uuid.UUID | None = Field(default=None, description="Optional platform UUID; auto-generated if omitted")
     project_id: uuid.UUID = Field(..., description="Project/Tenant UUID")
-    name: str = Field(..., max_length=100, description="Platform display name")
+    name: Optional[str] = Field(default=None, max_length=100, description="Optional platform display name")
     type: str = Field(..., max_length=20, description="Platform type, e.g., 'email', 'wecom', 'website'")
     config: dict[str, Any] | None = Field(
         default=None,
@@ -71,7 +71,7 @@ class PlatformResponse(BaseModel):
 
     id: uuid.UUID
     project_id: uuid.UUID
-    name: str
+    name: str | None = None
     type: str
     config: dict[str, Any] | None = None
     is_active: bool

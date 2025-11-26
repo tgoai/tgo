@@ -287,9 +287,16 @@ async def delete_file(
     db: AsyncSession = Depends(get_db_session_dependency),
 ):
     """
-    Delete a specific file by its UUID. This will also delete all associated
-    document chunks and remove the file from storage. File must belong to the specified project.
+    Delete a specific file by its UUID. This will permanently delete:
+    - The file record from the database
+    - All associated document chunks (FileDocument records)
+    - The physical file from storage
+    
+    File must belong to the specified project.
     """
+    from sqlalchemy import delete
+    from ..models import FileDocument
+    
     query = select(FileModel).where(
         and_(
             FileModel.id == file_id,
@@ -304,12 +311,29 @@ async def delete_file(
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
     
-    # Soft delete the file
-    file_record.soft_delete()
+    # Store storage path for later deletion
+    storage_path = file_record.storage_path
     
-    # TODO: Queue file for cleanup (remove from storage, delete embeddings, etc.)
+    # Delete associated FileDocument records first (physical delete)
+    await db.execute(
+        delete(FileDocument).where(FileDocument.file_id == file_id)
+    )
+    logger.info(f"Deleted FileDocument records for file {file_id}")
+    
+    # Delete the file record (physical delete)
+    await db.delete(file_record)
+    logger.info(f"Deleted file record {file_id}")
     
     await db.commit()
+    
+    # Delete physical file from storage (after successful DB commit)
+    if storage_path and os.path.exists(storage_path):
+        try:
+            os.remove(storage_path)
+            logger.info(f"Deleted physical file from storage: {storage_path}")
+        except Exception as e:
+            # Log error but don't fail the request since DB records are already deleted
+            logger.warning(f"Failed to delete physical file {storage_path}: {e}")
 
 
 @router.get(

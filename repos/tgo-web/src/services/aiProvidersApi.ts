@@ -70,6 +70,30 @@ export interface AIModelListResponseDTO {
   pagination: PaginationMetadata;
 }
 
+// POST /v1/ai/models request body (based on docs/api.json ModelListRequest)
+export interface ModelListRequestDTO {
+  provider: string; // Required: provider type (openai, anthropic, dashscope, azure, etc.)
+  api_key?: string | null; // Optional: API key for the provider
+  api_base_url?: string | null; // Optional: Custom API base URL
+  config?: Record<string, any> | null; // Optional: Additional configuration
+}
+
+// POST /v1/ai/models response body (based on docs/api.json ModelListResponse)
+export interface ModelInfoDTO {
+  id: string; // Model identifier (required)
+  name?: string | null; // Model display name
+  owned_by?: string | null; // Model owner/provider
+  model_type?: string | null; // chat or embedding
+  context_length?: number | null; // Maximum context length
+  created?: number | null; // Creation timestamp
+}
+
+export interface ModelListResponseDTO {
+  provider: string; // Provider type
+  models?: ModelInfoDTO[]; // List of available models
+  is_fallback?: boolean; // True if using fallback default models
+}
+
 export class AIProvidersApiService extends BaseApiService {
   protected readonly apiVersion = 'v1';
   protected readonly endpoints = {
@@ -121,9 +145,29 @@ export class AIProvidersApiService extends BaseApiService {
     return this.post(this.endpoints.PROVIDER_TEST(id));
   }
 
-  // List models
-  async listModels(params?: { provider?: string | null; limit?: number; offset?: number; search?: string }): Promise<AIModelListResponseDTO> {
+  // List models - GET (old paginated endpoint, kept for backward compatibility if needed)
+  async listModelsLegacy(params?: { provider?: string | null; limit?: number; offset?: number; search?: string }): Promise<AIModelListResponseDTO> {
     return this.get<AIModelListResponseDTO>(this.endpoints.MODELS, params as any);
+  }
+
+  /**
+   * Fetch available models from a provider API.
+   * POST /v1/ai/models
+   * 
+   * This endpoint calls the provider's API directly to get the current list
+   * of available models. If api_key is not provided, returns default/common
+   * models for the specified provider.
+   * 
+   * @param request - ModelListRequest with provider info
+   * @param modelType - Optional filter by model type (chat or embedding)
+   */
+  async listModels(request: ModelListRequestDTO, modelType?: 'chat' | 'embedding'): Promise<ModelListResponseDTO> {
+    let url = "";
+    url = this.endpoints.MODELS;
+    if (modelType) {
+      url = `${url}?model_type=${modelType}`;
+    }
+    return this.post<ModelListResponseDTO>(url, request);
   }
 
   // Mapping helpers for provider key ↔ kind

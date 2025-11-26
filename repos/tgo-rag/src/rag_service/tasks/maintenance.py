@@ -44,8 +44,13 @@ def cleanup_failed_tasks() -> Dict[str, Any]:
         Dictionary containing cleanup statistics
     """
     import asyncio
+    from ..database import reset_db_state
     
     try:
+        # Reset database state before creating new event loop
+        # This prevents 'Future attached to a different loop' errors
+        reset_db_state()
+        
         # Run the async cleanup function
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -216,8 +221,13 @@ def health_check() -> Dict[str, Any]:
         Dictionary containing health status information
     """
     import asyncio
+    from ..database import reset_db_state
     
     try:
+        # Reset database state before creating new event loop
+        # This prevents 'Future attached to a different loop' errors
+        reset_db_state()
+        
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         

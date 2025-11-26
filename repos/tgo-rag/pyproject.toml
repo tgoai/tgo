@@ -40,6 +40,7 @@ aiofiles = "^23.2.1"
 python-magic = "^0.4.27"
 # Document processing
 unstructured = {extras = ["docx", "pdf"], version = "^0.18.13"}
+docx2txt = "^0.8"  # Fallback for Word document loading
 # HTTP client
 httpx = {extras = ["socks"], version = "^0.28.1"}
 socksio = "^1.0.0"
