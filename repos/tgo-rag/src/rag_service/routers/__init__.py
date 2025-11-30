@@ -2,7 +2,7 @@
 FastAPI routers for the RAG service.
 """
 
-from . import collections, files, health, monitoring, embedding_config
+from . import collections, files, health, monitoring, embedding_config, websites, qa
 
 __all__ = [
     "collections",
@@ -10,4 +10,6 @@ __all__ = [
     "health",
     "monitoring",
     "embedding_config",
+    "websites",
+    "qa",
 ]

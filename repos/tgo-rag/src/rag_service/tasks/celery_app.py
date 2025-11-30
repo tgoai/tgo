@@ -22,6 +22,8 @@ celery_app = Celery(
     include=[
         "src.rag_service.tasks.document_processing",
         "src.rag_service.tasks.maintenance",
+        "src.rag_service.tasks.website_crawling",
+        "src.rag_service.tasks.qa_processing",
     ]
 )
 
@@ -44,6 +46,11 @@ celery_app.conf.update(
 celery_app.conf.task_routes = {
     "src.rag_service.tasks.document_processing.*": {"queue": "document_processing"},
     "src.rag_service.tasks.embedding.*": {"queue": "embedding"},
+    "src.rag_service.tasks.website_crawling.*": {"queue": "website_crawling"},
+    "src.rag_service.tasks.qa_processing.*": {"queue": "qa_processing"},
+    "crawl_website_task": {"queue": "celery"},  # Default queue for named task
+    "process_qa_pair_task": {"queue": "celery"},  # Default queue for QA tasks
+    "process_qa_pairs_batch_task": {"queue": "celery"},
 }
 
 # Beat schedule for periodic tasks

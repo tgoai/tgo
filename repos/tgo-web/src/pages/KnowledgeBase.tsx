@@ -1,16 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Plus, Search, ArrowUpDown, FolderOpen, Clock, Eye, Pencil, Trash2 } from 'lucide-react';
+import { RefreshCw, Plus, Search, ArrowUpDown, FolderOpen, Clock, Eye, Pencil, Trash2, FileText, Globe, Play, XCircle, Loader2 } from 'lucide-react';
 import { useKnowledgeStore, knowledgeSelectors } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import { showKnowledgeBaseSuccess, showKnowledgeBaseError } from '@/utils/toastHelpers';
-import { CreateKnowledgeBaseModal } from '@/components/knowledge/CreateKnowledgeBaseModal';
+import { CreateKnowledgeBaseModal, type CreateKnowledgeBaseData } from '@/components/knowledge/CreateKnowledgeBaseModal';
 import { EditKnowledgeBaseModal } from '@/components/knowledge/EditKnowledgeBaseModal';
 import { formatKnowledgeBaseUpdatedTime } from '@/utils/timeFormatting';
 import { getIconComponent, getIconColor } from '@/components/knowledge/IconPicker';
 import { getTagClasses } from '@/utils/tagColors';
-import type { KnowledgeBaseItem } from '@/types';
+import type { KnowledgeBaseItem, CrawlJobStatus } from '@/types';
 import { useTranslation } from 'react-i18next';
+import KnowledgeBaseApiService from '@/services/knowledgeBaseApi';
 
 
 
@@ -24,6 +25,7 @@ const KnowledgeBase: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingKnowledgeBase, setEditingKnowledgeBase] = useState<KnowledgeBaseItem | null>(null);
+  const [crawlingKbs, setCrawlingKbs] = useState<Set<string>>(new Set()); // Track which KBs are being crawled
 
   const knowledgeBases = useKnowledgeStore(knowledgeSelectors.knowledgeBases);
   const searchQuery = useKnowledgeStore(knowledgeSelectors.searchQuery);
@@ -99,21 +101,119 @@ const KnowledgeBase: React.FC = () => {
     return filtered;
   }, [knowledgeBases, searchQuery]);
 
-  const handleCreateKnowledgeBase = async (data: { name: string; description: string; icon: string; tags: string[] }): Promise<void> => {
+  const handleCreateKnowledgeBase = async (data: CreateKnowledgeBaseData): Promise<void> => {
     try {
-      await createKnowledgeBase({
+      const newKb = await createKnowledgeBase({
         title: data.name,
         content: data.description,
         category: 'general',
         icon: data.icon,
-        tags: data.tags
+        tags: data.tags,
+        type: data.type,
+        crawlConfig: data.crawlConfig
       });
       showKnowledgeBaseSuccess(showToast, 'create', data.name);
+
+      // If it's a website type, automatically start crawling
+      if (data.type === 'website' && data.crawlConfig && newKb?.id) {
+        try {
+          await KnowledgeBaseApiService.createCrawlJob(newKb.id, data.crawlConfig);
+          showToast(
+            'success',
+            t('knowledge.crawl.started', '爬取已开始'),
+            t('knowledge.crawl.startedDesc', '网站爬取任务已启动')
+          );
+        } catch (crawlError) {
+          console.error('Failed to start crawl job:', crawlError);
+          showToast(
+            'warning',
+            t('knowledge.crawl.startFailed', '爬取启动失败'),
+            t('knowledge.crawl.startFailedDesc', '知识库已创建，但爬取任务启动失败，请手动开始爬取')
+          );
+        }
+      }
     } catch (error) {
       console.error('Failed to create knowledge base:', error);
       showKnowledgeBaseError(showToast, 'create', error, data.name);
       throw error; // Re-throw to let modal handle the error
     }
+  };
+
+  // Start crawl job for a website knowledge base
+  const handleStartCrawl = useCallback(async (kb: KnowledgeBaseItem) => {
+    if (!kb.crawlConfig) {
+      showToast(
+        'error',
+        t('knowledge.crawl.noConfig', '无爬取配置'),
+        t('knowledge.crawl.noConfigDesc', '该知识库没有爬取配置')
+      );
+      return;
+    }
+
+    setCrawlingKbs(prev => new Set(prev).add(kb.id));
+    try {
+      await KnowledgeBaseApiService.createCrawlJob(kb.id, kb.crawlConfig);
+      showToast(
+        'success',
+        t('knowledge.crawl.started', '爬取已开始'),
+        t('knowledge.crawl.startedDesc', '网站爬取任务已启动')
+      );
+      // Refresh to get updated status
+      await refreshKnowledgeBases();
+    } catch (error) {
+      console.error('Failed to start crawl job:', error);
+      showToast(
+        'error',
+        t('knowledge.crawl.startFailed', '爬取启动失败'),
+        error instanceof Error ? error.message : t('knowledge.crawl.startFailedDesc', '启动爬取任务时发生错误')
+      );
+    } finally {
+      setCrawlingKbs(prev => {
+        const next = new Set(prev);
+        next.delete(kb.id);
+        return next;
+      });
+    }
+  }, [showToast, t, refreshKnowledgeBases]);
+
+  // Cancel crawl job
+  const handleCancelCrawl = useCallback(async (kb: KnowledgeBaseItem) => {
+    if (!kb.crawlJob?.id) return;
+
+    try {
+      await KnowledgeBaseApiService.cancelCrawlJob(kb.crawlJob.id);
+      showToast(
+        'success',
+        t('knowledge.crawl.cancelled', '爬取已取消'),
+        t('knowledge.crawl.cancelledDesc', '网站爬取任务已取消')
+      );
+      await refreshKnowledgeBases();
+    } catch (error) {
+      console.error('Failed to cancel crawl job:', error);
+      showToast(
+        'error',
+        t('knowledge.crawl.cancelFailed', '取消失败'),
+        error instanceof Error ? error.message : t('knowledge.crawl.cancelFailedDesc', '取消爬取任务时发生错误')
+      );
+    }
+  }, [showToast, t, refreshKnowledgeBases]);
+
+  // Get crawl status badge
+  const getCrawlStatusBadge = (status: CrawlJobStatus) => {
+    const statusConfig: Record<CrawlJobStatus, { color: string; text: string }> = {
+      pending: { color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300', text: t('knowledge.crawl.status.pending', '等待中') },
+      crawling: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300', text: t('knowledge.crawl.status.crawling', '爬取中') },
+      processing: { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300', text: t('knowledge.crawl.status.processing', '处理中') },
+      completed: { color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300', text: t('knowledge.crawl.status.completed', '已完成') },
+      failed: { color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300', text: t('knowledge.crawl.status.failed', '失败') },
+      cancelled: { color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300', text: t('knowledge.crawl.status.cancelled', '已取消') }
+    };
+    const config = statusConfig[status];
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${config.color}`}>
+        {config.text}
+      </span>
+    );
   };
 
   const handleOpenCreateModal = (): void => {
@@ -189,7 +289,11 @@ const KnowledgeBase: React.FC = () => {
 
   // Navigate to knowledge base detail view
   const handleKnowledgeBaseClick = (knowledgeBase: KnowledgeBaseItem): void => {
-    navigate(`/knowledge/${knowledgeBase.id}`);
+    if (knowledgeBase.type === 'website') {
+      navigate(`/knowledge/website/${knowledgeBase.id}`);
+    } else {
+      navigate(`/knowledge/${knowledgeBase.id}`);
+    }
   };
 
   return (
@@ -241,9 +345,12 @@ const KnowledgeBase: React.FC = () => {
       <div className="flex-grow overflow-y-auto p-6" style={{ height: 0 }}>
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-lg shadow-sm border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
           {/* Table Header */}
-          <div className="grid grid-cols-[minmax(0,_3fr)_1fr_1fr_auto] gap-4 px-4 py-2 border-b border-gray-200/60 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-900/50">
+          <div className="grid grid-cols-[minmax(0,_3fr)_80px_1fr_1fr_auto] gap-4 px-4 py-2 border-b border-gray-200/60 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-900/50">
             <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center cursor-pointer hover:text-gray-700 dark:hover:text-gray-200">
               {t('knowledge.list.columns.name', '名称')} <ArrowUpDown className="w-3 h-3 ml-1" />
+            </div>
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center">
+              {t('knowledge.list.columns.type', '类型')}
             </div>
             <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center cursor-pointer hover:text-gray-700 dark:hover:text-gray-200">
               {t('knowledge.list.columns.documents', '文档数量')} <ArrowUpDown className="w-3 h-3 ml-1" />
@@ -304,83 +411,137 @@ const KnowledgeBase: React.FC = () => {
                 </button>
               </div>
             ) : (
-              filteredKnowledgeBases.map((kb: KnowledgeBaseItem, index: number) => (
-              <div
-                key={kb.id}
-                className={`grid grid-cols-[minmax(0,_3fr)_1fr_1fr_auto] gap-4 px-4 py-3 items-center hover:bg-gray-50/30 dark:hover:bg-gray-700/30 transition-colors ${
-                  index < filteredKnowledgeBases.length - 1 ? 'border-b border-gray-200/60 dark:border-gray-700/60' : ''
-                }`}
-              >
-                <div
-                  className="flex items-start space-x-3 cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/30 -mx-2 px-2 py-1 rounded transition-all duration-200 group"
-                  onClick={() => handleKnowledgeBaseClick(kb)}
-                >
-                  {(() => {
-                    const IconComponent = getIconComponent(kb.icon);
-                    const iconColor = getIconColor(kb.icon);
-                    return (
-                      <IconComponent
-                        className={`w-5 h-5 flex-shrink-0 mt-0.5 transition-colors duration-200 ${iconColor} hover:opacity-80`}
-                      />
-                    );
-                  })()}
-                  <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">{kb.title}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">{kb.content}</p>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {kb.tags.map((tag: any, tagIndex: number) => {
-                        const tagName = typeof tag === 'string' ? tag : tag.name;
+              filteredKnowledgeBases.map((kb: KnowledgeBaseItem, index: number) => {
+                const isWebsite = kb.type === 'website';
+                const isCrawling = crawlingKbs.has(kb.id);
+                const crawlStatus = kb.crawlJob?.status;
+                const isActiveCrawl = crawlStatus === 'pending' || crawlStatus === 'crawling' || crawlStatus === 'processing';
+
+                return (
+                  <div
+                    key={kb.id}
+                    className={`grid grid-cols-[minmax(0,_3fr)_80px_1fr_1fr_auto] gap-4 px-4 py-3 items-center hover:bg-gray-50/30 dark:hover:bg-gray-700/30 transition-colors ${
+                      index < filteredKnowledgeBases.length - 1 ? 'border-b border-gray-200/60 dark:border-gray-700/60' : ''
+                    }`}
+                  >
+                    <div
+                      className="flex items-start space-x-3 cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/30 -mx-2 px-2 py-1 rounded transition-all duration-200 group"
+                      onClick={() => handleKnowledgeBaseClick(kb)}
+                    >
+                      {(() => {
+                        const IconComponent = getIconComponent(kb.icon);
+                        const iconColor = getIconColor(kb.icon);
                         return (
-                          <span
-                            key={tagIndex}
-                            className={getTagClasses(tagName, {
-                              size: 'sm',
-                              includeHover: false,
-                              includeBorder: false,
-                              rounded: true
-                            })}
-                            style={{ fontSize: '10px' }} // Override for extra small size
-                          >
-                            {tagName}
-                          </span>
+                          <IconComponent
+                            className={`w-5 h-5 flex-shrink-0 mt-0.5 transition-colors duration-200 ${iconColor} hover:opacity-80`}
+                          />
                         );
-                      })}
+                      })()}
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">{kb.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">{kb.content}</p>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {kb.tags.map((tag: any, tagIndex: number) => {
+                            const tagName = typeof tag === 'string' ? tag : tag.name;
+                            return (
+                              <span
+                                key={tagIndex}
+                                className={getTagClasses(tagName, {
+                                  size: 'sm',
+                                  includeHover: false,
+                                  includeBorder: false,
+                                  rounded: true
+                                })}
+                                style={{ fontSize: '10px' }}
+                              >
+                                {tagName}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Type Column */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1">
+                        {isWebsite ? (
+                          <>
+                            <Globe className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="text-xs text-gray-600 dark:text-gray-300">{t('knowledge.typeWebsite', '网站')}</span>
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="w-3.5 h-3.5 text-green-500" />
+                            <span className="text-xs text-gray-600 dark:text-gray-300">{t('knowledge.typeFile', '文件')}</span>
+                          </>
+                        )}
+                      </div>
+                      {isWebsite && crawlStatus && getCrawlStatusBadge(crawlStatus)}
+                    </div>
+
+                    <div className="text-sm text-gray-600 dark:text-gray-300">{t('knowledge.filesCount', { count: kb.fileCount, defaultValue: `${kb.fileCount} 文件` })}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-300 flex items-center">
+                      <Clock className="w-3.5 h-3.5 mr-1 text-gray-400 dark:text-gray-500" />
+                      {formatKnowledgeBaseUpdatedTime(kb.updatedAt)}
+                    </div>
+
+                    <div className="flex justify-end space-x-2">
+                      {/* Crawl actions for website type */}
+                      {isWebsite && (
+                        <>
+                          {isActiveCrawl ? (
+                            <button
+                              className="text-gray-400 dark:text-gray-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                              title={t('knowledge.crawl.cancel', '取消爬取')}
+                              onClick={() => handleCancelCrawl(kb)}
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              className="text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors disabled:opacity-50"
+                              title={t('knowledge.crawl.start', '开始爬取')}
+                              onClick={() => handleStartCrawl(kb)}
+                              disabled={isCrawling}
+                            >
+                              {isCrawling ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Play className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      <button
+                        className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        title={t('common.details', '详情')}
+                        onClick={() => navigate(`/knowledge/${kb.id}`)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        title={t('common.edit', '编辑')}
+                        onClick={() => handleKnowledgeBaseAction('edit', kb)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                        title={t('common.delete', '删除')}
+                        onClick={() => handleKnowledgeBaseAction('delete', kb)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-300">{t('knowledge.filesCount', { count: kb.fileCount, defaultValue: `${kb.fileCount} 文件` })}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-300 flex items-center">
-                  <Clock className="w-3.5 h-3.5 mr-1 text-gray-400 dark:text-gray-500" />
-                  {formatKnowledgeBaseUpdatedTime(kb.updatedAt)}
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <button
-                    className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                    title={t('common.details', '详情')}
-                    onClick={() => navigate(`/knowledge/${kb.id}`)}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                    title={t('common.edit', '编辑')}
-                    onClick={() => handleKnowledgeBaseAction('edit', kb)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                    title={t('common.delete', '删除')}
-                    onClick={() => handleKnowledgeBaseAction('delete', kb)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

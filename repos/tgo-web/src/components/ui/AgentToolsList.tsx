@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Wrench } from 'lucide-react';
 import AgentToolTag from './AgentToolTag';
 import type { AgentToolResponse } from '@/types';
@@ -25,15 +26,17 @@ const AgentToolsList: React.FC<AgentToolsListProps> = ({
   showIcon = true,
   maxDisplay,
   className = '',
-  emptyText = '未关联工具',
+  emptyText,
   showLabel = false
 }) => {
+  const { t } = useTranslation();
+  const defaultEmptyText = emptyText ?? t('agents.card.noTools', '未关联工具');
   // 如果没有关联工具，显示空状态
   if (!tools || tools.length === 0) {
     return (
       <div className={`flex items-center text-gray-500 ${className}`}>
         <Wrench className="w-4 h-4 mr-2 opacity-50" />
-        <span className="text-sm">{emptyText}</span>
+        <span className="text-sm">{defaultEmptyText}</span>
       </div>
     );
   }
@@ -49,7 +52,7 @@ const AgentToolsList: React.FC<AgentToolsListProps> = ({
       {showLabel && (
         <div className="flex items-center text-[13px] font-medium text-gray-700 mb-1.5">
           <Wrench className="w-3.5 h-3.5 mr-1.5" />
-          关联工具 ({tools.length})
+          {t('agents.toolsList.label', '关联工具')} ({tools.length})
         </div>
       )}
 
@@ -69,7 +72,7 @@ const AgentToolsList: React.FC<AgentToolsListProps> = ({
             inline-flex items-center rounded-md border bg-gray-100 text-gray-600 border-gray-200
             ${size === 'xs' ? 'px-1.5 py-0.5 text-[11px]' : size === 'sm' ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'}
           `}>
-            +{remainingCount} 更多
+            +{remainingCount} {t('common.more', '更多')}
           </span>
         )}
       </div>

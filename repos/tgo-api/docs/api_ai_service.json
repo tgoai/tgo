@@ -3344,6 +3344,18 @@
             "title": "Team Id",
             "description": "UUID of the team to coordinate agents from (defaults to the project's default team if omitted)"
           },
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id",
+            "description": "UUID of a specific agent to use. If set, the team will only contain this agent"
+          },
           "message": {
             "type": "string",
             "maxLength": 10000,
@@ -3529,12 +3541,19 @@
             ]
           },
           "model": {
-            "type": "string",
-            "maxLength": 150,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Model",
-            "description": "LLM model in 'provider:model_name' format",
+            "description": "LLM model",
             "examples": [
-              "anthropic:claude-3-sonnet-20240229"
+              "claude-3-sonnet-20240229"
             ]
           },
           "instruction": {
@@ -3605,8 +3624,7 @@
         },
         "type": "object",
         "required": [
-          "name",
-          "model"
+          "name"
         ],
         "title": "TeamCreate",
         "description": "Schema for creating a new team."
@@ -3654,12 +3672,19 @@
             ]
           },
           "model": {
-            "type": "string",
-            "maxLength": 150,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Model",
-            "description": "LLM model in 'provider:model_name' format",
+            "description": "LLM model",
             "examples": [
-              "anthropic:claude-3-sonnet-20240229"
+              "claude-3-sonnet-20240229"
             ]
           },
           "instruction": {
@@ -3733,8 +3758,7 @@
           "created_at",
           "updated_at",
           "id",
-          "name",
-          "model"
+          "name"
         ],
         "title": "TeamResponse",
         "description": "Schema for team API responses."
@@ -3765,7 +3789,7 @@
               }
             ],
             "title": "Model",
-            "description": "Updated LLM model in 'provider:model_name' format"
+            "description": "Updated LLM model"
           },
           "instruction": {
             "anyOf": [
@@ -3877,12 +3901,19 @@
             ]
           },
           "model": {
-            "type": "string",
-            "maxLength": 150,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Model",
-            "description": "LLM model in 'provider:model_name' format",
+            "description": "LLM model",
             "examples": [
-              "anthropic:claude-3-sonnet-20240229"
+              "claude-3-sonnet-20240229"
             ]
           },
           "instruction": {
@@ -3964,8 +3995,7 @@
           "created_at",
           "updated_at",
           "id",
-          "name",
-          "model"
+          "name"
         ],
         "title": "TeamWithDetails",
         "description": "Schema for team response with additional details."

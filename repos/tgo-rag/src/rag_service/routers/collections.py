@@ -12,7 +12,8 @@ from sqlalchemy.orm import selectinload
 
 from ..database import get_db_session_dependency
 from ..logging_config import get_logger
-from ..models import Collection, FileDocument, File as FileModel
+from ..models import Collection, CollectionType, FileDocument, File as FileModel
+from ..models import WebsiteCrawlJob, WebsitePage
 from ..schemas.collections import (
     CollectionBatchRequest,
     CollectionBatchResponse,
@@ -22,11 +23,19 @@ from ..schemas.collections import (
     CollectionResponse,
     CollectionSearchRequest,
     CollectionStats,
+    CollectionTypeEnum,
     CollectionUpdateRequest,
 )
 from ..schemas.common import ErrorResponse
 from ..schemas.common import PaginationMetadata
 from ..schemas.search import SearchResponse
+from ..schemas.websites import (
+    CrawlProgressSchema,
+    WebsiteCrawlJobListResponse,
+    WebsiteCrawlJobResponse,
+    WebsitePageListResponse,
+    WebsitePageResponse,
+)
 from ..services.search import get_search_service
 
 router = APIRouter()
@@ -43,6 +52,7 @@ logger = get_logger(__name__)
 )
 async def list_collections(
     display_name: Optional[str] = Query(None, description="Filter by collection display name (partial match)"),
+    collection_type: Optional[CollectionTypeEnum] = Query(None, description="Filter by collection type: file, website, or qa"),
     tags: Optional[str] = Query(None, description="Filter by tags (comma-separated list)"),
     limit: int = Query(20, ge=1, le=100, description="Number of collections to return"),
     offset: int = Query(0, ge=0, description="Number of collections to skip"),
@@ -55,6 +65,7 @@ async def list_collections(
     Collections are used to organize documents and files for RAG operations.
     All results are scoped to the specified project.
     Each collection includes a file_count field showing the total number of associated files.
+    Supports filtering by collection_type (file, website, qa).
     """
     # Build base query with file count using LEFT JOIN and COUNT
     # This efficiently gets file counts in a single query to avoid N+1 problems
@@ -95,6 +106,12 @@ async def list_collections(
     if display_name:
         query = query.where(Collection.display_name.ilike(f"%{display_name}%"))
 
+    # Apply collection type filter if provided
+    if collection_type:
+        # Convert schema enum to model enum
+        model_collection_type = CollectionType(collection_type.value)
+        query = query.where(Collection.collection_type == model_collection_type)
+
     # Apply tags filter if provided
     if tags:
         tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
@@ -126,6 +143,8 @@ async def list_collections(
             id=collection.id,
             display_name=collection.display_name,
             description=collection.description,
+            collection_type=CollectionTypeEnum(collection.collection_type.value),
+            crawl_config=collection.crawl_config,
             collection_metadata=collection.collection_metadata,
             tags=collection.tags,
             created_at=collection.created_at,
@@ -170,16 +189,22 @@ async def create_collection(
 
     Collections help organize RAG content and can contain metadata about embedding models,
     chunk sizes, and other processing parameters. Collection is scoped to the specified project.
+    Supports collection_type to specify the source: file, website, or qa.
     """
+    # Convert schema enum to model enum
+    model_collection_type = CollectionType(collection_data.collection_type.value)
+
     # Create new collection with specified project_id
     collection = Collection(
         project_id=project_id,
         display_name=collection_data.display_name,
         description=collection_data.description,
+        collection_type=model_collection_type,
+        crawl_config=collection_data.crawl_config,
         collection_metadata=collection_data.collection_metadata,
         tags=collection_data.tags,
     )
-    
+
     db.add(collection)
     await db.commit()
     await db.refresh(collection)
@@ -189,6 +214,8 @@ async def create_collection(
         id=collection.id,
         display_name=collection.display_name,
         description=collection.description,
+        collection_type=CollectionTypeEnum(collection.collection_type.value),
+        crawl_config=collection.crawl_config,
         collection_metadata=collection.collection_metadata,
         tags=collection.tags,
         created_at=collection.created_at,
@@ -277,6 +304,8 @@ async def get_collections_batch(
             id=collection.id,
             display_name=collection.display_name,
             description=collection.description,
+            collection_type=CollectionTypeEnum(collection.collection_type.value),
+            crawl_config=collection.crawl_config,
             collection_metadata=collection.collection_metadata,
             tags=collection.tags,
             created_at=collection.created_at,
@@ -358,6 +387,8 @@ async def get_collection(
         id=collection.id,
         display_name=collection.display_name,
         description=collection.description,
+        collection_type=CollectionTypeEnum(collection.collection_type.value),
+        crawl_config=collection.crawl_config,
         collection_metadata=collection.collection_metadata,
         tags=collection.tags,
         created_at=collection.created_at,
@@ -475,6 +506,17 @@ async def update_collection(
             collection.tags = collection_data.tags
             changes_made.append("tags")
 
+    if collection_data.collection_type is not None:
+        model_collection_type = CollectionType(collection_data.collection_type.value)
+        if collection.collection_type != model_collection_type:
+            collection.collection_type = model_collection_type
+            changes_made.append("collection_type")
+
+    if collection_data.crawl_config is not None:
+        if collection.crawl_config != collection_data.crawl_config:
+            collection.crawl_config = collection_data.crawl_config
+            changes_made.append("crawl_config")
+
     # The updated_at timestamp will be automatically updated by SQLAlchemy
     # when any field is modified due to the onupdate=func.current_timestamp() setting
     if changes_made:
@@ -526,6 +568,8 @@ async def update_collection(
         id=collection.id,
         display_name=collection.display_name,
         description=collection.description,
+        collection_type=CollectionTypeEnum(collection.collection_type.value),
+        crawl_config=collection.crawl_config,
         collection_metadata=collection.collection_metadata,
         tags=collection.tags,
         created_at=collection.created_at,
@@ -716,3 +760,228 @@ async def search_collection_documents(
     )
 
     return search_response
+
+
+@router.get(
+    "/{collection_id}/crawl-jobs",
+    response_model=WebsiteCrawlJobListResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Collection not found or not accessible"},
+        400: {"model": ErrorResponse, "description": "Collection is not of type 'website'"},
+        500: {"model": ErrorResponse, "description": "Internal server error"}
+    }
+)
+async def list_collection_crawl_jobs(
+    collection_id: UUID,
+    limit: int = Query(20, ge=1, le=100, description="Number of crawl jobs to return"),
+    offset: int = Query(0, ge=0, description="Number of crawl jobs to skip"),
+    status: Optional[str] = Query(None, description="Filter by job status"),
+    project_id: UUID = Query(..., description="Project ID"),
+    db: AsyncSession = Depends(get_db_session_dependency),
+):
+    """
+    Retrieve all crawl jobs for a specific website collection.
+
+    This endpoint returns the list of website crawl jobs associated with the collection.
+    Only works for collections with collection_type='website'.
+    Results are ordered by creation time (newest first).
+    """
+    # Verify collection exists, belongs to project, and is website type
+    collection_query = select(Collection).where(
+        and_(
+            Collection.id == collection_id,
+            Collection.project_id == project_id,
+            Collection.deleted_at.is_(None)
+        )
+    )
+    collection_result = await db.execute(collection_query)
+    collection = collection_result.scalar_one_or_none()
+
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found or not accessible")
+
+    if collection.collection_type != CollectionType.website:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Collection is not of type 'website'. Current type: {collection.collection_type.value}"
+        )
+
+    # Build query for crawl jobs
+    query = select(WebsiteCrawlJob).where(
+        and_(
+            WebsiteCrawlJob.collection_id == collection_id,
+            WebsiteCrawlJob.project_id == project_id,
+            WebsiteCrawlJob.deleted_at.is_(None)
+        )
+    )
+
+    # Apply status filter if provided
+    if status:
+        query = query.where(WebsiteCrawlJob.status == status)
+
+    # Get total count
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar()
+
+    # Apply pagination and ordering
+    query = query.order_by(WebsiteCrawlJob.created_at.desc()).offset(offset).limit(limit)
+
+    # Execute query
+    result = await db.execute(query)
+    crawl_jobs = result.scalars().all()
+
+    # Convert to response models
+    job_responses = []
+    for job in crawl_jobs:
+        # Calculate progress percentage
+        # If job is completed/cancelled/failed, progress is 100%
+        if job.status in ("completed", "cancelled", "failed"):
+            progress_percent = 100.0
+        else:
+            # Calculate based on pages_discovered (actual work to do)
+            # Not max_pages (which is just a limit)
+            total = max(job.pages_discovered, 1)
+            progress_percent = min(100.0, (job.pages_crawled / total) * 100) if total > 0 else 0.0
+
+        progress = CrawlProgressSchema(
+            pages_discovered=job.pages_discovered,
+            pages_crawled=job.pages_crawled,
+            pages_processed=job.pages_processed,
+            pages_failed=job.pages_failed,
+            progress_percent=progress_percent,
+        )
+
+        job_responses.append(WebsiteCrawlJobResponse(
+            id=job.id,
+            collection_id=job.collection_id,
+            start_url=job.start_url,
+            max_pages=job.max_pages,
+            max_depth=job.max_depth,
+            include_patterns=job.include_patterns,
+            exclude_patterns=job.exclude_patterns,
+            status=job.status,
+            progress=progress,
+            crawl_options=job.crawl_options,
+            error_message=job.error_message,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        ))
+
+    # Create pagination metadata
+    pagination = PaginationMetadata(
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_next=offset + limit < total,
+        has_previous=offset > 0,
+    )
+
+    return WebsiteCrawlJobListResponse(
+        data=job_responses,
+        pagination=pagination
+    )
+
+
+@router.get(
+    "/{collection_id}/pages",
+    response_model=WebsitePageListResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Collection not found or not accessible"},
+        400: {"model": ErrorResponse, "description": "Collection is not of type 'website'"},
+        500: {"model": ErrorResponse, "description": "Internal server error"}
+    }
+)
+async def list_collection_pages(
+    collection_id: UUID,
+    limit: int = Query(20, ge=1, le=100, description="Number of pages to return"),
+    offset: int = Query(0, ge=0, description="Number of pages to skip"),
+    status: Optional[str] = Query(None, description="Filter by page status"),
+    project_id: UUID = Query(..., description="Project ID"),
+    db: AsyncSession = Depends(get_db_session_dependency),
+):
+    """
+    Retrieve all crawled pages for a specific website collection.
+
+    This endpoint returns the list of website pages that have been crawled
+    and associated with the collection. Only works for collections with
+    collection_type='website'. Results are ordered by creation time (newest first).
+    """
+    # Verify collection exists, belongs to project, and is website type
+    collection_query = select(Collection).where(
+        and_(
+            Collection.id == collection_id,
+            Collection.project_id == project_id,
+            Collection.deleted_at.is_(None)
+        )
+    )
+    collection_result = await db.execute(collection_query)
+    collection = collection_result.scalar_one_or_none()
+
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found or not accessible")
+
+    if collection.collection_type != CollectionType.website:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Collection is not of type 'website'. Current type: {collection.collection_type.value}"
+        )
+
+    # Build query for pages
+    query = select(WebsitePage).where(
+        and_(
+            WebsitePage.collection_id == collection_id,
+            WebsitePage.project_id == project_id,
+        )
+    )
+
+    # Apply status filter if provided
+    if status:
+        query = query.where(WebsitePage.status == status)
+
+    # Get total count
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar()
+
+    # Apply pagination and ordering
+    query = query.order_by(WebsitePage.created_at.desc()).offset(offset).limit(limit)
+
+    # Execute query
+    result = await db.execute(query)
+    pages = result.scalars().all()
+
+    # Convert to response models
+    page_responses = [
+        WebsitePageResponse(
+            id=page.id,
+            crawl_job_id=page.crawl_job_id,
+            collection_id=page.collection_id,
+            url=page.url,
+            title=page.title,
+            depth=page.depth,
+            content_length=page.content_length,
+            meta_description=page.meta_description,
+            status=page.status,
+            http_status_code=page.http_status_code,
+            file_id=page.file_id,
+            error_message=page.error_message,
+            created_at=page.created_at,
+            updated_at=page.updated_at,
+        )
+        for page in pages
+    ]
+
+    # Create pagination metadata
+    pagination = PaginationMetadata(
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_next=offset + limit < total,
+        has_previous=offset > 0,
+    )
+
+    return WebsitePageListResponse(
+        data=page_responses,
+        pagination=pagination
+    )

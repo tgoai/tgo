@@ -89,8 +89,8 @@ async def _handle_ai_response(evt: Dict[str, Any]) -> None:
                 from_uid=from_uid,
                 force=True,
             )
-        elif event_type == "team_run_content" or event_type == "team_member_content":
-            chunk_text = data.get("content") or data.get("content_chunk")
+        elif event_type == "team_run_content" :
+            chunk_text = data.get("content") 
             if chunk_text is not None:
                 await wukong_client.send_event(
                     channel_id=channel_id,

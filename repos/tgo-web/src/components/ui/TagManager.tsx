@@ -23,28 +23,64 @@ interface TagManagerProps {
   className?: string;
 }
 
-// 颜色选项
+// 颜色选项 - hex 值使用大写格式，用于提交到后端
+// bgHex: 背景色（浅色），textHex: 文本色（深色），用于动态样式
 const COLOR_OPTIONS = [
-  { name: 'red', label: '红色', class: 'bg-red-100 text-red-700 border-red-200', hex: '#fecaca' },
-  { name: 'orange', label: '橙色', class: 'bg-orange-100 text-orange-700 border-orange-200', hex: '#fed7aa' },
-  { name: 'yellow', label: '黄色', class: 'bg-yellow-100 text-yellow-700 border-yellow-200', hex: '#fef3c7' },
-  { name: 'green', label: '绿色', class: 'bg-green-100 text-green-700 border-green-200', hex: '#dcfce7' },
-  { name: 'emerald', label: '翠绿', class: 'bg-emerald-100 text-emerald-700 border-emerald-200', hex: '#d1fae5' },
-  { name: 'teal', label: '青色', class: 'bg-teal-100 text-teal-700 border-teal-200', hex: '#ccfbf1' },
-  { name: 'blue', label: '蓝色', class: 'bg-blue-100 text-blue-700 border-blue-200', hex: '#dbeafe' },
-  { name: 'indigo', label: '靛蓝', class: 'bg-indigo-100 text-indigo-700 border-indigo-200', hex: '#e0e7ff' },
-  { name: 'purple', label: '紫色', class: 'bg-purple-100 text-purple-700 border-purple-200', hex: '#f3e8ff' },
-  { name: 'pink', label: '粉色', class: 'bg-pink-100 text-pink-700 border-pink-200', hex: '#fce7f3' },
-  { name: 'gray', label: '灰色', class: 'bg-gray-100 text-gray-700 border-gray-200', hex: '#f3f4f6' }
+  { name: 'red', label: '红色', hex: '#EF4444', bgHex: '#FEE2E2', textHex: '#B91C1C' },
+  { name: 'orange', label: '橙色', hex: '#F97316', bgHex: '#FFEDD5', textHex: '#C2410C' },
+  { name: 'yellow', label: '黄色', hex: '#EAB308', bgHex: '#FEF9C3', textHex: '#A16207' },
+  { name: 'green', label: '绿色', hex: '#22C55E', bgHex: '#DCFCE7', textHex: '#15803D' },
+  { name: 'emerald', label: '翠绿', hex: '#10B981', bgHex: '#D1FAE5', textHex: '#047857' },
+  { name: 'teal', label: '青色', hex: '#14B8A6', bgHex: '#CCFBF1', textHex: '#0F766E' },
+  { name: 'blue', label: '蓝色', hex: '#3B82F6', bgHex: '#DBEAFE', textHex: '#1D4ED8' },
+  { name: 'indigo', label: '靛蓝', hex: '#6366F1', bgHex: '#E0E7FF', textHex: '#4338CA' },
+  { name: 'purple', label: '紫色', hex: '#A855F7', bgHex: '#F3E8FF', textHex: '#7E22CE' },
+  { name: 'pink', label: '粉色', hex: '#EC4899', bgHex: '#FCE7F3', textHex: '#BE185D' },
+  { name: 'gray', label: '灰色', hex: '#6B7280', bgHex: '#F3F4F6', textHex: '#374151' }
 ];
 
-// 预设标签改为由父组件通过 API 获取并下发
-// 建议标签（常用标签）在点击“+ 添加”时请求后端获取
+// 默认颜色（蓝色）
+const DEFAULT_COLOR = COLOR_OPTIONS.find(c => c.name === 'blue')!;
 
-// 获取标签颜色类
-const getTagColorClass = (colorName: string): string => {
-  const color = COLOR_OPTIONS.find(c => c.name === colorName);
-  return color ? color.class : 'bg-gray-50 text-gray-700 border-gray-200';
+/**
+ * 将颜色值转换为大写十六进制格式
+ * 支持输入：颜色名称（如 'blue'）、十六进制（如 '#3b82f6' 或 '3B82F6'）
+ * 输出：大写十六进制格式（如 '#3B82F6'）
+ */
+const toUppercaseHex = (color: string | null | undefined): string => {
+  if (!color) return DEFAULT_COLOR.hex;
+  
+  const trimmed = color.trim();
+  
+  // 如果已经是十六进制格式，转换为大写
+  if (/^#?[0-9A-Fa-f]{6}$/.test(trimmed)) {
+    const hex = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+    return hex.toUpperCase();
+  }
+  
+  // 如果是颜色名称，查找对应的 hex 值
+  const found = COLOR_OPTIONS.find(c => c.name.toLowerCase() === trimmed.toLowerCase());
+  return found ? found.hex : DEFAULT_COLOR.hex;
+};
+
+/**
+ * 根据颜色值获取颜色配置（支持颜色名称和 hex 值）
+ */
+const getColorConfig = (color: string | null | undefined) => {
+  if (!color) return DEFAULT_COLOR;
+  
+  const trimmed = color.trim().toLowerCase();
+  
+  // 先尝试按名称匹配
+  const byName = COLOR_OPTIONS.find(c => c.name === trimmed);
+  if (byName) return byName;
+  
+  // 再尝试按 hex 匹配（忽略大小写）
+  const normalizedHex = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  const byHex = COLOR_OPTIONS.find(c => c.hex.toLowerCase() === normalizedHex);
+  if (byHex) return byHex;
+  
+  return DEFAULT_COLOR;
 };
 
 // 获取权重样式
@@ -165,7 +201,8 @@ const TagManager: React.FC<TagManagerProps> = ({
     if (newTag.trim() && !tags.some(tag => tag.name === newTag.trim()) && tags.length < maxTags) {
       onAddTag({
         name: newTag.trim(),
-        color: newColor,
+        // 转换为大写十六进制格式提交到后端
+        color: toUppercaseHex(newColor),
         weight: newWeight
       });
       handleCancelAdd();
@@ -189,7 +226,8 @@ const TagManager: React.FC<TagManagerProps> = ({
   };
 
   const handleUpdateColor = (id: string, color: string) => {
-    onUpdateTag(id, { color });
+    // 转换为大写十六进制格式提交到后端
+    onUpdateTag(id, { color: toUppercaseHex(color) });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -218,14 +256,21 @@ const TagManager: React.FC<TagManagerProps> = ({
     <div className={className}>
       {/* 现有标签 */}
       <div className="flex flex-wrap gap-1.5">
-        {sortedTags.map((tag) => (
+        {sortedTags.map((tag) => {
+          const colorConfig = getColorConfig(tag.color);
+          return (
           <div
             key={tag.id}
             ref={(el) => { tagRefs.current[tag.id] = el; }}
             className="group relative"
           >
             <span
-              className={`text-[11px] leading-tight px-2 py-1 rounded-full border ${getTagColorClass(tag.color)} ${getWeightStyle(tag.weight)}`}
+              className={`text-[11px] leading-tight px-2 py-1 rounded-full border ${getWeightStyle(tag.weight)}`}
+              style={{
+                backgroundColor: colorConfig.bgHex,
+                color: colorConfig.textHex,
+                borderColor: colorConfig.hex + '40' // 添加透明度
+              }}
             >
               {tag.name}
               {tag.weight >= 8 && (
@@ -278,18 +323,25 @@ const TagManager: React.FC<TagManagerProps> = ({
 
                   <div>
                     <label className="text-[10px] text-gray-500 dark:text-gray-400 block mb-1">{t('chat.visitor.tags.editPanel.colorLabel', '颜色')}</label>
-                    <div className="flex flex-wrap gap-1">
-                      {COLOR_OPTIONS.slice(0, 6).map((color) => (
+                    <div className="flex flex-wrap gap-1.5">
+                      {COLOR_OPTIONS.map((color) => {
+                        // 比较颜色：支持颜色名称和 hex 值
+                        const currentColorConfig = getColorConfig(tag.color);
+                        const isSelected = currentColorConfig.name === color.name;
+                        return (
                         <button
                           key={color.name}
                           onClick={() => handleUpdateColor(tag.id, color.name)}
-                          className={`w-4 h-4 rounded-full border-2 ${
-                            tag.color === color.name ? 'border-gray-800 dark:border-gray-300' : 'border-gray-300 dark:border-gray-600'
+                          className={`w-5 h-5 rounded-full border-2 transition-all ${
+                            isSelected
+                              ? 'border-gray-800 dark:border-white ring-2 ring-offset-1 ring-gray-400 dark:ring-gray-500'
+                              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                           }`}
                           style={{ backgroundColor: color.hex }}
                           title={t(`chat.visitor.tags.colors.${color.name}`, color.label)}
                         />
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -303,7 +355,8 @@ const TagManager: React.FC<TagManagerProps> = ({
               </div>
             )}
           </div>
-        ))}
+        );
+        })}
 
         {/* 添加标签按钮/输入框 */}
         {isAdding ? (
@@ -356,8 +409,8 @@ const TagManager: React.FC<TagManagerProps> = ({
 
             {/* 颜色选择器 */}
             {showColorPicker && (
-              <div className="absolute top-8 left-0 z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2">
-                <div className="grid grid-cols-4 gap-1">
+              <div className="absolute top-8 left-0 z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2.5">
+                <div className="grid grid-cols-4 gap-1.5">
                   {COLOR_OPTIONS.map((color) => (
                     <button
                       key={color.name}
@@ -365,8 +418,10 @@ const TagManager: React.FC<TagManagerProps> = ({
                         setNewColor(color.name);
                         setShowColorPicker(false);
                       }}
-                      className={`w-6 h-6 rounded-full border-2 ${
-                        newColor === color.name ? 'border-gray-800 dark:border-gray-300' : 'border-gray-300 dark:border-gray-600'
+                      className={`w-6 h-6 rounded-full border-2 transition-all ${
+                        newColor === color.name
+                          ? 'border-gray-800 dark:border-white ring-2 ring-offset-1 ring-gray-400 dark:ring-gray-500'
+                          : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                       }`}
                       style={{ backgroundColor: color.hex }}
                       title={t(`chat.visitor.tags.colors.${color.name}`, color.label)}
@@ -403,18 +458,26 @@ const TagManager: React.FC<TagManagerProps> = ({
             <div className="text-[10px] text-red-500 dark:text-red-400">{suggestionsError}</div>
           )}
           <div className="flex flex-wrap gap-1">
-            {availablePresets.map((preset) => (
+            {availablePresets.map((preset) => {
+              const presetColorConfig = getColorConfig(preset.color);
+              return (
               <button
                 key={preset.id}
                 onClick={() => handlePresetSelect(preset)}
-                className={`text-[10px] leading-tight px-1.5 py-0.5 rounded-full border transition-colors hover:opacity-80 ${getTagColorClass(preset.color)} ${getWeightStyle(preset.weight)}`}
+                className={`text-[10px] leading-tight px-1.5 py-0.5 rounded-full border transition-colors hover:opacity-80 ${getWeightStyle(preset.weight)}`}
+                style={{
+                  backgroundColor: presetColorConfig.bgHex,
+                  color: presetColorConfig.textHex,
+                  borderColor: presetColorConfig.hex + '40'
+                }}
               >
                 {preset.name}
                 {preset.weight >= 8 && (
                   <span className="ml-1 text-[8px] opacity-70">★</span>
                 )}
               </button>
-            ))}
+              );
+            })}
             {!suggestionsLoading && availablePresets.length === 0 && (
               <div className="text-[10px] text-gray-400 dark:text-gray-500">{t('chat.visitor.tags.common.empty', '暂无可用标签')}</div>
             )}

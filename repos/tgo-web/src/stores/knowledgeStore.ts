@@ -53,7 +53,7 @@ interface KnowledgeState {
   retry: () => Promise<void>;
   
   // CRUD操作
-  createKnowledgeBase: (data: Partial<KnowledgeBaseItem>) => Promise<void>;
+  createKnowledgeBase: (data: Partial<KnowledgeBaseItem>) => Promise<KnowledgeBaseItem | undefined>;
   updateKnowledgeBase: (id: string, updates: Partial<KnowledgeBaseItem>) => Promise<void>;
   deleteKnowledgeBase: (id: string) => Promise<void>;
   duplicateKnowledgeBase: (id: string) => Promise<void>;
@@ -206,7 +206,9 @@ export const useKnowledgeStore = create<KnowledgeState>()(
               updatedAt: newCollection.updated_at, // Preserve full timestamp
               views: 0,
               status: 'published',
-              icon: newCollection.collection_metadata?.icon || data.icon
+              icon: newCollection.collection_metadata?.icon || data.icon,
+              type: data.type,
+              crawlConfig: data.crawlConfig
             };
 
             set(
@@ -219,6 +221,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
               false,
               'createKnowledgeBaseSuccess'
             );
+
+            return newItem;
           } catch (error) {
             console.error('创建知识库失败:', error);
             const errorMessage = error instanceof Error ? error.message : '创建知识库失败';

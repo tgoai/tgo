@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     ai_tools,
     assignments,
     diagnostics,
+    docs,
     email,
     platforms,
     projects,
@@ -16,6 +17,8 @@ from app.api.v1.endpoints import (
     wukongim_webhook,
     rag_collections,
     rag_files,
+    rag_qa_pairs,
+    rag_websites,
     staff,
     tags,
     visitors,
@@ -26,6 +29,7 @@ from app.api.v1.endpoints import (
     ai_runs,
     setup,
     system,
+    utils,
 )
 
 api_router = APIRouter()
@@ -91,6 +95,18 @@ api_router.include_router(
     rag_files.router,
     prefix="/rag/files",
     tags=["RAG Files"]
+)
+
+api_router.include_router(
+    rag_websites.router,
+    prefix="/rag/websites",
+    tags=["RAG Websites"]
+)
+
+api_router.include_router(
+    rag_qa_pairs.router,
+    prefix="/rag",
+    tags=["RAG QA Pairs"]
 )
 
 # AI Service Proxy Endpoints
@@ -176,4 +192,17 @@ api_router.include_router(
     system.router,
     prefix="/system",
     tags=["System"],
+)
+
+# Unified documentation endpoints
+api_router.include_router(
+    docs.router,
+    tags=["Documentation"],
+)
+
+# Utility endpoints
+api_router.include_router(
+    utils.router,
+    prefix="/utils",
+    tags=["Utils"],
 )

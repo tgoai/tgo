@@ -39,11 +39,11 @@ class FileDocument(Base, UUIDMixin, TimestampMixin):
         doc="Associated project ID for multi-tenant isolation",
     )
 
-    file_id: Mapped[UUID] = mapped_column(
+    file_id: Mapped[Optional[UUID]] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("rag_files.id", ondelete="CASCADE"),
-        nullable=False,
-        doc="Associated file ID",
+        ForeignKey("rag_files.id", ondelete="SET NULL"),
+        nullable=True,
+        doc="Associated file ID (nullable for QA pairs)",
     )
 
     collection_id: Mapped[Optional[UUID]] = mapped_column(
@@ -154,10 +154,10 @@ class FileDocument(Base, UUIDMixin, TimestampMixin):
     )
 
     # Relationships
-    file: Mapped["File"] = relationship(
+    file: Mapped[Optional["File"]] = relationship(
         "File",
         back_populates="documents",
-        doc="Associated file",
+        doc="Associated file (optional for QA pairs)",
     )
 
     collection: Mapped[Optional["Collection"]] = relationship(

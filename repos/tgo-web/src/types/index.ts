@@ -830,6 +830,67 @@ export interface KnowledgeBaseTag {
   color: string;
 }
 
+// Knowledge Base Type - file (default) or website
+export type KnowledgeBaseType = 'file' | 'website';
+
+// Crawl job status
+export type CrawlJobStatus = 'pending' | 'crawling' | 'processing' | 'completed' | 'failed' | 'cancelled';
+
+// Crawl options for website type
+export interface CrawlOptions {
+  render_js?: boolean;
+  wait_time?: number;
+  follow_external_links?: boolean;
+  respect_robots_txt?: boolean;
+  user_agent?: string;
+}
+
+// Crawl progress information
+export interface CrawlProgress {
+  pages_discovered: number;
+  pages_crawled: number;
+  pages_processed: number;
+  pages_failed: number;
+  progress_percent: number;
+}
+
+// Website crawl configuration
+export interface WebsiteCrawlConfig {
+  start_url: string;
+  max_pages?: number; // default: 100, max: 10000
+  max_depth?: number; // default: 3, max: 10
+  include_patterns?: string[];
+  exclude_patterns?: string[];
+  options?: CrawlOptions;
+}
+
+// Website crawl job response
+export interface WebsiteCrawlJob {
+  id: string;
+  collection_id: string;
+  start_url: string;
+  max_pages: number;
+  max_depth: number;
+  include_patterns?: string[] | null;
+  exclude_patterns?: string[] | null;
+  status: CrawlJobStatus;
+  progress: CrawlProgress;
+  crawl_options?: Record<string, any> | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Website crawl create response
+export interface WebsiteCrawlCreateResponse {
+  job_id: string;
+  status: string;
+  start_url: string;
+  collection_id: string;
+  created_at: string;
+  message: string;
+}
+
 export interface KnowledgeBaseItem {
   id: string;
   title: string;
@@ -847,6 +908,10 @@ export interface KnowledgeBaseItem {
   status: KnowledgeBaseStatus;
   icon?: string; // For backward compatibility
   iconColor?: string; // For backward compatibility
+  // New fields for type support
+  type?: KnowledgeBaseType; // 'file' or 'website'
+  crawlConfig?: WebsiteCrawlConfig; // Website crawl configuration
+  crawlJob?: WebsiteCrawlJob; // Latest crawl job info
 }
 
 export type KnowledgeBaseStatus = 'published' | 'draft' | 'archived';
@@ -871,6 +936,10 @@ export interface KnowledgeBase {
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
+  // New fields for type support
+  type?: KnowledgeBaseType;
+  crawlConfig?: WebsiteCrawlConfig;
+  crawlJob?: WebsiteCrawlJob;
 }
 
 // Knowledge Base File/Document (compatible with API FileResponse)

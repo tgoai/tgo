@@ -2,11 +2,25 @@
 Collection-related Pydantic schemas.
 """
 
+import enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+
+class CollectionTypeEnum(str, enum.Enum):
+    """
+    Enum representing the type/source of a collection.
+
+    - file: Collection created from file uploads
+    - website: Collection created from website crawling
+    - qa: Collection created from question-answer pairs
+    """
+    file = "file"
+    website = "website"
+    qa = "qa"
 
 
 class CollectionCreateRequest(BaseModel):
@@ -23,6 +37,47 @@ class CollectionCreateRequest(BaseModel):
         None,
         description="Optional collection description",
         examples=["Updated product documentation for RAG knowledge base"]
+    )
+    collection_type: CollectionTypeEnum = Field(
+        default=CollectionTypeEnum.file,
+        description="Type of collection: file, website, or qa",
+        examples=["file"]
+    )
+    crawl_config: Optional[Dict[str, Any]] = Field(
+        None,
+        description="""Crawl configuration for website collections (only used when collection_type is 'website').
+
+Available configuration options:
+- **start_url** (str, required): Starting URL for crawling
+- **max_pages** (int): Maximum number of pages to crawl (default: 100)
+- **max_depth** (int): Maximum crawl depth from start URL (default: 3)
+- **include_patterns** (list[str]): URL glob patterns to include (e.g., '*/docs/*')
+- **exclude_patterns** (list[str]): URL glob patterns to exclude (e.g., '*/admin/*')
+- **wait_for_selector** (str): CSS selector to wait for before extracting content
+- **timeout** (int): Page load timeout in seconds (default: 30)
+- **delay_between_requests** (float): Delay between requests in seconds (default: 1.0)
+- **respect_robots_txt** (bool): Whether to respect robots.txt (default: true)
+- **user_agent** (str): Custom user agent string
+- **headers** (dict): Custom HTTP headers
+- **js_rendering** (bool): Whether to render JavaScript (default: true)
+- **extract_images** (bool): Whether to extract image URLs (default: false)
+- **extract_links** (bool): Whether to extract external links (default: true)
+""",
+        examples=[
+            {
+                "start_url": "https://docs.example.com",
+                "max_pages": 100,
+                "max_depth": 3,
+                "include_patterns": ["*/docs/*", "*/guide/*"],
+                "exclude_patterns": ["*/admin/*", "*/login/*"],
+                "wait_for_selector": ".main-content",
+                "timeout": 30,
+                "delay_between_requests": 1.0,
+                "respect_robots_txt": True,
+                "js_rendering": True,
+                "extract_links": True
+            }
+        ]
     )
     collection_metadata: Optional[Dict[str, Any]] = Field(
         None,
@@ -58,6 +113,32 @@ class CollectionUpdateRequest(BaseModel):
         description="Collection description",
         examples=["Updated product documentation for RAG knowledge base with new features"]
     )
+    collection_type: Optional[CollectionTypeEnum] = Field(
+        None,
+        description="Type of collection: file, website, or qa",
+        examples=["file"]
+    )
+    crawl_config: Optional[Dict[str, Any]] = Field(
+        None,
+        description="""Crawl configuration for website collections. See CollectionCreateRequest for full option list.
+
+Common options to update:
+- **max_pages**: Maximum number of pages to crawl
+- **max_depth**: Maximum crawl depth from start URL
+- **include_patterns** / **exclude_patterns**: URL filtering patterns
+- **timeout**: Page load timeout in seconds
+- **delay_between_requests**: Delay between requests
+""",
+        examples=[
+            {
+                "max_pages": 200,
+                "max_depth": 5,
+                "include_patterns": ["*/docs/*", "*/api/*"],
+                "exclude_patterns": ["*/admin/*", "*/login/*"],
+                "delay_between_requests": 2.0
+            }
+        ]
+    )
     collection_metadata: Optional[Dict[str, Any]] = Field(
         None,
         description="Collection metadata (embedding model, chunk size, etc.)",
@@ -79,7 +160,7 @@ class CollectionUpdateRequest(BaseModel):
 
 class CollectionResponse(BaseModel):
     """Schema for collection API responses."""
-    
+
     id: UUID = Field(
         ...,
         description="Collection unique identifier",
@@ -94,6 +175,32 @@ class CollectionResponse(BaseModel):
         None,
         description="Collection description",
         examples=["Updated product documentation for RAG knowledge base"]
+    )
+    collection_type: CollectionTypeEnum = Field(
+        ...,
+        description="Type of collection: file, website, or qa",
+        examples=["file"]
+    )
+    crawl_config: Optional[Dict[str, Any]] = Field(
+        None,
+        description="""Crawl configuration for website collections. Only present when collection_type is 'website'.
+
+Contains settings such as:
+- start_url, max_pages, max_depth
+- include_patterns, exclude_patterns
+- timeout, delay_between_requests
+- js_rendering, extract_images, extract_links
+""",
+        examples=[
+            {
+                "start_url": "https://docs.example.com",
+                "max_pages": 100,
+                "max_depth": 3,
+                "include_patterns": ["*/docs/*"],
+                "exclude_patterns": ["*/admin/*"],
+                "js_rendering": True
+            }
+        ]
     )
     collection_metadata: Optional[Dict[str, Any]] = Field(
         None,

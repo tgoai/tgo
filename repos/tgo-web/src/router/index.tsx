@@ -25,6 +25,7 @@ const PlatformPlaceholder: React.FC = () => {
 };
 import KnowledgeBase from '../pages/KnowledgeBase';
 import KnowledgeBaseDetail from '../pages/KnowledgeBaseDetail';
+import WebsiteKnowledgeBaseDetail from '../pages/WebsiteKnowledgeBaseDetail';
 import PlatformManagement from '../pages/PlatformManagement';
 import PlatformConfigPage from '../pages/PlatformConfigPage';
 import SettingsLayout from '../pages/SettingsLayout';
@@ -115,6 +116,10 @@ export const router = createBrowserRouter([
       {
         path: 'knowledge/:id',
         element: <KnowledgeBaseDetail/>
+      },
+      {
+        path: 'knowledge/website/:id',
+        element: <WebsiteKnowledgeBaseDetail/>
       },
       {
         path: 'platforms',

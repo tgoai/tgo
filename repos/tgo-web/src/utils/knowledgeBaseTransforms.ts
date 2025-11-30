@@ -38,6 +38,23 @@ export const transformCollectionToKnowledgeBase = (collection: CollectionRespons
  * Transform CollectionResponse to KnowledgeBaseItem format (for list compatibility)
  */
 export const transformCollectionToKnowledgeBaseItem = (collection: CollectionResponse): KnowledgeBaseItem => {
+  // Transform crawl_config from API format to frontend format
+  let crawlConfig = undefined;
+  if (collection.collection_type === 'website' && collection.crawl_config) {
+    crawlConfig = {
+      start_url: collection.crawl_config.start_url || '',
+      max_pages: collection.crawl_config.max_pages,
+      max_depth: collection.crawl_config.max_depth,
+      include_patterns: collection.crawl_config.include_patterns,
+      exclude_patterns: collection.crawl_config.exclude_patterns,
+      options: {
+        render_js: collection.crawl_config.js_rendering,
+        respect_robots_txt: collection.crawl_config.respect_robots_txt,
+        wait_time: collection.crawl_config.delay_between_requests,
+      },
+    };
+  }
+
   return {
     id: collection.id,
     title: collection.display_name,
@@ -51,6 +68,8 @@ export const transformCollectionToKnowledgeBaseItem = (collection: CollectionRes
     views: 0, // Default views count
     fileCount: collection.file_count, // Default file count
     icon: collection.collection_metadata?.icon || undefined, // Extract icon from metadata
+    type: collection.collection_type === 'website' ? 'website' : 'file', // Map collection_type to type
+    crawlConfig, // Website crawl configuration
   };
 };
 
@@ -307,10 +326,27 @@ export const transformKnowledgeBaseItemToCreateRequest = (item: Partial<Knowledg
     tags = item.tags.map(tag => typeof tag === 'string' ? tag : tag.name).filter(Boolean);
   }
 
+  // Transform crawl config if present
+  let crawl_config = undefined;
+  if (item.type === 'website' && item.crawlConfig) {
+    crawl_config = {
+      start_url: item.crawlConfig.start_url,
+      max_pages: item.crawlConfig.max_pages,
+      max_depth: item.crawlConfig.max_depth,
+      include_patterns: item.crawlConfig.include_patterns,
+      exclude_patterns: item.crawlConfig.exclude_patterns,
+      js_rendering: item.crawlConfig.options?.render_js,
+      respect_robots_txt: item.crawlConfig.options?.respect_robots_txt,
+      delay_between_requests: item.crawlConfig.options?.wait_time,
+    };
+  }
+
   return {
     display_name: item.title || 'Untitled Collection',
     description: item.content || undefined,
     tags: tags,
+    collection_type: item.type || 'file',
+    crawl_config: crawl_config,
     collection_metadata: {
       category: item.category,
       icon: item.icon,

@@ -47,7 +47,8 @@
     "inactive": "Inactive",
     "copied": "Copied",
     "copyFailed": "Copy failed",
-    "enable": "Enable"
+    "enable": "Enable",
+    "more": "more"
   },
   "settings": {
     "title": "Settings",
@@ -231,7 +232,7 @@
     "links": "Links"
   },
   "agents": {
-    "title": "Agent Management",
+    "title": "Agent Team Management",
     "subtitle": "Manage your AI agents",
     "actions": {
       "create": "Create Agent",
@@ -242,7 +243,11 @@
       "retry": "Retry",
       "view": "View Details",
       "viewMore": "View More",
-      "collapse": "Collapse"
+      "collapse": "Collapse",
+      "teamChat": "Team Chat",
+      "teamChatTooltip": "Chat with agent team",
+      "teamChatNoAgents": "Please create an agent first",
+      "teamInfo": "Team Info"
     },
     "form": {
       "name": "Agent Name",
@@ -286,7 +291,14 @@
       "statusUpdateSuccess": "Refresh Successful",
       "statusUpdateSuccessDesc": "Agent \"{{name}}\" status has been updated",
       "statusUpdateFailed": "Refresh Failed",
-      "statusUpdateFailedDesc": "An error occurred while updating agent status"
+      "statusUpdateFailedDesc": "An error occurred while updating agent status",
+      "noTeam": "Team not loaded",
+      "noTeamDesc": "Please try again later",
+      "noAgentsForTeamChat": "Cannot start team chat",
+      "noAgentsForTeamChatDesc": "Please create at least one agent first"
+    },
+    "teamChat": {
+      "defaultName": "Agent Team"
     },
     "empty": {
       "title": "No Agents",
@@ -411,6 +423,9 @@
       "emptyTitle": "No knowledge bases added",
       "emptyDescription": "Click \"Add Knowledge Base\" to select knowledge bases"
     },
+    "toolsList": {
+      "label": "Associated Tools"
+    },
     "apiTest": {
       "title": "Test {{name}}",
       "authMethod": "Auth Method",
@@ -487,6 +502,31 @@
       "save": "Save"
     }
   },
+  "team": {
+    "modal": {
+      "title": "Team Info",
+      "name": "Team Name",
+      "namePlaceholder": "Enter team name",
+      "model": "LLM Model",
+      "modelHint": "Select the default LLM model for the team",
+      "instruction": "Team Instructions",
+      "instructionPlaceholder": "Enter team system prompt or instructions...",
+      "instructionHint": "This instruction will be applied to all agents in the team",
+      "noTeam": "Default team not found",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saveSuccess": "Save Successful",
+      "saveSuccessDesc": "Team information has been updated",
+      "saveFailed": "Save Failed",
+      "saveFailedDesc": "An error occurred while updating team information",
+      "models": {
+        "loading": "Loading models...",
+        "error": "Failed to load models",
+        "empty": "No models available",
+        "selectPlaceholder": "Select a model"
+      }
+    }
+  },
   "auth": {
     "login": {
       "title": "Sign in to your account",
@@ -543,7 +583,7 @@
     "chat": "Chat",
     "ai": "AI Assistant",
     "aiFeatures": "AI Features",
-    "agents": "Agents",
+    "agents": "Agent Teams",
     "mcpTools": "MCP Tools",
     "knowledge": "Knowledge Base",
     "channels": "Channel Management",
@@ -588,7 +628,127 @@
       "nameMax": "Name cannot exceed 50 characters",
       "descRequired": "Description is required",
       "descMin": "Description must be at least 5 characters",
-      "descMax": "Description cannot exceed 500 characters"
+      "descMax": "Description cannot exceed 500 characters",
+      "urlRequired": "Website URL is required",
+      "urlInvalid": "Please enter a valid URL"
+    },
+    "type": "Type",
+    "typeFile": "File",
+    "typeWebsite": "Website",
+    "typeFileDesc": "Upload document files to build knowledge base",
+    "typeWebsiteDesc": "Crawl website content to build knowledge base",
+    "typeReadonly": "Knowledge base type cannot be changed after creation",
+    "advancedSettings": "Advanced Settings",
+    "metadata": {
+      "fetch": "Fetch Info",
+      "fetching": "Fetching info...",
+      "fetchSuccess": "Website info fetched",
+      "fetchFailed": "Failed to fetch website info",
+      "hint": "Website title and description will be fetched automatically after entering URL",
+      "defaultDescription": "Knowledge base from {{domain}}"
+    },
+    "crawl": {
+      "title": "Crawl Configuration",
+      "info": "Crawl Configuration",
+      "startUrl": "Website URL",
+      "startUrlPlaceholder": "https://example.com",
+      "maxPages": "Max Pages",
+      "maxPagesHint": "1-10000, default 100",
+      "maxDepth": "Max Depth",
+      "maxDepthHint": "1-10, default 3",
+      "advancedOptions": "Advanced Options",
+      "includePatterns": "Include Patterns",
+      "includePatternsPlaceholder": "/docs/*, /blog/*",
+      "includePatternsHint": "Comma-separated URL patterns, only crawl matching pages",
+      "excludePatterns": "Exclude Patterns",
+      "excludePatternsPlaceholder": "/admin/*, /login/*",
+      "excludePatternsHint": "Comma-separated URL patterns, skip matching pages",
+      "renderJs": "Render JavaScript",
+      "renderJsHint": "Enable to execute page JavaScript, suitable for dynamic content websites",
+      "followExternal": "Follow External Links",
+      "respectRobots": "Respect robots.txt",
+      "waitTime": "Wait Time (seconds)",
+      "waitTimeHint": "Time to wait after page load, for dynamic content",
+      "start": "Start Crawl",
+      "cancel": "Cancel Crawl",
+      "started": "Crawl Started",
+      "startedDesc": "Website crawl job has been started",
+      "startFailed": "Crawl Start Failed",
+      "startFailedDesc": "An error occurred while starting the crawl job",
+      "cancelled": "Crawl Cancelled",
+      "cancelledDesc": "Website crawl job has been cancelled",
+      "cancelFailed": "Cancel Failed",
+      "cancelFailedDesc": "An error occurred while cancelling the crawl job",
+      "noConfig": "No Crawl Configuration",
+      "noConfigDesc": "This knowledge base has no crawl configuration",
+      "status": {
+        "pending": "Pending",
+        "crawling": "Crawling",
+        "processing": "Processing",
+        "completed": "Completed",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      }
+    },
+    "website": {
+      "loading": "Loading...",
+      "loadFailed": "Failed to load knowledge base",
+      "loadJobsFailed": "Failed to load crawl jobs",
+      "loadPagesFailed": "Failed to load pages",
+      "noPages": "No crawled pages yet",
+      "noJobs": "No crawl jobs yet",
+      "tabs": {
+        "pages": "Pages",
+        "jobs": "Crawl Jobs"
+      },
+      "columns": {
+        "url": "URL",
+        "title": "Title",
+        "status": "Status",
+        "depth": "Depth",
+        "crawledAt": "Crawled At",
+        "actions": "Actions"
+      },
+      "pageStatus": {
+        "pending": "Pending",
+        "fetched": "Fetched",
+        "extracted": "Extracted",
+        "processed": "Processed",
+        "failed": "Failed"
+      },
+      "jobCreated": "Created",
+      "progress": "Progress",
+      "jobStatus": {
+        "status": "Crawl Status"
+      },
+      "jobDetails": {
+        "discovered": "Discovered",
+        "crawled": "Crawled",
+        "processed": "Processed",
+        "failed": "Failed",
+        "maxDepth": "Max Depth",
+        "maxPages": "Max Pages",
+        "error": "Error"
+      },
+      "addPage": {
+        "button": "Add Page",
+        "title": "Manually Add Page",
+        "urlLabel": "Page URL",
+        "urlPlaceholder": "Enter the page URL to add",
+        "hint": "Enter a valid URL, the page will be added to the crawl queue",
+        "submit": "Add",
+        "success": "Page added successfully",
+        "skipped": "Page already exists",
+        "failed": "Failed to add page"
+      },
+      "crawlDeeper": {
+        "button": "Crawl Deeper",
+        "notReady": "Page not yet processed, cannot crawl deeper",
+        "success": "Deep crawl started",
+        "successDesc": "Added {{added}} pages, found {{found}} links",
+        "noNewPages": "No new pages found",
+        "failed": "Deep crawl failed"
+      }
     },
     "icons": {
       "book": "Book",
@@ -615,6 +775,7 @@
     "list": {
       "columns": {
         "name": "Name",
+        "type": "Type",
         "documents": "Documents",
         "lastUpdated": "Last Updated",
         "actions": "Actions"

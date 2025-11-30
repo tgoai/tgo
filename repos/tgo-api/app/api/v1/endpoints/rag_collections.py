@@ -14,8 +14,11 @@ from app.schemas.rag import (
     CollectionListResponse,
     CollectionResponse,
     CollectionSearchRequest,
+    CollectionTypeEnum,
     CollectionUpdateRequest,
     SearchResponse,
+    WebsiteCrawlJobListResponse,
+    WebsitePageListResponse,
 )
 from app.services.rag_client import rag_client
 
@@ -33,11 +36,15 @@ router = APIRouter()
 
     Collections are used to organize documents and files for RAG operations.
     All results are automatically scoped to the authenticated project.
+    Supports filtering by collection_type (file, website, qa).
     """,
 )
 async def list_collections(
     display_name: Optional[str] = Query(
         None, description="Filter by collection display name (partial match)"
+    ),
+    collection_type: Optional[CollectionTypeEnum] = Query(
+        None, description="Filter by collection type: file, website, or qa"
     ),
     tags: Optional[str] = Query(
         None, description="Filter by tags (comma-separated list)"
@@ -55,6 +62,7 @@ async def list_collections(
         "Listing RAG collections",
         extra={
             "display_name": display_name,
+            "collection_type": collection_type.value if collection_type else None,
             "tags": tags,
             "limit": limit,
             "offset": offset,
@@ -63,10 +71,10 @@ async def list_collections(
     project, _api_key = project_and_key
     project_id = str(project.id)
 
-
     result = await rag_client.list_collections(
         project_id=project_id,
         display_name=display_name,
+        collection_type=collection_type.value if collection_type else None,
         tags=tags,
         limit=limit,
         offset=offset,
@@ -255,3 +263,100 @@ async def search_collection_documents(
 
     return SearchResponse.model_validate(result)
 
+
+@router.get(
+    "/{collection_id}/crawl-jobs",
+    response_model=WebsiteCrawlJobListResponse,
+    responses=LIST_RESPONSES,
+    summary="List Collection Crawl Jobs",
+    description="""
+    Retrieve all crawl jobs for a specific website collection.
+
+    This endpoint returns the list of website crawl jobs associated with the collection.
+    Only works for collections with collection_type='website'.
+    Results are ordered by creation time (newest first).
+    """,
+)
+async def list_collection_crawl_jobs(
+    collection_id: UUID,
+    status: Optional[str] = Query(
+        None, description="Filter by job status (pending, crawling, completed, failed, cancelled)"
+    ),
+    limit: int = Query(
+        20, ge=1, le=100, description="Number of crawl jobs to return"
+    ),
+    offset: int = Query(
+        0, ge=0, description="Number of crawl jobs to skip"
+    ),
+    project_and_key=Depends(get_authenticated_project),
+) -> WebsiteCrawlJobListResponse:
+    """List crawl jobs for a website collection."""
+    logger.info(
+        "Listing collection crawl jobs",
+        extra={
+            "collection_id": str(collection_id),
+            "status": status,
+            "limit": limit,
+            "offset": offset,
+        }
+    )
+    project, _api_key = project_and_key
+    project_id = str(project.id)
+
+    result = await rag_client.list_collection_crawl_jobs(
+        project_id=project_id,
+        collection_id=str(collection_id),
+        status=status,
+        limit=limit,
+        offset=offset,
+    )
+    return WebsiteCrawlJobListResponse.model_validate(result)
+
+
+@router.get(
+    "/{collection_id}/pages",
+    response_model=WebsitePageListResponse,
+    responses=LIST_RESPONSES,
+    summary="List Collection Pages",
+    description="""
+    Retrieve all crawled pages for a specific website collection.
+
+    This endpoint returns the list of website pages that have been crawled
+    and associated with the collection. Only works for collections with
+    collection_type='website'. Results are ordered by creation time (newest first).
+    """,
+)
+async def list_collection_pages(
+    collection_id: UUID,
+    status: Optional[str] = Query(
+        None, description="Filter by page status (pending, processing, completed, failed)"
+    ),
+    limit: int = Query(
+        20, ge=1, le=100, description="Number of pages to return"
+    ),
+    offset: int = Query(
+        0, ge=0, description="Number of pages to skip"
+    ),
+    project_and_key=Depends(get_authenticated_project),
+) -> WebsitePageListResponse:
+    """List crawled pages for a website collection."""
+    logger.info(
+        "Listing collection pages",
+        extra={
+            "collection_id": str(collection_id),
+            "status": status,
+            "limit": limit,
+            "offset": offset,
+        }
+    )
+    project, _api_key = project_and_key
+    project_id = str(project.id)
+
+    result = await rag_client.list_collection_pages(
+        project_id=project_id,
+        collection_id=str(collection_id),
+        status=status,
+        limit=limit,
+        offset=offset,
+    )
+    return WebsitePageListResponse.model_validate(result)

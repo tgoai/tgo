@@ -272,7 +272,7 @@ async def _wait_for_event(
             event_type = event.get("event_type")
 
             # Collect text tokens if requested
-            if collect_content and (event_type == "team_run_content" or event_type == "team_member_content"):
+            if collect_content and (event_type == "team_run_content"):
                 data = event.get("data", {})
                 content = data.get("content", "") or data.get("content_chunk", "")
                 completion_text += content
@@ -422,9 +422,9 @@ async def _generate_openai_stream_chunks(
             if isinstance(event, dict):
                 event_type = event.get("event_type")
 
-                if event_type == "team_run_content" or event_type == "team_member_content":
+                if event_type == "team_run_content":
                     data = event.get("data", {})
-                    content = data.get("content", "") or data.get("content_chunk", "")
+                    content = data.get("content", "") 
                     if content:
                         chunk = OpenAIChatCompletionChunk(
                             id=completion_id,

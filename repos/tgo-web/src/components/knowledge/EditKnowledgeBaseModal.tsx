@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, FileText, Globe } from 'lucide-react';
 import { IconPicker, DEFAULT_ICON } from './IconPicker';
 import { TagInput } from '@/components/ui/TagInput';
 import type { KnowledgeBaseItem } from '@/types';
@@ -131,10 +131,10 @@ export const EditKnowledgeBaseModal: React.FC<EditKnowledgeBaseModalProps> = ({
   if (!isOpen || !knowledgeBase) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{t('knowledge.edit', '编辑知识库')}</h2>
           <button
             onClick={handleClose}
@@ -146,8 +146,49 @@ export const EditKnowledgeBaseModal: React.FC<EditKnowledgeBaseModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 dark:bg-gray-900">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-6 dark:bg-gray-900 overflow-y-auto flex-1">
           <div className="space-y-4">
+            {/* Type Display (Read-only) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                {t('knowledge.type', '知识库类型')}
+              </label>
+              <div className={`flex items-center gap-2 px-3 py-2 border rounded-md bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600`}>
+                {knowledgeBase.type === 'website' ? (
+                  <>
+                    <Globe className="w-4 h-4 text-blue-500" />
+                    <span className="text-sm text-gray-700 dark:text-gray-200">{t('knowledge.typeWebsite', '网站')}</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4 text-green-500" />
+                    <span className="text-sm text-gray-700 dark:text-gray-200">{t('knowledge.typeFile', '文件')}</span>
+                  </>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {t('knowledge.typeReadonly', '知识库类型创建后不可更改')}
+              </p>
+            </div>
+
+            {/* Website Crawl Info (Read-only, only for website type) */}
+            {knowledgeBase.type === 'website' && knowledgeBase.crawlConfig && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Globe className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                    {t('knowledge.crawl.info', '爬取配置')}
+                  </span>
+                </div>
+                <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                  <p><span className="font-medium">{t('knowledge.crawl.startUrl', '起始URL')}:</span> {knowledgeBase.crawlConfig.start_url}</p>
+                  <p><span className="font-medium">{t('knowledge.crawl.maxPages', '最大页面数')}:</span> {knowledgeBase.crawlConfig.max_pages || 100}</p>
+                  <p><span className="font-medium">{t('knowledge.crawl.maxDepth', '最大深度')}:</span> {knowledgeBase.crawlConfig.max_depth || 3}</p>
+                </div>
+              </div>
+            )}
+
             {/* Icon Field */}
             <div>
               <label htmlFor="edit-kb-icon" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
@@ -230,10 +271,11 @@ export const EditKnowledgeBaseModal: React.FC<EditKnowledgeBaseModalProps> = ({
                 {t('knowledge.tagsHelper', '添加标签可以帮助您更好地组织和查找知识库')}
               </p>
             </div>
+            </div>
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex justify-end space-x-3 p-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
             <button
               type="button"
               onClick={handleClose}

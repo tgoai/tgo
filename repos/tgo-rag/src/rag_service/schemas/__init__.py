@@ -7,12 +7,32 @@ from .collections import (
     CollectionDetailResponse,
     CollectionResponse,
     CollectionSearchRequest,
+    CollectionTypeEnum,
 )
 from .common import ErrorResponse, PaginationMetadata, PaginationParams
 from .documents import DocumentCreateRequest, DocumentResponse
 from .files import FileResponse, FileUploadResponse
 from .projects import ProjectResponse
 from .search import SearchResponse, SearchResult, SearchMetadata
+from .websites import (
+    CrawlOptionsSchema,
+    CrawlProgressSchema,
+    WebsiteCrawlCreateResponse,
+    WebsiteCrawlJobListResponse,
+    WebsiteCrawlJobResponse,
+    WebsiteCrawlRequest,
+    WebsitePageListResponse,
+    WebsitePageResponse,
+)
+from .qa import (
+    QAPairCreateRequest,
+    QAPairUpdateRequest,
+    QAPairBatchCreateRequest,
+    QAPairImportRequest,
+    QAPairResponse,
+    QAPairListResponse,
+    QAPairBatchCreateResponse,
+)
 
 __all__ = [
     # Common schemas
@@ -26,6 +46,7 @@ __all__ = [
     "CollectionResponse",
     "CollectionDetailResponse",
     "CollectionSearchRequest",
+    "CollectionTypeEnum",
     # File schemas
     "FileResponse",
     "FileUploadResponse",
@@ -36,4 +57,21 @@ __all__ = [
     "SearchResponse",
     "SearchResult",
     "SearchMetadata",
+    # Website schemas
+    "CrawlOptionsSchema",
+    "CrawlProgressSchema",
+    "WebsiteCrawlCreateResponse",
+    "WebsiteCrawlJobListResponse",
+    "WebsiteCrawlJobResponse",
+    "WebsiteCrawlRequest",
+    "WebsitePageListResponse",
+    "WebsitePageResponse",
+    # QA schemas
+    "QAPairCreateRequest",
+    "QAPairUpdateRequest",
+    "QAPairBatchCreateRequest",
+    "QAPairImportRequest",
+    "QAPairResponse",
+    "QAPairListResponse",
+    "QAPairBatchCreateResponse",
 ]

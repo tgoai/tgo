@@ -18,7 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .config import get_settings
 from .database import close_database, database_health_check, init_database
 from .logging_config import get_logger, init_logging_from_settings, set_request_context, clear_request_context
-from .routers import collections, files, health, monitoring, embedding_config
+from .routers import collections, files, health, monitoring, embedding_config, websites, qa
 from .schemas.common import ErrorResponse
 from .startup_banner import (
     print_startup_banner,
@@ -261,6 +261,20 @@ def setup_routers(app: FastAPI) -> None:
         embedding_config.router,
         prefix=f"{api_v1_prefix}/embedding-configs",
         tags=["Embedding Configs"],
+    )
+
+    # Website crawling endpoints
+    app.include_router(
+        websites.router,
+        prefix=f"{api_v1_prefix}/websites",
+        tags=["Websites"],
+    )
+
+    # QA knowledge base endpoints
+    app.include_router(
+        qa.router,
+        prefix=api_v1_prefix,
+        tags=["QA Knowledge Base"],
     )
 
 

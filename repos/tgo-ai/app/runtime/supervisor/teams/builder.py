@@ -125,10 +125,10 @@ class AgnoTeamBuilder:
             "delegate_task_to_all_members": False,
             "expected_output": context.expected_output,
             "add_datetime_to_context": True,
-            "respond_directly": False,
+            "respond_directly": True, # 直接返回成员的回答，不进行额外的汇总
             "stream_member_events": True,
-            "share_member_interactions": True,
-            "show_members_responses": True,
+            "share_member_interactions": False,
+            "show_members_responses": False,
             "enable_user_memories": context.enable_memory,
             "add_memories_to_context": context.enable_memory,
             "add_history_to_context": True,

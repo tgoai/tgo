@@ -268,44 +268,6 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
                     {t('team.modal.instructionHint', '此指令将应用于团队中的所有智能体')}
                   </p>
                 </div>
-
-                {/* Expected Output */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('team.modal.expectedOutput', '期望输出格式')}
-                  </label>
-                  <textarea
-                    value={formData.expected_output}
-                    onChange={(e) => handleInputChange('expected_output', e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors resize-none"
-                    placeholder={t('team.modal.expectedOutputPlaceholder', '描述期望的输出格式...')}
-                  />
-                </div>
-
-                {/* Meta info */}
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {t('team.modal.teamId', '团队 ID')}:
-                      </span>
-                      <span className="ml-2 text-gray-700 dark:text-gray-300 font-mono text-xs">
-                        {team.id}
-                      </span>
-                    </div>
-                    {team.created_at && (
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">
-                          {t('team.modal.createdAt', '创建时间')}:
-                        </span>
-                        <span className="ml-2 text-gray-700 dark:text-gray-300">
-                          {new Date(team.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
             ) : (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
