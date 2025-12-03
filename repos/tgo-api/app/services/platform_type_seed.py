@@ -156,4 +156,3 @@ def ensure_platform_types_seed() -> None:
         startup_log(f"⚠️  Failed to seed platform types: {e}")
     finally:
         db.close()
-

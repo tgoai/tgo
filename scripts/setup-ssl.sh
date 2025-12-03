@@ -21,7 +21,7 @@ API_DOMAIN=$3
 EMAIL=${4:-admin@example.com}
 
 # Create necessary directories
-mkdir -p "$CERTBOT_DIR/conf" "$CERTBOT_DIR/www" "$CERTBOT_DIR/logs"
+mkdir -p "$CERTBOT_DIR/conf" "$CERTBOT_DIR/www/.well-known/acme-challenge" "$CERTBOT_DIR/logs"
 mkdir -p "$SSL_DIR"
 
 echo "[INFO] Setting up Let's Encrypt certificates..."
@@ -34,34 +34,68 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Run certbot for each domain
+# Check if nginx is running (required for webroot mode)
+if ! docker ps --format '{{.Names}}' | grep -q "^tgo-nginx$"; then
+    echo "[ERROR] tgo-nginx container is not running"
+    echo "[INFO] Please start TGO services first: ./tgo.sh up"
+    exit 1
+fi
+
+echo "[INFO] Using webroot mode (nginx is running)"
+echo ""
+
+# Track success
+SUCCESS_COUNT=0
+TOTAL_DOMAINS=3
+
+# Run certbot for each domain using webroot mode
 for domain in "$WEB_DOMAIN" "$WIDGET_DOMAIN" "$API_DOMAIN"; do
     echo "[INFO] Requesting certificate for: $domain"
-    
+
+    # Use webroot mode - certbot writes challenge files to the webroot
+    # nginx serves them via /.well-known/acme-challenge/
     docker run --rm \
         -v "$CERTBOT_DIR/conf:/etc/letsencrypt" \
         -v "$CERTBOT_DIR/www:/var/www/certbot" \
         -v "$CERTBOT_DIR/logs:/var/log/letsencrypt" \
-        -p 80:80 \
         certbot/certbot certonly \
-        --standalone \
+        --webroot \
+        --webroot-path=/var/www/certbot \
         --agree-tos \
         --no-eff-email \
         --email "$EMAIL" \
         -d "$domain" || {
         echo "[WARN] Failed to get certificate for $domain"
+        echo "[HINT] Make sure the domain points to this server and port 80 is accessible"
         continue
     }
-    
+
     # Copy certificate to nginx ssl directory
     mkdir -p "$SSL_DIR/$domain"
     if [ -f "$CERTBOT_DIR/conf/live/$domain/fullchain.pem" ]; then
         cp "$CERTBOT_DIR/conf/live/$domain/fullchain.pem" "$SSL_DIR/$domain/cert.pem"
         cp "$CERTBOT_DIR/conf/live/$domain/privkey.pem" "$SSL_DIR/$domain/key.pem"
-        echo "[INFO] Certificate copied for: $domain"
+        echo "[INFO] Certificate installed for: $domain"
+        SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
     fi
 done
 
+echo ""
 echo "[INFO] SSL setup completed!"
+echo "[INFO] Certificates obtained: $SUCCESS_COUNT / $TOTAL_DOMAINS"
 echo "[INFO] Certificates stored in: $SSL_DIR"
+
+if [ $SUCCESS_COUNT -gt 0 ]; then
+    echo ""
+    echo "[INFO] Reloading nginx to apply new certificates..."
+    docker exec tgo-nginx nginx -s reload 2>/dev/null || echo "[WARN] Could not reload nginx"
+fi
+
+if [ $SUCCESS_COUNT -eq 0 ]; then
+    echo ""
+    echo "[ERROR] No certificates were obtained. Please check:"
+    echo "  1. Your domains point to this server's public IP address"
+    echo "  2. Port 80 is accessible from the internet (check firewall)"
+    echo "  3. DNS has propagated (try: dig $WEB_DOMAIN)"
+fi
 
