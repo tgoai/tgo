@@ -165,10 +165,13 @@ async def add_page(
         },
     )
 
+    # Convert to dict and ensure UUIDs are serialized as strings
+    request_data = page_data.model_dump(exclude_none=True, mode="json")
+
     result = await rag_client.add_website_page(
         project_id=project_id,
         collection_id=str(collection_id),
-        page_data=page_data.model_dump(exclude_none=True),
+        page_data=request_data,
     )
     return AddPageResponse.model_validate(result)
 
