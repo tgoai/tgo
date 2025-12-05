@@ -1,0 +1,54 @@
+{
+  "sidebar.docsSidebar.category.快速开始": {
+    "message": "Getting Started",
+    "description": "The label for category '快速开始' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.配置": {
+    "message": "Configuration",
+    "description": "The label for category '配置' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.开发": {
+    "message": "Development",
+    "description": "The label for category '开发' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.doc.介绍": {
+    "message": "Introduction",
+    "description": "The label for the doc item '介绍' in sidebar 'docsSidebar', linking to the doc intro"
+  },
+  "sidebar.docsSidebar.doc.一键部署": {
+    "message": "Quick Deploy",
+    "description": "The label for the doc item '一键部署' in sidebar 'docsSidebar', linking to the doc quick-start/deploy"
+  },
+  "sidebar.docsSidebar.doc.常见问题": {
+    "message": "FAQ",
+    "description": "The label for the doc item '常见问题' in sidebar 'docsSidebar', linking to the doc quick-start/faq"
+  },
+  "sidebar.docsSidebar.doc.环境变量": {
+    "message": "Environment Variables",
+    "description": "The label for the doc item '环境变量' in sidebar 'docsSidebar', linking to the doc config/env-vars"
+  },
+  "sidebar.docsSidebar.doc.配置域名和证书": {
+    "message": "Domain and SSL",
+    "description": "The label for the doc item '配置域名和证书' in sidebar 'docsSidebar', linking to the doc config/domain-ssl"
+  },
+  "sidebar.docsSidebar.doc.源码部署": {
+    "message": "Source Deployment",
+    "description": "The label for the doc item '源码部署' in sidebar 'docsSidebar', linking to the doc development/source-deploy"
+  },
+  "sidebar.docsSidebar.doc.重启和升级": {
+    "message": "Restart and Upgrade",
+    "description": "The label for the doc item '重启和升级' in sidebar 'docsSidebar', linking to the doc development/restart-upgrade"
+  },
+  "sidebar.docsSidebar.doc.调试工具": {
+    "message": "Debug Tools",
+    "description": "The label for the doc item '调试工具' in sidebar 'docsSidebar', linking to the doc development/debug-tools"
+  },
+  "sidebar.docsSidebar.doc.tgo 命令": {
+    "message": "TGO Commands",
+    "description": "The label for the doc item 'tgo 命令' in sidebar 'docsSidebar', linking to the doc development/tgo-command"
+  },
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  }
+}

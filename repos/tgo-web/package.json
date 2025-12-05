@@ -17,6 +17,7 @@
     "build:check": "yarn type-check && yarn lint && yarn build && yarn verify-build"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
     "dompurify": "^3.1.6",
     "easyjssdk": "^1.0.10",
     "highlight.js": "^11.11.1",

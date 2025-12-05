@@ -4,6 +4,7 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import { useColorMode } from '@docusaurus/theme-common';
+import Translate, { translate } from '@docusaurus/Translate';
 import styles from './index.module.css';
 
 // 引入 react-icons
@@ -65,10 +66,15 @@ const IntegrationIcons = [
 
 const ORBIT_RADIUS = 160;
 
-// 打字机动画词汇
-const TYPING_WORDS = ['意图', '情绪', '需求', '满意度'];
+// 打字机动画词汇 - 多语言
+const TYPING_WORDS_ZH = ['意图', '情绪', '需求', '满意度'];
+const TYPING_WORDS_EN = ['Intent', 'Emotion', 'Needs', 'Satisfaction'];
 
 function Typewriter() {
+  const { i18n } = useDocusaurusContext();
+  const isEnglish = i18n.currentLocale === 'en';
+  const TYPING_WORDS = isEnglish ? TYPING_WORDS_EN : TYPING_WORDS_ZH;
+  
   const [index, setIndex] = React.useState(0);
   const [subIndex, setSubIndex] = React.useState(0);
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -116,7 +122,7 @@ function Typewriter() {
       }, 150); // 输入速度
       return () => clearTimeout(timeout);
     }
-  }, [subIndex, index, isDeleting]);
+  }, [subIndex, index, isDeleting, TYPING_WORDS]);
 
   return (
     <span className={styles.typewriterWrapper}>
@@ -170,10 +176,14 @@ function OrbitIntegrations() {
 }
 
 function HomepageHeader() {
-  const {siteConfig} = useDocusaurusContext();
+  const { siteConfig, i18n } = useDocusaurusContext();
   const { colorMode } = useColorMode();
+  const isEnglish = i18n.currentLocale === 'en';
+  
   const productImage = useBaseUrl(
-    colorMode === 'dark' ? '/img/screen/home_dark.png' : '/img/screen/home.png'
+    colorMode === 'dark' 
+      ? (isEnglish ? '/img/screen/en/home_dark.png' : '/img/screen/home_dark.png')
+      : (isEnglish ? '/img/screen/en/home.png' : '/img/screen/home.png')
   );
 
   return (
@@ -184,11 +194,15 @@ function HomepageHeader() {
       <div className="container" style={{marginTop: "84px"}}>
         <div className={styles.heroContent}>
           <h1 className={styles.heroTitle}>
-            <span className={styles.heroTitleHighlight}>客服智能体</span><br />
-            更懂客户的<Typewriter />
+            <span className={styles.heroTitleHighlight}>
+              <Translate id="homepage.hero.title.highlight">客服智能体</Translate>
+            </span><br />
+            <Translate id="homepage.hero.title.prefix">更懂客户的</Translate><Typewriter />
           </h1>
           <p className={styles.heroSubtitle}>
-            多渠道接入，知识库，多智能体协调，主流大模型支持
+            <Translate id="homepage.hero.subtitle">
+              多渠道接入，知识库，多智能体协调，主流大模型支持
+            </Translate>
           </p>
           
           {/* 新的环绕式集成展示 (移除了 IntegrationsLabel) */}
@@ -199,13 +213,13 @@ function HomepageHeader() {
           <div className={styles.buttons}>
             <Link
               className="button button--primary button--lg"
-              to="/quick-start">
-              快速开始
+              to="/quick-start/deploy">
+              <Translate id="homepage.hero.button.getStarted">快速开始</Translate>
             </Link>
             <Link
               className="button button--secondary button--lg"
               to="https://github.com/tgoai/tgo">
-              Github
+              GitHub
             </Link>
           </div>
 
@@ -213,7 +227,10 @@ function HomepageHeader() {
           <div className={styles.productImageSection}>
             <img 
               src={productImage} 
-              alt="Tgo 产品截图" 
+              alt={translate({
+                id: 'homepage.hero.productImage.alt',
+                message: 'Tgo 产品截图',
+              })}
               className={styles.productImage}
             />
           </div>
@@ -226,8 +243,14 @@ function HomepageHeader() {
 export default function Home(): JSX.Element {
   return (
     <Layout
-      title="首页"
-      description="全渠道私域沟通工具文档">
+      title={translate({
+        id: 'homepage.title',
+        message: '首页',
+      })}
+      description={translate({
+        id: 'homepage.description',
+        message: '开源 AI 智能体客服平台',
+      })}>
       <main>
         <HomepageHeader />
       </main>

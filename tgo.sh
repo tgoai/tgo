@@ -15,6 +15,77 @@ CONFIG_FILE="./data/.tgo-install-mode"
 USE_CN_MIRROR=false
 
 # =============================================================================
+# Common Helper Functions
+# =============================================================================
+
+# Get compose file arguments based on mode and cn flag
+# Usage: get_compose_file_args <mode> <use_cn>
+# Returns: compose file arguments string
+get_compose_file_args() {
+  local mode="${1:-image}"
+  local use_cn="${2:-false}"
+  
+  local compose_args="-f $MAIN_COMPOSE_IMAGE"
+  
+  if [ "$mode" = "source" ]; then
+    if [ ! -f "$MAIN_COMPOSE_SOURCE" ]; then
+      echo "[ERROR] $MAIN_COMPOSE_SOURCE not found. Cannot run in --source mode." >&2
+      return 1
+    fi
+    compose_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
+  elif [ "$use_cn" = "true" ]; then
+    if [ -f "$MAIN_COMPOSE_CN" ]; then
+      compose_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
+    fi
+  fi
+  
+  echo "$compose_args"
+}
+
+# Run all database migrations
+# Usage: run_all_migrations <compose_file_args>
+run_all_migrations() {
+  local compose_file_args="$1"
+  
+  echo "[INFO] Running Alembic migrations for tgo-rag..."
+  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-rag alembic upgrade head
+  
+  echo "[INFO] Running Alembic migrations for tgo-ai..."
+  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-ai alembic upgrade head
+  
+  echo "[INFO] Running Alembic migrations for tgo-api..."
+  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-api alembic upgrade head
+  
+  echo "[INFO] Running Alembic migrations for tgo-platform..."
+  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T -e PYTHONPATH=. tgo-platform alembic upgrade head
+}
+
+# Start core infrastructure services
+# Usage: start_infrastructure <compose_file_args>
+start_infrastructure() {
+  local compose_file_args="$1"
+  
+  echo "[INFO] Starting core infrastructure (postgres, redis, kafka, wukongim)..."
+  docker compose --env-file "$ENV_FILE" $compose_file_args up -d postgres redis kafka wukongim
+}
+
+# Log deployment mode
+# Usage: log_deploy_mode <mode> <use_cn> <action>
+log_deploy_mode() {
+  local mode="$1"
+  local use_cn="$2"
+  local action="${3:-Starting}"
+  
+  if [ "$mode" = "source" ]; then
+    echo "[INFO] $action services in SOURCE mode."
+  elif [ "$use_cn" = "true" ]; then
+    echo "[INFO] $action services in IMAGE mode (China mirrors)."
+  else
+    echo "[INFO] $action services in IMAGE mode (GHCR)."
+  fi
+}
+
+# =============================================================================
 # Port Detection and Auto-Allocation Functions
 # =============================================================================
 
@@ -677,36 +748,28 @@ configure_server_host() {
     # Read from /dev/tty to ensure we get input from terminal even when piped
     local user_input=""
     if [ -t 0 ]; then
-      # stdin is a terminal, read normally
       read -r -p "Server host [$default_host]: " user_input
     else
-      # stdin is not a terminal (piped), read from /dev/tty
       printf "Server host [$default_host]: "
       read -r user_input < /dev/tty
     fi
-    
-    # Use default if empty
+
     local input_to_validate="${user_input:-$default_host}"
-    
-    # Validate and sanitize the input
     server_host=$(validate_server_host "$input_to_validate")
-    
+
     if [ -n "$server_host" ]; then
-      # Valid input
-      if [ "$server_host" != "$input_to_validate" ]; then
-        echo "[INFO] Sanitized input: $input_to_validate → $server_host"
-      fi
+      [ "$server_host" != "$input_to_validate" ] && echo "[INFO] Sanitized input: $input_to_validate → $server_host"
       break
+    fi
+
+    attempt=$((attempt + 1))
+    if [ $attempt -lt $max_attempts ]; then
+      echo "[ERROR] Invalid server host: $input_to_validate"
+      echo "[ERROR] Please enter a valid IP address or domain name (without http://, port, or path)"
+      echo ""
     else
-      attempt=$((attempt + 1))
-      if [ $attempt -lt $max_attempts ]; then
-        echo "[ERROR] Invalid server host: $input_to_validate"
-        echo "[ERROR] Please enter a valid IP address or domain name (without http://, port, or path)"
-        echo ""
-      else
-        echo "[ERROR] Too many invalid attempts, using default: $default_host"
-        server_host="$default_host"
-      fi
+      echo "[ERROR] Too many invalid attempts, using default: $default_host"
+      server_host="$default_host"
     fi
   done
   
@@ -838,20 +901,9 @@ cmd_up() {
   while [ "$#" -gt 0 ]; do
     has_args=true
     case "$1" in
-      --source)
-        mode="source"
-        shift
-        ;;
-      --cn)
-        use_cn=true
-        USE_CN_MIRROR=true
-        shift
-        ;;
-      *)
-        echo "[ERROR] Unknown argument to up: $1" >&2
-        usage
-        exit 1
-        ;;
+      --source) mode="source"; shift ;;
+      --cn) use_cn=true; USE_CN_MIRROR=true; shift ;;
+      *) echo "[ERROR] Unknown argument to up: $1" >&2; usage; exit 1 ;;
     esac
   done
 
@@ -859,39 +911,22 @@ cmd_up() {
   if [ "$has_args" = false ]; then
     echo "[INFO] Loading saved install mode configuration..."
     read -r mode use_cn <<< "$(load_install_mode)"
-    if [ "$use_cn" = "true" ]; then
-      USE_CN_MIRROR=true
-    fi
+    [ "$use_cn" = "true" ] && USE_CN_MIRROR=true
   fi
 
   ensure_env_files
 
-  local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
-  if [ "$mode" = "source" ]; then
-    if [ ! -f "$MAIN_COMPOSE_SOURCE" ]; then
-      echo "[ERROR] $MAIN_COMPOSE_SOURCE not found. Cannot run in --source mode." >&2
-      exit 1
-    fi
-    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
-    echo "[INFO] Starting services in SOURCE mode."
-  else
-    if [ "$use_cn" = true ]; then
-      compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
-      echo "[INFO] Starting services in IMAGE mode (China mirrors)."
-    else
-      echo "[INFO] Starting services in IMAGE mode (GHCR)."
-    fi
-  fi
+  local compose_file_args
+  compose_file_args=$(get_compose_file_args "$mode" "$use_cn") || exit 1
+  log_deploy_mode "$mode" "$use_cn" "Starting"
 
-  echo "[INFO] Starting core infrastructure (postgres, redis, kafka, wukongim)..."
-  docker compose --env-file "$ENV_FILE" $compose_file_args up -d postgres redis kafka wukongim
-
+  start_infrastructure "$compose_file_args"
   wait_for_postgres "$compose_file_args"
 
   echo "[INFO] Starting all core services..."
   docker compose --env-file "$ENV_FILE" $compose_file_args up -d
 
-  echo "[INFO] Restart nginx to pick up new configuration..."
+  echo "[INFO] Restarting nginx to pick up new configuration..."
   docker compose --env-file "$ENV_FILE" $compose_file_args restart nginx
 
   echo "[INFO] All services are starting. Use 'docker compose ps' to inspect status."
@@ -919,25 +954,12 @@ cmd_down() {
 
   # Load saved install mode configuration
   echo "[INFO] Loading saved install mode configuration..."
-  local mode=""
-  local use_cn=""
+  local mode="" use_cn=""
   read -r mode use_cn <<< "$(load_install_mode)"
 
-  # Determine compose file arguments based on saved install mode
-  local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
-  if [ "$mode" = "source" ]; then
-    if [ -f "$MAIN_COMPOSE_SOURCE" ]; then
-      compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
-      echo "[INFO] Using SOURCE mode configuration."
-    fi
-  elif [ "$use_cn" = "true" ]; then
-    if [ -f "$MAIN_COMPOSE_CN" ]; then
-      compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
-      echo "[INFO] Using IMAGE mode with China mirrors configuration."
-    fi
-  else
-    echo "[INFO] Using IMAGE mode with GHCR configuration."
-  fi
+  local compose_file_args
+  compose_file_args=$(get_compose_file_args "$mode" "$use_cn") || compose_file_args="-f $MAIN_COMPOSE_IMAGE"
+  log_deploy_mode "$mode" "$use_cn" "Stopping"
 
   if [ "$remove_volumes" = true ]; then
     echo "[INFO] Stopping all services and removing containers and volumes..."
@@ -955,20 +977,9 @@ cmd_install() {
   # Parse arguments (support --source and --cn in any order)
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --source)
-        mode="source"
-        shift
-        ;;
-      --cn)
-        use_cn=true
-        USE_CN_MIRROR=true
-        shift
-        ;;
-      *)
-        echo "[ERROR] Unknown argument to install: $1" >&2
-        usage
-        exit 1
-        ;;
+      --source) mode="source"; shift ;;
+      --cn) use_cn=true; USE_CN_MIRROR=true; shift ;;
+      *) echo "[ERROR] Unknown argument to install: $1" >&2; usage; exit 1 ;;
     esac
   done
 
@@ -987,32 +998,15 @@ cmd_install() {
   # Save install mode for future upgrade commands
   save_install_mode "$mode" "$use_cn"
 
-  local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
-  if [ "$mode" = "source" ]; then
-    if [ ! -f "$MAIN_COMPOSE_SOURCE" ]; then
-      echo "[ERROR] $MAIN_COMPOSE_SOURCE not found. Cannot run in --source mode." >&2
-      exit 1
-    fi
-    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
-    echo "[INFO] Deployment mode: SOURCE (building images from local repos)."
-  else
-    if [ "$use_cn" = true ]; then
-      compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
-      echo "[INFO] Deployment mode: IMAGE (using pre-built images from Alibaba Cloud ACR)."
-    else
-      echo "[INFO] Deployment mode: IMAGE (using pre-built images from GHCR)."
-    fi
-  fi
+  local compose_file_args
+  compose_file_args=$(get_compose_file_args "$mode" "$use_cn") || exit 1
+  log_deploy_mode "$mode" "$use_cn" "Deploying"
 
   if [ "$mode" = "source" ]; then
     echo "[INFO] Building application images from source..."
     docker compose --env-file "$ENV_FILE" $compose_file_args build
   else
-    if [ "$use_cn" = true ]; then
-      echo "[INFO] Skipping local image build; Docker will pull images from Alibaba Cloud ACR."
-    else
-      echo "[INFO] Skipping local image build; Docker will pull images from GHCR."
-    fi
+    echo "[INFO] Docker will pull images from $([ "$use_cn" = true ] && echo "Alibaba Cloud ACR" || echo "GHCR")."
   fi
 
   # Create data directories with correct permissions
@@ -1105,31 +1099,14 @@ cmd_install() {
   echo "[INFO] Starting services..."
 
   # Determine compose file arguments for service startup
-  local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
-  if [ "$mode" = "source" ]; then
-    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
-  elif [ "$use_cn" = true ]; then
-    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
-  fi
+  local compose_file_args
+  compose_file_args=$(get_compose_file_args "$mode" "$use_cn") || exit 1
 
-  # Start core infrastructure services first
-  echo "[INFO] Starting core infrastructure (postgres, redis, kafka, wukongim)..."
-  docker compose --env-file "$ENV_FILE" $compose_file_args up -d postgres redis kafka wukongim
-
+  start_infrastructure "$compose_file_args"
   wait_for_postgres "$compose_file_args"
 
   # Run database migrations
-  echo "[INFO] Running Alembic migrations for tgo-rag..."
-  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-rag alembic upgrade head
-
-  echo "[INFO] Running Alembic migrations for tgo-ai..."
-  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-ai alembic upgrade head
-
-  echo "[INFO] Running Alembic migrations for tgo-api..."
-  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-api alembic upgrade head
-
-  echo "[INFO] Running Alembic migrations for tgo-platform..."
-  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T -e PYTHONPATH=. tgo-platform alembic upgrade head
+  run_all_migrations "$compose_file_args"
 
   # Start all remaining services
   echo "[INFO] Starting all remaining services..."
@@ -1150,37 +1127,16 @@ cmd_uninstall() {
         mode="source"
         shift
         ;;
-      --cn)
-        use_cn=true
-        USE_CN_MIRROR=true
-        shift
-        ;;
-      *)
-        echo "[ERROR] Unknown argument to uninstall: $1" >&2
-        usage
-        exit 1
-        ;;
+      --cn) use_cn=true; USE_CN_MIRROR=true; shift ;;
+      *) echo "[ERROR] Unknown argument to uninstall: $1" >&2; usage; exit 1 ;;
     esac
   done
 
   ensure_env_files
 
-  local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
-  if [ "$mode" = "source" ]; then
-    if [ ! -f "$MAIN_COMPOSE_SOURCE" ]; then
-      echo "[ERROR] $MAIN_COMPOSE_SOURCE not found. Cannot run uninstall in --source mode." >&2
-      exit 1
-    fi
-    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
-    echo "[INFO] Uninstalling services in SOURCE mode."
-  else
-    if [ "$use_cn" = true ]; then
-      compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
-      echo "[INFO] Uninstalling services in IMAGE mode (China mirrors)."
-    else
-      echo "[INFO] Uninstalling services in IMAGE mode."
-    fi
-  fi
+  local compose_file_args
+  compose_file_args=$(get_compose_file_args "$mode" "$use_cn") || exit 1
+  log_deploy_mode "$mode" "$use_cn" "Uninstalling"
 
   echo "Do you want to delete all data (./data/ directory)? [y/N]"
   read -r answer
@@ -1211,21 +1167,9 @@ cmd_upgrade() {
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --source)
-        temp_mode="source"
-        user_provided_args=true
-        shift
-        ;;
-      --cn)
-        temp_use_cn=true
-        user_provided_args=true
-        shift
-        ;;
-      *)
-        echo "[ERROR] Unknown argument to upgrade: $1" >&2
-        usage
-        exit 1
-        ;;
+      --source) temp_mode="source"; user_provided_args=true; shift ;;
+      --cn) temp_use_cn=true; user_provided_args=true; shift ;;
+      *) echo "[ERROR] Unknown argument to upgrade: $1" >&2; usage; exit 1 ;;
     esac
   done
 
@@ -1234,38 +1178,20 @@ cmd_upgrade() {
     mode="$temp_mode"
     use_cn="$temp_use_cn"
     echo "[INFO] Using user-provided parameters for upgrade"
-    # Save the new configuration
     save_install_mode "$mode" "$use_cn"
   else
-    # Load saved configuration
     echo "[INFO] Loading saved install mode configuration..."
     read -r mode use_cn <<< "$(load_install_mode)"
   fi
 
-  # Set global flag for CN mirror
-  if [ "$use_cn" = "true" ]; then
-    USE_CN_MIRROR=true
-  fi
+  [ "$use_cn" = "true" ] && USE_CN_MIRROR=true
 
   ensure_env_files
 
   # Determine compose file arguments
-  local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
-  if [ "$mode" = "source" ]; then
-    if [ ! -f "$MAIN_COMPOSE_SOURCE" ]; then
-      echo "[ERROR] $MAIN_COMPOSE_SOURCE not found. Cannot run in --source mode." >&2
-      exit 1
-    fi
-    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
-    echo "[INFO] Upgrade mode: SOURCE (building from local repos)"
-  else
-    if [ "$use_cn" = "true" ]; then
-      compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
-      echo "[INFO] Upgrade mode: IMAGE (pulling from Alibaba Cloud ACR)"
-    else
-      echo "[INFO] Upgrade mode: IMAGE (pulling from GHCR)"
-    fi
-  fi
+  local compose_file_args
+  compose_file_args=$(get_compose_file_args "$mode" "$use_cn") || exit 1
+  log_deploy_mode "$mode" "$use_cn" "Upgrading"
 
   # Upgrade flow based on mode
   if [ "$mode" = "source" ]; then
@@ -1277,13 +1203,8 @@ cmd_upgrade() {
 
     # Step 1: Pull latest code
     echo "[INFO] Step 1/5: Pulling latest code from git..."
-    if [ "$use_cn" = "true" ]; then
-      echo "[INFO] Using Gitee mirrors for git operations"
-      # Update submodules from Gitee if needed
-      git pull || echo "[WARN] git pull failed, continuing with existing code"
-    else
-      git pull || echo "[WARN] git pull failed, continuing with existing code"
-    fi
+    [ "$use_cn" = "true" ] && echo "[INFO] Using Gitee mirrors for git operations"
+    git pull || echo "[WARN] git pull failed, continuing with existing code"
 
     # Update submodules
     if [ -f ".gitmodules" ]; then
@@ -1301,25 +1222,16 @@ cmd_upgrade() {
     echo "[INFO] Step 3/5: Stopping current services..."
     docker compose --env-file "$ENV_FILE" $compose_file_args down
 
-    # Step 4: Start services with new images
+    # Step 4: Start infrastructure and run migrations
     echo ""
-    echo "[INFO] Step 4/5: Starting services with new images..."
-    docker compose --env-file "$ENV_FILE" $compose_file_args up -d postgres redis kafka wukongim
-
+    echo "[INFO] Step 4/5: Starting infrastructure services..."
+    start_infrastructure "$compose_file_args"
     wait_for_postgres "$compose_file_args"
 
     # Step 5: Run database migrations
     echo ""
     echo "[INFO] Step 5/5: Running database migrations..."
-    docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-rag alembic upgrade head
-    docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-ai alembic upgrade head
-    docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-api alembic upgrade head
-    docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T -e PYTHONPATH=. tgo-platform alembic upgrade head
-
-    # Start all services
-    echo ""
-    echo "[INFO] Starting all services..."
-    docker compose --env-file "$ENV_FILE" $compose_file_args up -d
+    run_all_migrations "$compose_file_args"
 
   else
     echo ""
@@ -1330,11 +1242,7 @@ cmd_upgrade() {
 
     # Step 1: Pull latest images
     echo "[INFO] Step 1/5: Pulling latest Docker images..."
-    if [ "$use_cn" = "true" ]; then
-      echo "[INFO] Pulling from Alibaba Cloud ACR..."
-    else
-      echo "[INFO] Pulling from GitHub Container Registry..."
-    fi
+    echo "[INFO] Pulling from $([ "$use_cn" = "true" ] && echo "Alibaba Cloud ACR" || echo "GitHub Container Registry")..."
     docker compose --env-file "$ENV_FILE" $compose_file_args pull
 
     # Step 2: Stop current services
@@ -1345,23 +1253,21 @@ cmd_upgrade() {
     # Step 3: Start infrastructure services
     echo ""
     echo "[INFO] Step 3/5: Starting infrastructure services..."
-    docker compose --env-file "$ENV_FILE" $compose_file_args up -d postgres redis kafka wukongim
-
+    start_infrastructure "$compose_file_args"
     wait_for_postgres "$compose_file_args"
 
     # Step 4: Run database migrations
     echo ""
     echo "[INFO] Step 4/5: Running database migrations..."
-    docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-rag alembic upgrade head
-    docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-ai alembic upgrade head
-    docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-api alembic upgrade head
-    docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T -e PYTHONPATH=. tgo-platform alembic upgrade head
+    run_all_migrations "$compose_file_args"
 
-    # Step 5: Start all services
-    echo ""
-    echo "[INFO] Step 5/5: Starting all services..."
-    docker compose --env-file "$ENV_FILE" $compose_file_args up -d
+    # Step 5: Start all services (handled below)
   fi
+
+  # Start all services
+  echo ""
+  echo "[INFO] Starting all services..."
+  docker compose --env-file "$ENV_FILE" $compose_file_args up -d
 
   echo ""
   echo "========================================="
@@ -1387,48 +1293,27 @@ cmd_service() {
   # Parse arguments (support --source and --cn in any order)
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --source)
-        mode="source"
-        shift
-        ;;
-      --cn)
-        use_cn=true
-        USE_CN_MIRROR=true
-        shift
-        ;;
-      *)
-        echo "[ERROR] Unknown argument to service: $1" >&2
-        usage
-        exit 1
-        ;;
+      --source) mode="source"; shift ;;
+      --cn) use_cn=true; USE_CN_MIRROR=true; shift ;;
+      *) echo "[ERROR] Unknown argument to service: $1" >&2; usage; exit 1 ;;
     esac
   done
 
-  local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
-  if [ "$mode" = "source" ]; then
-    if [ ! -f "$MAIN_COMPOSE_SOURCE" ]; then
-      echo "[ERROR] $MAIN_COMPOSE_SOURCE not found. Cannot run service in --source mode." >&2
-      exit 1
-    fi
-    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
-  elif [ "$use_cn" = true ]; then
-    compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
-  fi
+  ensure_env_files
+  local compose_file_args
+  compose_file_args=$(get_compose_file_args "$mode" "$use_cn") || exit 1
 
   case "$sub" in
     start)
-      ensure_env_files
-      echo "[INFO] Starting all core services (mode: $mode)..."
+      log_deploy_mode "$mode" "$use_cn" "Starting"
       docker compose --env-file "$ENV_FILE" $compose_file_args up -d
       ;;
     stop)
-      ensure_env_files
-      echo "[INFO] Stopping all core services (mode: $mode)..."
+      log_deploy_mode "$mode" "$use_cn" "Stopping"
       docker compose --env-file "$ENV_FILE" $compose_file_args down
       ;;
     remove)
-      ensure_env_files
-      echo "[INFO] Stopping services and removing images (mode: $mode)..."
+      log_deploy_mode "$mode" "$use_cn" "Removing"
       docker compose --env-file "$ENV_FILE" $compose_file_args down --rmi local
       ;;
     *)
@@ -1751,8 +1636,47 @@ cmd_config() {
         echo "[ERROR] No domain configuration found"
         exit 1
       fi
+      
+      echo "[INFO] Regenerating Nginx configuration..."
       regenerate_nginx_config
-      echo "[INFO] Nginx configuration applied"
+      
+      # Update environment variables based on domain config
+      echo "[INFO] Updating environment variables..."
+      update_domain_env_vars
+      
+      # Load saved install mode configuration to determine compose files
+      ensure_env_files
+      local mode=""
+      local use_cn=""
+      read -r mode use_cn <<< "$(load_install_mode)"
+      
+      local compose_file_args="-f $MAIN_COMPOSE_IMAGE"
+      if [ "$mode" = "source" ]; then
+        if [ -f "$MAIN_COMPOSE_SOURCE" ]; then
+          compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_SOURCE"
+        fi
+      elif [ "$use_cn" = "true" ]; then
+        if [ -f "$MAIN_COMPOSE_CN" ]; then
+          compose_file_args="-f $MAIN_COMPOSE_IMAGE -f $MAIN_COMPOSE_CN"
+        fi
+      fi
+      
+      # Check if services are running
+      if docker compose --env-file "$ENV_FILE" $compose_file_args ps --quiet 2>/dev/null | grep -q .; then
+        echo "[INFO] Restarting services to apply configuration changes..."
+        
+        # Recreate services with updated .env (for VITE_* variables)
+        docker compose --env-file "$ENV_FILE" $compose_file_args up -d
+        
+        # Restart nginx to pick up new configuration
+        echo "[INFO] Restarting Nginx..."
+        docker compose --env-file "$ENV_FILE" $compose_file_args restart nginx
+        
+        echo "[INFO] Configuration applied and services restarted"
+      else
+        echo "[INFO] Services are not running. Configuration will be applied on next start."
+        echo "[INFO] Run './tgo.sh up' to start services with new configuration."
+      fi
       ;;
     show)
       if [ ! -f "$domain_config_file" ]; then

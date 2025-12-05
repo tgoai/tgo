@@ -1,5 +1,54 @@
-/* 1. 引入 Inter 字体 */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* 1. 自托管 Inter 和 JetBrains Mono 字体 */
+
+/* Inter 字体 */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Inter-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Inter-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/Inter-SemiBold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Inter-Bold.woff2') format('woff2');
+}
+
+/* JetBrains Mono 代码字体 */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+}
 
 :root {
   /* Mintlify 风格色板 */
@@ -12,8 +61,9 @@
   --ifm-color-primary-lightest: #64748b;
 
   --ifm-font-family-base: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
   --ifm-font-size-base: 16px;
-  --ifm-line-height-base: 1.6;
+  --ifm-line-height-base: 1.7;
 
   /* 侧边栏背景 */
   --ifm-menu-color-background-active: rgba(15, 23, 42, 0.05);
@@ -70,49 +120,86 @@
 
 /* ------------------- 侧边栏 (Sidebar) ------------------- */
 .theme-doc-sidebar-menu {
-  padding-top: 1rem;
+  padding-top: 0.5rem;
   font-size: 14px;
 }
 
 /* 侧边栏分类标题 */
 .menu__list-item-collapsible {
-  font-weight: 600;
-  color: var(--ifm-color-content-secondary);
-  margin-top: 16px;
-  margin-bottom: 8px;
-  padding-left: 18px; /* 对齐 */
-  text-transform: uppercase;
-  font-size: 12px;
-  letter-spacing: 0.05em;
+  margin-top: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.menu__list-item-collapsible:first-child {
+  margin-top: 0.5rem;
 }
 
 .menu__list-item-collapsible:hover {
   background: none !important;
 }
 
-/* 侧边栏链接 */
-.menu__link {
-  border-radius: 6px;
-  padding: 6px 12px;
-  margin: 2px 8px; /* 两侧留空 */
-  color: var(--ifm-color-content-secondary);
+/* 分类标题链接样式 */
+.menu__list-item-collapsible > .menu__link {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ifm-color-content);
+  padding: 8px 12px;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
-.menu__link:hover {
-  background-color: var(--ifm-color-emphasis-100);
+.menu__list-item-collapsible > .menu__link:hover {
+  background: none !important;
   color: var(--ifm-color-content);
 }
 
-/* 选中状态：Mintlify 风格是浅色背景+深色文字 */
-.menu__link--active {
-  background-color: var(--ifm-menu-color-background-active);
-  color: var(--ifm-color-primary);
-  font-weight: 600;
+/* 隐藏分类的折叠箭头 */
+.menu__list-item-collapsible .menu__link--sublist-caret::after {
+  display: none;
 }
 
-/* 隐藏默认的折叠箭头，让它看起来像纯标题 */
-.menu__list-item-collapsible .menu__link--sublist-caret::after {
-  display: none; 
+/* 子菜单容器 */
+.menu__list .menu__list {
+  padding-left: 0;
+  margin-left: 12px;
+  border-left: 1px solid var(--ifm-color-emphasis-200);
+}
+
+/* 侧边栏链接 */
+.menu__link {
+  border-radius: 0;
+  padding: 8px 12px;
+  margin: 0;
+  color: var(--ifm-color-content-secondary);
+  font-weight: 400;
+  position: relative;
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+}
+
+.menu__link:hover {
+  background-color: transparent;
+  color: var(--ifm-color-primary);
+}
+
+/* 选中状态：左侧蓝色边框 */
+.menu__link--active {
+  background-color: transparent !important;
+  color: #2563eb !important;
+  font-weight: 500;
+  border-left: 2px solid #2563eb;
+  margin-left: -1px;
+}
+
+/* 暗色模式下的选中状态 */
+[data-theme='dark'] .menu__link--active {
+  color: #60a5fa !important;
+  border-left-color: #60a5fa;
+}
+
+/* 暗色模式下的子菜单边框 */
+[data-theme='dark'] .menu__list .menu__list {
+  border-left-color: var(--ifm-color-emphasis-300);
 }
 
 /* ------------------- 内容区域 (Content) ------------------- */
@@ -141,15 +228,306 @@ h3 {
 /* 正文 */
 .markdown p {
   color: var(--ifm-color-content-secondary);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
+  font-size: 15px;
+  line-height: 1.75;
 }
 
-/* 代码块 */
+/* 列表样式 */
+.markdown ul,
+.markdown ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.markdown li {
+  color: var(--ifm-color-content-secondary);
+  font-size: 15px;
+  line-height: 1.75;
+  margin-bottom: 0.5rem;
+}
+
+/* 链接样式 */
+.markdown a {
+  color: var(--ifm-color-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--ifm-color-emphasis-300);
+  transition: text-decoration-color 0.2s ease;
+}
+
+.markdown a:hover {
+  text-decoration-color: var(--ifm-color-primary);
+}
+
+/* 引用块 */
+blockquote {
+  border-left: 3px solid var(--ifm-color-emphasis-300);
+  padding: 0.5rem 1rem;
+  margin: 1.5rem 0;
+  background-color: var(--ifm-color-emphasis-100);
+  border-radius: 0 6px 6px 0;
+}
+
+blockquote p {
+  margin-bottom: 0;
+  color: var(--ifm-color-content-secondary);
+}
+
+/* 分割线 */
+hr {
+  border: none;
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+  margin: 2rem 0;
+}
+
+/* ------------------- 表格样式 ------------------- */
+table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 14px; /* 缩小字体 */
+  border: none;
+  background: none !important;
+}
+
+table thead {
+  background: none !important;
+  border-top: none !important; /* 去除顶部线 */
+}
+
+table th {
+  font-weight: 500;
+  color: #111827; /* 更黑一点的颜色，接近图片 */
+  text-align: left;
+  padding: 12px 0; /* 减小 padding */
+  padding-right: 32px;
+  border: none;
+  border-bottom: 1px solid #e5e7eb; /* 稍微明显一点的分隔线 */
+  background: none !important;
+  font-size: 14px;
+}
+
+[data-theme='dark'] table th {
+  color: #f3f4f6;
+  border-bottom-color: #374151;
+}
+
+table td {
+  padding: 12px 0; /* 减小 padding */
+  padding-right: 32px;
+  border: none;
+  border-bottom: 1px solid #f3f4f6; /* 内容行分隔线更淡 */
+  color: #4b5563; /* 灰一点的文字 */
+  vertical-align: top;
+  line-height: 1.6;
+  background: none !important;
+  font-size: 14px;
+}
+
+[data-theme='dark'] table td {
+  color: #9ca3af;
+  border-bottom-color: #374151;
+}
+
+table tr {
+  background: none !important;
+  border: none !important;
+}
+
+table tr:hover {
+  background: none !important;
+}
+
+table tr:hover td,
+table tr:hover th {
+  background: none !important;
+}
+
+table tbody tr:last-child td {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+[data-theme='dark'] table tbody tr:last-child td {
+  border-bottom-color: #374151;
+}
+
+/* 表格内链接 */
+table a {
+  color: #374151;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+[data-theme='dark'] table a {
+  color: #d1d5db;
+}
+
+table a:hover {
+  color: #111827;
+}
+
+[data-theme='dark'] table a:hover {
+  color: #f3f4f6;
+}
+
+/* ------------------- 代码块样式 ------------------- */
+/* 代码块容器 */
+div[class*='codeBlockContainer'] {
+  border-radius: 12px; /* 大圆角 */
+  border: 1px solid #e5e7eb; /* 细灰边框 */
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* 极淡的阴影 */
+  margin: 1.5rem 0;
+  overflow: hidden;
+  background-color: #ffffff; /* 纯白背景 */
+}
+
+/* 代码块内容 */
+pre {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 13.5px; /* 稍小的字号 */
+  line-height: 1.7;  /* 较大的行高 */
+  border-radius: 12px;
+  padding: 24px;     /* 大内边距 */
+  margin: 0;
+  background-color: #ffffff !important; /* 强制纯白背景 */
+  color: #24292f;    /* 默认文字深灰 */
+  font-weight: 400;
+}
+
+[data-theme='dark'] div[class*='codeBlockContainer'] {
+  background-color: #0d1117;
+  border-color: #30363d;
+}
+
+[data-theme='dark'] pre {
+  background-color: #0d1117 !important;
+  color: #c9d1d9;
+}
+
+/* 隐藏默认的代码块标题栏背景，使其看起来是一体的 */
+div[class*='codeBlockTitle'] {
+  display: none; /* 图片中没有标题栏，或者标题栏与内容完全融合 */
+}
+
+/* 如果需要保留标题栏但样式一致 */
+/* 
+div[class*='codeBlockTitle'] {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 24px;
+  font-family: inherit;
+  font-weight: 500;
+  color: #4b5563;
+}
+*/
+
+/* 复制按钮 */
+button[class*='copyButton'] {
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none; /* 无边框 */
+  border-radius: 4px;
+  padding: 4px;
+  color: #9ca3af; /* 浅灰图标 */
+  opacity: 1;     /* 始终显示，或者 hover 显示 */
+  transition: all 0.2s ease;
+}
+
+button[class*='copyButton']:hover {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+/* 代码语法高亮颜色 - 仿照图片风格 */
+/* 关键字 (let, config) - 红色 */
+.token.keyword,
+.token.operator.arrow,
+.token.operator {
+  color: #d73a49; 
+}
+
+/* 函数名/类名 (WuKongConfig, WuKongEasySDK) - 蓝色 */
+.token.function,
+.token.class-name {
+  color: #0550ae;
+}
+
+/* 属性名 (serverUrl, uid) - 蓝色 */
+.token.property,
+.token.attr-name {
+  color: #0550ae;
+}
+
+/* 字符串 ("ws://...") - 深蓝 */
+.token.string,
+.token.attr-value {
+  color: #0a3069;
+}
+
+/* 注释 (// ...) - 灰色 */
+.token.comment {
+  color: #6e7781;
+  font-style: normal; /* 不倾斜 */
+}
+
+/* 变量/常量 - 黑色/深灰 */
+.token.variable,
+.token.constant {
+  color: #24292f;
+}
+
+/* 数字 */
+.token.number {
+  color: #0550ae;
+}
+
+/* 暗色模式下的语法高亮 */
+[data-theme='dark'] .token.keyword { color: #ff7b72; }
+[data-theme='dark'] .token.function { color: #79c0ff; }
+[data-theme='dark'] .token.string { color: #a5d6ff; }
+[data-theme='dark'] .token.comment { color: #8b949e; }
+[data-theme='dark'] .token.variable { color: #c9d1d9; }
+
+/* 行内代码 */
+code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background-color: #f6f8fa; /* 极浅灰背景 */
+  color: #24292f;
+  border: 1px solid #eaOeff; /* 暂无边框 */
+  border: 1px solid rgba(27,31,36,0.15);
+}
+
+[data-theme='dark'] code {
+  background-color: rgba(110,118,129,0.4);
+  color: #c9d1d9;
+  border-color: rgba(240,246,252,0.15);
+}
+
+/* 代码块内的 code 不需要额外样式 */
+pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  border: none;
+}
+
+/* 高亮行 */
 .docusaurus-highlight-code-line {
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(0, 0, 0, 0.05);
   display: block;
   margin: 0 calc(-1 * var(--ifm-pre-padding));
   padding: 0 var(--ifm-pre-padding);
+}
+
+[data-theme='dark'] .docusaurus-highlight-code-line {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* ------------------- 右侧目录 (TOC) ------------------- */

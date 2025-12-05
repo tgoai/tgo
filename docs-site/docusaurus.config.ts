@@ -7,7 +7,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'Tgo 文档',
   tagline: '开源智能客服系统文档（多智能体 · 知识库 · MCP 工具 · 多渠道接入）',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/logo.svg',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
@@ -27,10 +27,20 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
 
-  // 使用中文站点
+  // 多语言支持
   i18n: {
     defaultLocale: 'zh-Hans',
-    locales: ['zh-Hans'],
+    locales: ['zh-Hans', 'en'],
+    localeConfigs: {
+      'zh-Hans': {
+        label: '简体中文',
+        htmlLang: 'zh-Hans',
+      },
+      en: {
+        label: 'English',
+        htmlLang: 'en',
+      },
+    },
   },
 
   presets: [
@@ -72,6 +82,10 @@ const config: Config = {
           sidebarId: 'docsSidebar',
           position: 'left',
           label: '文档',
+        },
+        {
+          type: 'localeDropdown',
+          position: 'right',
         },
         {
           href: 'https://github.com/tgoai/tgo',
