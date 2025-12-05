@@ -10,9 +10,11 @@
   <a href="https://tgo.ai">官网</a> | <a href="https://docs.tgo.ai">文档</a>
 </p>
 
-# TGO Deploy 部署指南
+## TGO 介绍
 
-本仓库提供一套基于 Docker Compose 的一键部署方案，帮助您快速搭建 TGO 智能体平台。
+TGO 是一个开源的 AI 智能体客服平台，致力于帮助企业“组建智能体团队为客户服务”。它集成了多渠道接入、智能体编排、知识库管理（RAG）、人工坐席协作等核心功能。
+
+<img src="resources/screenshot/zh/home_dark.png" width="100%">
 
 ## 产品预览
 

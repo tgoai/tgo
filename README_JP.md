@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/readme-banner.svg" width="100%" alt="顧客サービスのためのAIエージェントチームを構築する">
+  <img src="resources/readme-banner-en.svg" width="100%" alt="顧客サービスのためのAIエージェントチームを構築する">
 </p>
 
 <p align="center">
@@ -10,9 +10,11 @@
   <a href="https://tgo.ai">公式サイト</a> | <a href="https://docs.tgo.ai">ドキュメント</a>
 </p>
 
-# TGO Deploy ガイド
+## TGO 紹介
 
-このリポジトリは、TGO AIエージェントプラットフォームを迅速にセットアップするための、Docker Composeベースのワンクリックデプロイソリューションを提供します。
+TGOは、企業が「顧客サービスのためのAIエージェントチームを構築する」ことを支援する、オープンソースのAIエージェントカスタマーサービスプラットフォームです。マルチチャネルアクセス、エージェントオーケストレーション、ナレッジベース管理（RAG）、人間のエージェントとの連携などの主要機能を統合しています。
+
+<img src="resources/screenshot/en/home_dark.png" width="100%">
 
 ## 製品プレビュー
 
@@ -40,4 +42,3 @@ REF=latest curl -fsSL https://raw.githubusercontent.com/tgoai/tgo/main/bootstrap
 ---
 
 詳細については、[ドキュメント](https://docs.tgo.ai)をご覧ください。
-

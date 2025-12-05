@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/readme-banner.svg" width="100%" alt="Build AI Agent Teams for Customer Service">
+  <img src="resources/readme-banner-en.svg" width="100%" alt="Build AI Agent Teams for Customer Service">
 </p>
 
 <p align="center">
@@ -10,9 +10,11 @@
   <a href="https://tgo.ai">Website</a> | <a href="https://docs.tgo.ai">Documentation</a>
 </p>
 
-# TGO Deploy Guide
+## TGO Introduction
 
-This repository provides a Docker Compose-based one-click deployment solution to help you quickly set up the TGO AI Agent Platform.
+TGO is an open-source AI agent customer service platform dedicated to helping enterprises "Build AI Agent Teams for Customer Service". It integrates multi-channel access, agent orchestration, knowledge base management (RAG), and human agent collaboration.
+
+<img src="resources/screenshot/en/home_dark.png" width="100%">
 
 ## Product Preview
 
