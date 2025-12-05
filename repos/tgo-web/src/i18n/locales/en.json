@@ -2117,6 +2117,7 @@
       "description": "Create a system administrator account for login and management",
       "username": "Username",
       "usernamePlaceholder": "Enter username (3-20 characters)",
+      "usernameFixed": "Default admin username, cannot be modified",
       "password": "Password",
       "passwordPlaceholder": "Enter password (at least 8 characters)",
       "confirmPassword": "Confirm Password",

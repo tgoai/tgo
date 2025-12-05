@@ -34,7 +34,7 @@
           "Setup"
         ],
         "summary": "Create first admin account",
-        "description": "Create the system's first administrator account and default project. This endpoint can only be called once during initial setup.",
+        "description": "Create the system's first administrator account and default project. Username is fixed as 'admin'. This endpoint can only be called once during initial setup.",
         "operationId": "create_admin_v1_setup_admin_post",
         "requestBody": {
           "content": {
@@ -591,9 +591,18 @@
         "tags": [
           "Onboarding"
         ],
-        "summary": "Skip onboarding",
-        "description": "Skip the onboarding process for the authenticated user's project.\n\n    Marks the onboarding as completed without requiring all steps to be finished.\n    This allows users to dismiss the onboarding guide if they don't want to follow it.",
+        "summary": "Skip onboarding step(s)",
+        "description": "Skip onboarding step(s) for the authenticated user's project.\n\n    - If `step_number` is provided (1-5), only that specific step is skipped.\n    - If `step_number` is not provided, the entire onboarding is skipped (all steps marked as completed).\n\n    This allows users to dismiss individual steps or the entire onboarding guide.",
         "operationId": "skip_onboarding_v1_onboarding_skip_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkipOnboardingRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -601,6 +610,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OnboardingProgressResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1356,6 +1375,22 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -1391,6 +1426,24 @@
         "security": [
           {
             "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
           }
         ],
         "requestBody": {
@@ -1435,15 +1488,33 @@
         "summary": "Register Visitor",
         "description": "Register a visitor using a Platform API key (visitor-facing use).\n\n- Authenticates via platform_api_key\n- Creates or returns an existing visitor bound to the platform/project\n- Returns channel info for messaging integration",
         "operationId": "register_visitor_v1_visitors_register_post",
+        "parameters": [
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/VisitorRegisterRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -1560,6 +1631,22 @@
               "type": "integer",
               "title": "Channel Type"
             }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -1603,6 +1690,22 @@
               "type": "string",
               "format": "uuid",
               "title": "Visitor Id"
+            }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
             }
           }
         ],
@@ -1652,6 +1755,22 @@
               "type": "string",
               "title": "Visitor Id"
             }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -1698,6 +1817,22 @@
               "type": "string",
               "format": "uuid",
               "title": "Visitor Id"
+            }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
             }
           }
         ],
@@ -1798,6 +1933,22 @@
               "format": "uuid",
               "title": "Visitor Id"
             }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
           }
         ],
         "requestBody": {
@@ -1857,6 +2008,22 @@
               "format": "uuid",
               "title": "Visitor Id"
             }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -1905,6 +2072,22 @@
               "type": "string",
               "format": "uuid",
               "title": "Visitor Id"
+            }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
             }
           }
         ],
@@ -2426,6 +2609,22 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -2461,6 +2660,24 @@
         "security": [
           {
             "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
           }
         ],
         "requestBody": {
@@ -2519,6 +2736,22 @@
               "type": "string",
               "title": "Tag Id"
             }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
           }
         ],
         "responses": {
@@ -2549,7 +2782,7 @@
           "Tags"
         ],
         "summary": "Update Tag",
-        "description": "Update tag.\n\nUpdate tag properties like weight, color, and description.\nName and category cannot be changed as they determine the tag ID.",
+        "description": "Update tag.\n\nUpdate tag properties like weight, color, description, and name_zh.\nName and category cannot be changed as they determine the tag ID.",
         "operationId": "update_tag_v1_tags__tag_id__patch",
         "security": [
           {
@@ -2564,6 +2797,22 @@
             "schema": {
               "type": "string",
               "title": "Tag Id"
+            }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
             }
           }
         ],
@@ -7343,6 +7592,94 @@
         }
       }
     },
+    "/v1/rag/qa-categories": {
+      "get": {
+        "tags": [
+          "RAG QA Pairs"
+        ],
+        "summary": "List QA Categories",
+        "description": "Get distinct QA pair categories for the project, optionally filtered by collection.",
+        "operationId": "list_qa_categories_v1_rag_qa_categories_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional collection ID to filter",
+              "title": "Collection Id"
+            },
+            "description": "Optional collection ID to filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QACategoryListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid request data or parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Access denied to resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/ai/models": {
       "post": {
         "tags": [
@@ -9596,6 +9933,22 @@
                 }
               ],
               "title": "X-Platform-Api-Key"
+            }
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
             }
           }
         ],
@@ -13615,13 +13968,6 @@
       },
       "CreateAdminRequest": {
         "properties": {
-          "username": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 3,
-            "title": "Username",
-            "description": "Admin username (unique, used for login)"
-          },
           "password": {
             "type": "string",
             "maxLength": 128,
@@ -13659,7 +14005,6 @@
         },
         "type": "object",
         "required": [
-          "username",
           "password"
         ],
         "title": "CreateAdminRequest",
@@ -14590,15 +14935,49 @@
             "title": "Is Completed",
             "description": "Whether this step is completed"
           },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Step title in English"
+          },
+          "title_zh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Zh",
+            "description": "Step title in Chinese (中文标题)"
+          },
           "description": {
             "type": "string",
             "title": "Description",
-            "description": "Human-readable step description"
+            "description": "Step description in English"
+          },
+          "description_zh": {
+            "type": "string",
+            "title": "Description Zh",
+            "description": "Step description in Chinese (中文描述)"
           },
           "route": {
             "type": "string",
             "title": "Route",
             "description": "Frontend route path for this step"
+          },
+          "step_type": {
+            "type": "string",
+            "title": "Step Type",
+            "description": "Step type: 'action' or 'notify'"
           }
         },
         "type": "object",
@@ -14607,7 +14986,9 @@
           "step_name",
           "is_completed",
           "description",
-          "route"
+          "description_zh",
+          "route",
+          "step_type"
         ],
         "title": "OnboardingStepStatus",
         "description": "Status of a single onboarding step."
@@ -15647,6 +16028,30 @@
         "title": "ProjectUpdate",
         "description": "Schema for updating a project."
       },
+      "QACategoryListResponse": {
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories",
+            "description": "List of unique categories"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total count of categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "categories",
+          "total"
+        ],
+        "title": "QACategoryListResponse",
+        "description": "Schema for QA category list response."
+      },
       "QAPairBatchCreateRequest": {
         "properties": {
           "qa_pairs": {
@@ -16547,6 +16952,27 @@
         "title": "SkipLLMConfigResponse",
         "description": "Response schema for skipping LLM configuration during setup."
       },
+      "SkipOnboardingRequest": {
+        "properties": {
+          "step_number": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5,
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Number",
+            "description": "Step number to skip (1-5). If not provided, skips all steps."
+          }
+        },
+        "type": "object",
+        "title": "SkipOnboardingRequest",
+        "description": "Request schema for skipping onboarding step(s)."
+      },
       "StaffCancelRequest": {
         "properties": {
           "client_msg_no": {
@@ -16797,6 +17223,7 @@
         "type": "string",
         "enum": [
           "user",
+          "admin",
           "agent"
         ],
         "title": "StaffRole",
@@ -17115,7 +17542,20 @@
             "maxLength": 50,
             "minLength": 1,
             "title": "Name",
-            "description": "Tag name"
+            "description": "Tag name (English)"
+          },
+          "name_zh": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Zh",
+            "description": "Tag name in Chinese"
           },
           "category": {
             "$ref": "#/components/schemas/TagCategory",
@@ -17219,7 +17659,20 @@
             "maxLength": 50,
             "minLength": 1,
             "title": "Name",
-            "description": "Tag name"
+            "description": "Tag name (English)"
+          },
+          "name_zh": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Zh",
+            "description": "Tag name in Chinese"
           },
           "category": {
             "$ref": "#/components/schemas/TagCategory",
@@ -17269,6 +17722,18 @@
             "format": "uuid",
             "title": "Project Id",
             "description": "Associated project ID"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "Display name based on user language (name_zh for Chinese, name for others)"
           }
         },
         "type": "object",
@@ -17285,6 +17750,19 @@
       },
       "TagUpdate": {
         "properties": {
+          "name_zh": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Zh",
+            "description": "Updated tag name in Chinese"
+          },
           "weight": {
             "anyOf": [
               {
@@ -18652,7 +19130,20 @@
               }
             ],
             "title": "Nickname",
-            "description": "Updated visitor nickname"
+            "description": "Updated visitor nickname (English)"
+          },
+          "nickname_zh": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname Zh",
+            "description": "Updated visitor nickname in Chinese"
           },
           "avatar_url": {
             "anyOf": [
@@ -18839,7 +19330,31 @@
               }
             ],
             "title": "Nickname",
-            "description": "Visitor nickname on this platform"
+            "description": "Visitor nickname on this platform (English)"
+          },
+          "nickname_zh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname Zh",
+            "description": "Visitor nickname in Chinese"
+          },
+          "display_nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Nickname",
+            "description": "Display nickname based on client language (nickname_zh for zh, nickname for others)"
           },
           "avatar_url": {
             "anyOf": [
@@ -18950,7 +19465,20 @@
               }
             ],
             "title": "Nickname",
-            "description": "Visitor nickname on this platform"
+            "description": "Visitor nickname on this platform (English)"
+          },
+          "nickname_zh": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname Zh",
+            "description": "Visitor nickname in Chinese"
           },
           "avatar_url": {
             "anyOf": [
@@ -19223,7 +19751,20 @@
                 "type": "null"
               }
             ],
-            "title": "Nickname"
+            "title": "Nickname",
+            "description": "Visitor nickname in English"
+          },
+          "nickname_zh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname Zh",
+            "description": "Visitor nickname in Chinese"
           },
           "avatar_url": {
             "anyOf": [
@@ -19396,7 +19937,20 @@
               }
             ],
             "title": "Nickname",
-            "description": "Visitor nickname on this platform"
+            "description": "Visitor nickname on this platform (English)"
+          },
+          "nickname_zh": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname Zh",
+            "description": "Visitor nickname in Chinese"
           },
           "avatar_url": {
             "anyOf": [
@@ -19564,6 +20118,18 @@
             ],
             "title": "Ai Disabled",
             "description": "Whether AI responses are disabled for this visitor"
+          },
+          "display_nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Nickname",
+            "description": "Display nickname based on client language (nickname_zh for zh, nickname for others)"
           },
           "tags": {
             "items": {
@@ -19702,7 +20268,20 @@
               }
             ],
             "title": "Nickname",
-            "description": "Visitor nickname on this platform"
+            "description": "Visitor nickname on this platform (English)"
+          },
+          "nickname_zh": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname Zh",
+            "description": "Visitor nickname in Chinese"
           },
           "avatar_url": {
             "anyOf": [
@@ -19870,6 +20449,18 @@
             ],
             "title": "Ai Disabled",
             "description": "Whether AI responses are disabled for this visitor"
+          },
+          "display_nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Nickname",
+            "description": "Display nickname based on client language (nickname_zh for zh, nickname for others)"
           },
           "tags": {
             "items": {
@@ -20174,7 +20765,20 @@
               }
             ],
             "title": "Nickname",
-            "description": "Updated visitor nickname"
+            "description": "Updated visitor nickname (English)"
+          },
+          "nickname_zh": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname Zh",
+            "description": "Updated visitor nickname in Chinese"
           },
           "avatar_url": {
             "anyOf": [
@@ -21109,7 +21713,19 @@
           "ws_addr": {
             "type": "string",
             "title": "Ws Addr",
-            "description": "WebSocket connection address (format: IP:PORT)"
+            "description": "WebSocket connection address (format: ws://IP:PORT)"
+          },
+          "wss_addr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wss Addr",
+            "description": "WebSocket Secure connection address (format: wss//IP:PORT)"
           }
         },
         "type": "object",

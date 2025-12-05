@@ -13,6 +13,7 @@ from app.core.security import get_current_active_user
 from app.core.logging import get_logger
 from app.models.staff import Staff
 from app.schemas.rag import (
+    QACategoryListResponse,
     QAPairBatchCreateRequest,
     QAPairBatchCreateResponse,
     QAPairCreateRequest,
@@ -249,4 +250,33 @@ async def delete_qa_pair(
         project_id=project_id,
         qa_pair_id=str(qa_pair_id),
     )
+
+
+@router.get(
+    "/qa-categories",
+    response_model=QACategoryListResponse,
+    responses=LIST_RESPONSES,
+    summary="List QA Categories",
+    description="Get distinct QA pair categories for the project, optionally filtered by collection.",
+)
+async def list_qa_categories(
+    collection_id: Optional[UUID] = Query(None, description="Optional collection ID to filter"),
+    current_user: Staff = Depends(get_current_active_user),
+) -> QACategoryListResponse:
+    """List distinct QA categories."""
+    project_id = _check_project(current_user)
+
+    logger.info(
+        "Listing QA categories",
+        extra={
+            "project_id": project_id,
+            "collection_id": str(collection_id) if collection_id else None,
+        },
+    )
+
+    result = await rag_client.list_qa_categories(
+        project_id=project_id,
+        collection_id=str(collection_id) if collection_id else None,
+    )
+    return QACategoryListResponse.model_validate(result)
 

@@ -593,7 +593,7 @@
           "Collections"
         ],
         "summary": "Delete Collection",
-        "description": "Delete a specific collection by its UUID.\n\nBy default, performs a soft delete (sets deleted_at timestamp).\n\nIf hard_delete=True:\n- For website collections: deletes all WebsitePages, Files, FileDocuments, and physical files\n- For other collections: deletes all Files, FileDocuments, and physical files\n- Permanently removes the collection from the database\n\nCollection must belong to the specified project.",
+        "description": "Delete a specific collection by its UUID.\n\nBy default, performs a hard delete (permanent removal):\n- For website collections: deletes all WebsitePages, Files, FileDocuments, and physical files\n- For other collections: deletes all Files, FileDocuments, and physical files\n- Permanently removes the collection from the database\n\nIf hard_delete=False, performs a soft delete (sets deleted_at timestamp).\n\nCollection must belong to the specified project.",
         "operationId": "delete_collection_v1_collections__collection_id__delete",
         "parameters": [
           {
@@ -624,11 +624,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Perform hard delete (permanent removal)",
-              "default": false,
+              "description": "Perform hard delete (permanent removal). Set to False for soft delete.",
+              "default": true,
               "title": "Hard Delete"
             },
-            "description": "Perform hard delete (permanent removal)"
+            "description": "Perform hard delete (permanent removal). Set to False for soft delete."
           }
         ],
         "responses": {
@@ -2759,6 +2759,71 @@
         }
       }
     },
+    "/v1/qa-categories": {
+      "get": {
+        "tags": [
+          "QA Knowledge Base"
+        ],
+        "summary": "List QA categories",
+        "description": "Get distinct QA pair categories for a project, optionally filtered by collection.",
+        "operationId": "list_qa_categories_v1_qa_categories_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Project ID",
+              "title": "Project Id"
+            },
+            "description": "Project ID"
+          },
+          {
+            "name": "collection_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional collection ID to filter",
+              "title": "Collection Id"
+            },
+            "description": "Optional collection ID to filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QACategoryListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/qa-pairs/{qa_pair_id}": {
       "get": {
         "tags": [
@@ -4472,6 +4537,12 @@
             "title": "Pages Processed",
             "description": "Number of pages processed into documents"
           },
+          "pages_processing": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Pages Processing",
+            "description": "Number of pages currently being processed"
+          },
           "pages_failed": {
             "type": "integer",
             "minimum": 0,
@@ -4492,6 +4563,7 @@
           "pages_pending",
           "pages_crawled",
           "pages_processed",
+          "pages_processing",
           "pages_failed",
           "progress_percent"
         ],
@@ -5177,6 +5249,30 @@
         "title": "PaginationMetadata",
         "description": "Pagination metadata for list responses."
       },
+      "QACategoryListResponse": {
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories",
+            "description": "List of unique categories"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total count of categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "categories",
+          "total"
+        ],
+        "title": "QACategoryListResponse",
+        "description": "Schema for QA category list response."
+      },
       "QAPairBatchCreateRequest": {
         "properties": {
           "qa_pairs": {
@@ -5782,10 +5878,17 @@
             "description": "Document unique identifier"
           },
           "file_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "File Id",
-            "description": "Associated file ID"
+            "description": "Associated file ID (None for QA pairs)"
           },
           "collection_id": {
             "anyOf": [
@@ -5897,7 +6000,6 @@
         "type": "object",
         "required": [
           "document_id",
-          "file_id",
           "relevance_score",
           "content_preview",
           "content_type",

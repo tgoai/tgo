@@ -306,6 +306,11 @@ export interface QAPairImportRequest {
   tags?: string[] | null;
 }
 
+export interface QACategoryListResponse {
+  categories: string[];
+  total: number;
+}
+
 // API Endpoints - Use relative paths since the API client already includes the base URL
 const API_VERSION = 'v1';
 
@@ -330,6 +335,7 @@ export const KNOWLEDGE_BASE_ENDPOINTS = {
   QA_PAIRS: (collectionId: string) => `/${API_VERSION}/rag/${collectionId}/qa-pairs`,
   QA_PAIRS_BATCH: (collectionId: string) => `/${API_VERSION}/rag/${collectionId}/qa-pairs/batch`,
   QA_PAIRS_IMPORT: (collectionId: string) => `/${API_VERSION}/rag/${collectionId}/qa-pairs/import`,
+  QA_CATEGORIES: `/${API_VERSION}/rag/qa-categories`,
   QA_PAIR_BY_ID: (qaPairId: string) => `/${API_VERSION}/rag/qa-pairs/${qaPairId}`,
 
   // Utils
@@ -797,6 +803,26 @@ export class KnowledgeBaseApiService extends BaseApiService {
         KNOWLEDGE_BASE_ENDPOINTS.QA_PAIRS_IMPORT(collectionId),
         request
       );
+    } catch (error) {
+      throw new Error(service['handleApiError'](error));
+    }
+  }
+
+  /**
+   * Get QA categories
+   * GET /v1/rag/qa-categories
+   */
+  static async getQACategories(collectionId?: string): Promise<QACategoryListResponse> {
+    const service = new KnowledgeBaseApiService();
+    try {
+      const queryParams = new URLSearchParams();
+      if (collectionId) {
+        queryParams.append('collection_id', collectionId);
+      }
+      const url = queryParams.toString()
+        ? `${KNOWLEDGE_BASE_ENDPOINTS.QA_CATEGORIES}?${queryParams.toString()}`
+        : KNOWLEDGE_BASE_ENDPOINTS.QA_CATEGORIES;
+      return await service.get<QACategoryListResponse>(url);
     } catch (error) {
       throw new Error(service['handleApiError'](error));
     }

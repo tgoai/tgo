@@ -67,10 +67,7 @@ class LLMProvider(BaseModel):
     )
 
     # Note: No FK relationship to ai_projects by design; project_id may refer to external projects not yet synced.
-
-    __table_args__ = (
-        UniqueConstraint("project_id", "alias", name="uq_ai_llm_providers_project_alias"),
-    )
+    # Note: (project_id, alias) is NOT unique - multiple providers can share the same alias within a project.
 
     def __repr__(self) -> str:
         return f"<LLMProvider(id={self.id}, project_id={self.project_id}, alias='{self.alias}', kind='{self.provider_kind}', vendor='{self.vendor}')>"

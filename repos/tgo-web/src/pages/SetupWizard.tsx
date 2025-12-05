@@ -22,11 +22,11 @@ interface LLMFormData {
 }
 
 interface ValidationErrors {
-  username?: string;
   password?: string;
   confirmPassword?: string;
   name?: string;
   apiKey?: string;
+  general?: string;
 }
 
 type SetupStep = 1 | 2 | 3;
@@ -45,7 +45,7 @@ const SetupWizard: React.FC = () => {
 
   // Form data
   const [adminData, setAdminData] = useState<AdminFormData>({
-    username: '',
+    username: 'admin', // Default username, not editable
     password: '',
     confirmPassword: '',
   });
@@ -102,14 +102,7 @@ const SetupWizard: React.FC = () => {
   const validateAdminForm = (): boolean => {
     const newErrors: ValidationErrors = {};
 
-    // Username validation
-    if (!adminData.username) {
-      newErrors.username = t('setup.admin.validation.usernameRequired');
-    } else if (adminData.username.length < 3 || adminData.username.length > 20) {
-      newErrors.username = t('setup.admin.validation.usernameLength');
-    } else if (!/^[a-zA-Z0-9_]+$/.test(adminData.username)) {
-      newErrors.username = t('setup.admin.validation.usernameFormat');
-    }
+    // Username is fixed as 'admin', no validation needed
 
     // Password validation
     if (!adminData.password) {
@@ -185,7 +178,7 @@ const SetupWizard: React.FC = () => {
         });
         setCurrentStep(2);
       } catch (error: any) {
-        setErrors({ username: error?.message || t('setup.errors.createAdminFailed') });
+        setErrors({ general: error?.message || t('setup.errors.createAdminFailed') });
       } finally {
         setIsLoading(false);
       }
@@ -297,7 +290,14 @@ const SetupWizard: React.FC = () => {
         <p className="text-sm text-gray-600 dark:text-gray-400">{t('setup.admin.description')}</p>
       </div>
 
-      {/* Username */}
+      {/* General Error Message */}
+      {errors.general && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-md">
+          <p className="text-sm text-red-600 dark:text-red-400">{errors.general}</p>
+        </div>
+      )}
+
+      {/* Username - Fixed as 'admin' */}
       <div>
         <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
           {t('setup.admin.username')}
@@ -307,16 +307,12 @@ const SetupWizard: React.FC = () => {
           id="username"
           name="username"
           value={adminData.username}
-          onChange={handleAdminInputChange}
-          className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${
-            errors.username ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950' : 'border-gray-300 dark:border-gray-600'
-          }`}
-          placeholder={t('setup.admin.usernamePlaceholder')}
-          disabled={isLoading}
+          readOnly
+          className="w-full px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 cursor-not-allowed"
         />
-        {errors.username && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.username}</p>
-        )}
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {t('setup.admin.usernameFixed', '默认管理员用户名，不可修改')}
+        </p>
       </div>
 
       {/* Password */}

@@ -792,6 +792,7 @@ export interface ChannelVisitorExtra {
   platform_open_id: string;
   name?: string;
   nickname?: string;
+  display_nickname?: string; // Display nickname for header
   avatar_url?: string;
   phone_number?: string;
   email?: string;

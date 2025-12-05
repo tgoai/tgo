@@ -741,7 +741,10 @@ const VisitorPanel: React.FC<VisitorPanelProps> = ({ activeChat }) => {
         />
         {/* Visitor Avatar and Name */}
         <VisitorHeader
-          name={visitor.name}
+          name={(() => {
+            const extra = channelInfo?.extra as ChannelVisitorExtra | undefined;
+            return extra?.display_nickname || visitor.name;
+          })()}
           status={visitor.status || 'offline'}
           avatar={visitor.avatar}
           platformType={(() => {

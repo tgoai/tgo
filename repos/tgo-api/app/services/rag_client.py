@@ -666,6 +666,21 @@ class RAGServiceClient:
         )
         await self._handle_response(response)
 
+    async def list_qa_categories(
+        self,
+        project_id: str,
+        collection_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get distinct QA pair categories for a project."""
+        params: Dict[str, Any] = {"project_id": project_id}
+        if collection_id:
+            params["collection_id"] = collection_id
+
+        response = await self._make_request(
+            "GET", "/v1/qa-categories", params=params
+        )
+        return await self._handle_response(response)
+
 
 # Global RAG client instance
 rag_client = RAGServiceClient()

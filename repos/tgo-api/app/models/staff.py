@@ -125,7 +125,7 @@ class Staff(Base):
     # Constraints
     __table_args__ = (
         CheckConstraint(
-            role.in_(["user", "agent"]),
+            role.in_(["user", "admin", "agent"]),
             name="chk_api_staff_role"
         ),
         CheckConstraint(

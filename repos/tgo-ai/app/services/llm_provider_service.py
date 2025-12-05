@@ -29,17 +29,27 @@ class LLMProviderService:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_provider(
+    async def get_provider_by_id(
+        self,
+        provider_id: uuid.UUID,
+    ) -> Optional[LLMProvider]:
+        """Get provider by primary key ID."""
+        stmt = select(LLMProvider).where(LLMProvider.id == provider_id)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_providers_by_alias(
         self,
         project_id: uuid.UUID,
         alias: str,
-    ) -> Optional[LLMProvider]:
+    ) -> List[LLMProvider]:
+        """Get providers by project_id and alias (may return multiple)."""
         stmt = select(LLMProvider).where(
             LLMProvider.project_id == project_id,
             LLMProvider.alias == alias,
         )
         result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        return list(result.scalars().all())
 
     async def upsert_provider(
         self,
@@ -55,12 +65,14 @@ class LLMProviderService:
         timeout: Optional[float] = None,
         is_active: bool = True,
     ) -> LLMProvider:
-        """Create or update a provider by (project_id, alias)."""
-        existing = await self.get_provider(project_id, alias)
+        """Create or update a provider by ID (primary key)."""
+        existing = await self.get_provider_by_id(provider_id)
         now = datetime.now(timezone.utc)
 
         if existing:
             # Update in place
+            existing.project_id = project_id
+            existing.alias = alias
             existing.provider_kind = provider_kind
             existing.vendor = vendor
             existing.api_base_url = api_base_url
@@ -96,10 +108,10 @@ class LLMProviderService:
 
     async def deactivate_provider(
         self,
-        project_id: uuid.UUID,
-        alias: str,
+        provider_id: uuid.UUID,
     ) -> None:
-        provider = await self.get_provider(project_id, alias)
+        """Deactivate a provider by ID."""
+        provider = await self.get_provider_by_id(provider_id)
         if provider:
             provider.is_active = False
             provider.synced_at = datetime.now(timezone.utc)
@@ -111,7 +123,8 @@ class LLMProviderService:
     ) -> List[LLMProvider]:
         """Bulk upsert providers.
 
-        For each incoming item (must include project_id and alias), update if exists else create.
+        For each incoming item (must include id, project_id and alias), update if exists else create.
+        Uses provider ID as the primary key for upsert logic.
         """
         synced: list[LLMProvider] = []
         for payload in providers:

@@ -19,7 +19,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
-import { KnowledgeBaseApiService, type QAPairResponse, type QAPairListResponse } from '@/services/knowledgeBaseApi';
+import { KnowledgeBaseApiService, type QAPairResponse, type QAPairListResponse, type QACategoryListResponse } from '@/services/knowledgeBaseApi';
 import { transformCollectionToKnowledgeBase } from '@/utils/knowledgeBaseTransforms';
 import type { KnowledgeBase } from '@/types';
 
@@ -43,12 +43,13 @@ const QAKnowledgeBaseDetail: React.FC = () => {
   // Pagination state
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
-  const [limit] = useState(20);
+  const [limit] = useState(10);
 
   // Filter state
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
 
   // Dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -121,6 +122,18 @@ const QAKnowledgeBaseDetail: React.FC = () => {
     }
   }, [id, limit, offset, categoryFilter, statusFilter, showToast, t]);
 
+  // Load categories
+  const loadCategories = useCallback(async () => {
+    if (!id) return;
+    try {
+      const response: QACategoryListResponse = await KnowledgeBaseApiService.getQACategories(id);
+      setCategories(response.categories);
+    } catch (err) {
+      console.error('Failed to load categories:', err);
+      // Don't show toast for category loading failure, it's not critical
+    }
+  }, [id]);
+
   // Initial load
   useEffect(() => {
     const init = async () => {
@@ -131,12 +144,13 @@ const QAKnowledgeBaseDetail: React.FC = () => {
     init();
   }, [loadKnowledgeBase]);
 
-  // Load pairs when filters change
+  // Load pairs and categories when knowledge base is loaded
   useEffect(() => {
     if (knowledgeBase) {
       loadQAPairs();
+      loadCategories();
     }
-  }, [knowledgeBase, loadQAPairs]);
+  }, [knowledgeBase, loadQAPairs, loadCategories]);
 
   // Reset form
   const resetForm = () => {
@@ -161,6 +175,7 @@ const QAKnowledgeBaseDetail: React.FC = () => {
       setIsAddDialogOpen(false);
       resetForm();
       loadQAPairs();
+      loadCategories(); // Refresh categories in case a new one was added
     } catch (err) {
       console.error('Failed to add QA pair:', err);
       showToast('error', t('knowledge.qa.addFailed'));
@@ -185,6 +200,7 @@ const QAKnowledgeBaseDetail: React.FC = () => {
       setEditingPair(null);
       resetForm();
       loadQAPairs();
+      loadCategories(); // Refresh categories in case category was changed
     } catch (err) {
       console.error('Failed to update QA pair:', err);
       showToast('error', t('knowledge.qa.editFailed'));
@@ -229,6 +245,7 @@ const QAKnowledgeBaseDetail: React.FC = () => {
       setIsImportDialogOpen(false);
       setImportData('');
       loadQAPairs();
+      loadCategories(); // Refresh categories in case new ones were imported
     } catch (err) {
       console.error('Failed to import QA pairs:', err);
       showToast('error', t('knowledge.qa.importFailed'));
@@ -283,7 +300,7 @@ const QAKnowledgeBaseDetail: React.FC = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
         <span className="ml-2 text-gray-500">{t('knowledge.qa.loading')}</span>
       </div>
@@ -293,7 +310,7 @@ const QAKnowledgeBaseDetail: React.FC = () => {
   // Error state
   if (error || !knowledgeBase) {
     return (
-      <div className="flex flex-col items-center justify-center h-64">
+      <div className="h-full w-full flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
         <p className="text-red-500 mb-4">{error || t('knowledge.qa.loadFailed')}</p>
         <button
           onClick={() => navigate('/knowledge')}
@@ -307,193 +324,202 @@ const QAKnowledgeBaseDetail: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center">
-          <button
-            onClick={() => navigate('/knowledge')}
-            className="mr-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <MessageSquare className="h-6 w-6 text-green-500" />
-              {knowledgeBase.name}
-            </h1>
-            {knowledgeBase.description && (
-              <p className="text-gray-500 text-sm mt-1">{knowledgeBase.description}</p>
-            )}
+    <div className="h-full w-full flex flex-col bg-gray-100 dark:bg-gray-900">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 w-full bg-gray-100 dark:bg-gray-900 px-6 pt-6 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <button
+              onClick={() => navigate('/knowledge')}
+              className="mr-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <MessageSquare className="h-6 w-6 text-green-500" />
+                {knowledgeBase.name}
+              </h1>
+              {knowledgeBase.description && (
+                <p className="text-gray-500 text-sm mt-1">{knowledgeBase.description}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsImportDialogOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              <Upload className="h-4 w-4" />
+              {t('knowledge.qa.import')}
+            </button>
+            <button
+              onClick={() => {
+                resetForm();
+                setIsAddDialogOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              <Plus className="h-4 w-4" />
+              {t('knowledge.qa.add')}
+            </button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setIsImportDialogOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            <Upload className="h-4 w-4" />
-            {t('knowledge.qa.import')}
-          </button>
-          <button
-            onClick={() => {
-              resetForm();
-              setIsAddDialogOpen(true);
+      </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 w-full overflow-y-auto px-6 pb-6" style={{ height: 0 }}>
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
+            <div className="text-sm text-gray-500">{t('knowledge.qa.stats.total')}</div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-yellow-500">{stats.pending}</div>
+            <div className="text-sm text-gray-500">{t('knowledge.qa.stats.pending')}</div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-green-500">{stats.processed}</div>
+            <div className="text-sm text-gray-500">{t('knowledge.qa.stats.processed')}</div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-red-500">{stats.failed}</div>
+            <div className="text-sm text-gray-500">{t('knowledge.qa.stats.failed')}</div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-4 mb-6">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder={t('knowledge.qa.searchPlaceholder')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+            />
+          </div>
+          <select
+            value={categoryFilter}
+            onChange={(e) => {
+              setCategoryFilter(e.target.value);
+              setOffset(0);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
           >
-            <Plus className="h-4 w-4" />
-            {t('knowledge.qa.add')}
-          </button>
+            <option value="">{t('knowledge.qa.allCategories')}</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setOffset(0);
+            }}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+          >
+            <option value="">{t('knowledge.qa.allStatuses')}</option>
+            <option value="pending">{t('knowledge.qa.status.pending')}</option>
+            <option value="processing">{t('knowledge.qa.status.processing')}</option>
+            <option value="processed">{t('knowledge.qa.status.processed')}</option>
+            <option value="failed">{t('knowledge.qa.status.failed')}</option>
+          </select>
         </div>
-      </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
-          <div className="text-sm text-gray-500">{t('knowledge.qa.stats.total')}</div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="text-2xl font-bold text-yellow-500">{stats.pending}</div>
-          <div className="text-sm text-gray-500">{t('knowledge.qa.stats.pending')}</div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="text-2xl font-bold text-green-500">{stats.processed}</div>
-          <div className="text-sm text-gray-500">{t('knowledge.qa.stats.processed')}</div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="text-2xl font-bold text-red-500">{stats.failed}</div>
-          <div className="text-sm text-gray-500">{t('knowledge.qa.stats.failed')}</div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-6">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder={t('knowledge.qa.searchPlaceholder')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
-          />
-        </div>
-        <select
-          value={categoryFilter}
-          onChange={(e) => {
-            setCategoryFilter(e.target.value);
-            setOffset(0);
-          }}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
-        >
-          <option value="">{t('knowledge.qa.allCategories')}</option>
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setOffset(0);
-          }}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
-        >
-          <option value="">{t('knowledge.qa.allStatuses')}</option>
-          <option value="pending">{t('knowledge.qa.status.pending')}</option>
-          <option value="processing">{t('knowledge.qa.status.processing')}</option>
-          <option value="processed">{t('knowledge.qa.status.processed')}</option>
-          <option value="failed">{t('knowledge.qa.status.failed')}</option>
-        </select>
-      </div>
-
-      {/* QA Pairs List */}
-      {isLoadingPairs ? (
-        <div className="flex items-center justify-center h-32">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-        </div>
-      ) : filteredPairs.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-          <p>{t('knowledge.qa.noPairs')}</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredPairs.map((pair) => (
-            <div
-              key={pair.id}
-              className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900 dark:text-white mb-1">
-                    Q: {pair.question}
+        {/* QA Pairs List */}
+        {isLoadingPairs ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+          </div>
+        ) : filteredPairs.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p>{t('knowledge.qa.noPairs')}</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredPairs.map((pair) => (
+              <div
+                key={pair.id}
+                className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900 dark:text-white mb-1">
+                      Q: {pair.question}
+                    </div>
+                    <div className="text-gray-600 dark:text-gray-400 text-sm">
+                      A: {pair.answer.length > 200 ? `${pair.answer.slice(0, 200)}...` : pair.answer}
+                    </div>
                   </div>
-                  <div className="text-gray-600 dark:text-gray-400 text-sm">
-                    A: {pair.answer.length > 200 ? `${pair.answer.slice(0, 200)}...` : pair.answer}
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={() => openEditDialog(pair)}
+                      className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeletePair(pair.id)}
+                      disabled={deletingIds.has(pair.id)}
+                      className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                    >
+                      {deletingIds.has(pair.id) ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 ml-4">
-                  <button
-                    onClick={() => openEditDialog(pair)}
-                    className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeletePair(pair.id)}
-                    disabled={deletingIds.has(pair.id)}
-                    className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                  >
-                    {deletingIds.has(pair.id) ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-xs text-gray-500">
-                <span className="flex items-center gap-1">
-                  {getStatusIcon(pair.status)}
-                  {t(`knowledge.qa.status.${pair.status}`)}
-                </span>
-                {pair.category && (
+                <div className="flex items-center gap-4 text-xs text-gray-500">
                   <span className="flex items-center gap-1">
-                    <Filter className="h-3 w-3" />
-                    {pair.category}
+                    {getStatusIcon(pair.status)}
+                    {t(`knowledge.qa.status.${pair.status}`)}
                   </span>
-                )}
-                {pair.tags && pair.tags.length > 0 && (
-                  <span>{pair.tags.join(', ')}</span>
-                )}
+                  {pair.category && (
+                    <span className="flex items-center gap-1">
+                      <Filter className="h-3 w-3" />
+                      {pair.category}
+                    </span>
+                  )}
+                  {pair.tags && pair.tags.length > 0 && (
+                    <span>{pair.tags.join(', ')}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-6">
-          <button
-            onClick={() => goToPage(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <span className="text-sm text-gray-500">
-            {t('knowledge.qa.pagination', { current: currentPage, total: totalPages })}
-          </span>
-          <button
-            onClick={() => goToPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </div>
-      )}
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <span className="text-sm text-gray-500">
+              {t('knowledge.qa.pagination', { current: currentPage, total: totalPages })}
+            </span>
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        )}
 
       {/* Add/Edit Dialog */}
       {(isAddDialogOpen || isEditDialogOpen) && (
@@ -694,6 +720,7 @@ const QAKnowledgeBaseDetail: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

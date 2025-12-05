@@ -30,7 +30,7 @@ export const ChatAvatar: React.FC<ChatAvatarProps> = React.memo(({ displayName, 
   }, []);
 
   return (
-    <div className="relative mr-3">
+    <div className="relative mr-3 flex-shrink-0">
       {hasValidAvatarUrl ? (
         <img src={displayAvatar} alt={`${displayName} Avatar`} className="w-10 h-10 rounded-md object-cover bg-gray-200" onError={handleImageError} />
       ) : null}

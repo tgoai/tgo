@@ -2017,6 +2017,7 @@
       "description": "创建系统管理员账号，用于登录和管理系统",
       "username": "用户名",
       "usernamePlaceholder": "请输入用户名（3-20个字符）",
+      "usernameFixed": "默认管理员用户名，不可修改",
       "password": "密码",
       "passwordPlaceholder": "请输入密码（至少8个字符）",
       "confirmPassword": "确认密码",

@@ -859,3 +859,10 @@ class QAPairImportRequest(BaseSchema):
     data: str = Field(..., description="JSON array string or CSV content")
     category: Optional[str] = Field(None, description="Default category for all imported pairs")
     tags: Optional[List[str]] = Field(None, description="Default tags for all imported pairs")
+
+
+class QACategoryListResponse(BaseSchema):
+    """Schema for QA category list response."""
+
+    categories: List[str] = Field(..., description="List of unique categories")
+    total: int = Field(..., description="Total count of categories")

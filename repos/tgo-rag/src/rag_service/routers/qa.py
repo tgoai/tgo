@@ -27,6 +27,7 @@ from ..schemas.qa import (
     QAPairResponse,
     QAPairListResponse,
     QAPairBatchCreateResponse,
+    QACategoryListResponse,
     compute_question_hash,
 )
 
@@ -172,7 +173,7 @@ async def list_qa_pairs(
     total = (await db.execute(count_query)).scalar() or 0
 
     # Get paginated results
-    query = base_query.order_by(QAPair.priority.desc(), QAPair.created_at.desc())
+    query = base_query.order_by(QAPair.created_at.desc())
     query = query.limit(limit).offset(offset)
     result = await db.execute(query)
     qa_pairs = result.scalars().all()
@@ -182,6 +183,43 @@ async def list_qa_pairs(
         total=total,
         limit=limit,
         offset=offset,
+    )
+
+
+@router.get(
+    "/qa-categories",
+    response_model=QACategoryListResponse,
+    summary="List QA categories",
+    description="Get distinct QA pair categories for a project, optionally filtered by collection.",
+)
+async def list_qa_categories(
+    project_id: UUID = Query(..., description="Project ID"),
+    collection_id: Optional[UUID] = Query(None, description="Optional collection ID to filter"),
+    db: AsyncSession = Depends(get_db_session_dependency),
+):
+    """Get distinct categories from QA pairs for a project."""
+    conditions = [
+        QAPair.project_id == project_id,
+        QAPair.deleted_at.is_(None),
+        QAPair.category.isnot(None),
+        QAPair.category != "",
+    ]
+    
+    if collection_id:
+        conditions.append(QAPair.collection_id == collection_id)
+    
+    query = (
+        select(QAPair.category)
+        .where(and_(*conditions))
+        .distinct()
+        .order_by(QAPair.category)
+    )
+    result = await db.execute(query)
+    categories = [row[0] for row in result.fetchall()]
+
+    return QACategoryListResponse(
+        categories=categories,
+        total=len(categories),
     )
 
 
@@ -248,6 +286,10 @@ async def update_qa_pair(
     if not qa_pair:
         raise HTTPException(status_code=404, detail="QA pair not found")
 
+    # Track if content actually changed
+    original_question = qa_pair.question
+    original_answer = qa_pair.answer
+
     # Update fields
     if request.question is not None:
         qa_pair.question = request.question
@@ -265,15 +307,21 @@ async def update_qa_pair(
     if request.priority is not None:
         qa_pair.priority = request.priority
 
+    # Check if question or answer content actually changed
+    content_changed = (
+        qa_pair.question != original_question or 
+        qa_pair.answer != original_answer
+    )
+
     # Mark for re-processing if content changed
-    if request.question is not None or request.answer is not None:
+    if content_changed:
         qa_pair.status = "pending"
 
     await db.commit()
     await db.refresh(qa_pair)
 
     # Trigger re-processing if content changed
-    if request.question is not None or request.answer is not None:
+    if content_changed:
         from ..tasks.qa_processing import process_qa_pair_task
         try:
             process_qa_pair_task.delay(str(qa_pair.id), str(project_id), True)

@@ -163,3 +163,10 @@ class QAPairBatchCreateResponse(BaseModel):
     errors: List[Dict[str, Any]] = Field(default_factory=list, description="Error details")
     message: str = Field(..., description="Summary message")
 
+
+class QACategoryListResponse(BaseModel):
+    """Schema for QA category list response."""
+
+    categories: List[str] = Field(..., description="List of unique categories")
+    total: int = Field(..., description="Total count of categories")
+
