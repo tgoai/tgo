@@ -287,6 +287,30 @@ async def cancel_supervisor_run(
 
 
 @router.get(
+    "/exists",
+    response_model=dict,
+    responses=build_error_responses([]),
+    summary="Check if agents exist for project",
+)
+async def check_agents_exist(
+    project_id: uuid.UUID = Query(..., description="Project ID"),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> dict:
+    """
+    Check if any agents exist for the specified project.
+
+    Returns a simple boolean response indicating whether the project has any agents.
+    This is useful for quick existence checks without fetching full agent data.
+    """
+    agents, total_count = await agent_service.list_agents(
+        project_id=project_id,
+        limit=1,
+        offset=0,
+    )
+    return {"exists": total_count > 0, "count": total_count}
+
+
+@router.get(
     "",
     response_model=AgentListResponse,
     responses=build_error_responses([]),

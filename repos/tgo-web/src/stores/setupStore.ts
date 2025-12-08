@@ -5,6 +5,7 @@ interface SetupState {
   // State
   isInstalled: boolean | null; // null = not checked yet, true/false = checked
   hasAdmin: boolean;
+  hasUserStaff: boolean;
   hasLLMConfig: boolean;
   setupCompletedAt: string | null;
   isChecking: boolean;
@@ -23,6 +24,7 @@ export const useSetupStore = create<SetupState>((set) => ({
   // Initial state
   isInstalled: null, // null means we haven't checked yet
   hasAdmin: false,
+  hasUserStaff: false,
   hasLLMConfig: false,
   setupCompletedAt: null,
   isChecking: false,
@@ -40,6 +42,7 @@ export const useSetupStore = create<SetupState>((set) => ({
       set({
         isInstalled: response.is_installed,
         hasAdmin: response.has_admin,
+        hasUserStaff: response.has_user_staff,
         hasLLMConfig: response.has_llm_config,
         setupCompletedAt: response.setup_completed_at,
         isChecking: false,
@@ -49,6 +52,7 @@ export const useSetupStore = create<SetupState>((set) => ({
       console.log('✅ Setup status checked:', {
         isInstalled: response.is_installed,
         hasAdmin: response.has_admin,
+        hasUserStaff: response.has_user_staff,
         hasLLMConfig: response.has_llm_config,
       });
     } catch (error) {
@@ -73,6 +77,7 @@ export const useSetupStore = create<SetupState>((set) => ({
     set({
       isInstalled: null,
       hasAdmin: false,
+      hasUserStaff: false,
       hasLLMConfig: false,
       setupCompletedAt: null,
       isChecking: false,

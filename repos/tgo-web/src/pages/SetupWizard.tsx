@@ -3,13 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { setupApiService, SetupCheckResult } from '@/services/setupApi';
 import { useSetupStore } from '@/stores/setupStore';
-import { CheckCircle, XCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Eye, EyeOff, Plus, Trash2, UserPlus } from 'lucide-react';
 
 // Types
 interface AdminFormData {
   username: string;
   password: string;
   confirmPassword: string;
+}
+
+interface StaffFormItem {
+  id: string;
+  username: string;
+  password: string;
+  confirmPassword: string;
+  name: string;
 }
 
 interface LLMFormData {
@@ -27,9 +35,10 @@ interface ValidationErrors {
   name?: string;
   apiKey?: string;
   general?: string;
+  staff?: Record<string, { username?: string; password?: string; confirmPassword?: string; name?: string }>;
 }
 
-type SetupStep = 1 | 2 | 3;
+type SetupStep = 1 | 2 | 3 | 4;
 
 /**
  * Setup Wizard Page Component
@@ -38,7 +47,7 @@ type SetupStep = 1 | 2 | 3;
 const SetupWizard: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { checkSetupStatus, hasAdmin } = useSetupStore();
+  const { checkSetupStatus } = useSetupStore();
 
   // Current step state
   const [currentStep, setCurrentStep] = useState<SetupStep>(1);
@@ -49,6 +58,11 @@ const SetupWizard: React.FC = () => {
     password: '',
     confirmPassword: '',
   });
+
+  // Staff data - list of staff members to create
+  const [staffList, setStaffList] = useState<StaffFormItem[]>([]);
+  const [showStaffPasswords, setShowStaffPasswords] = useState<Record<string, boolean>>({});
+  const [showStaffConfirmPasswords, setShowStaffConfirmPasswords] = useState<Record<string, boolean>>({});
 
   const [llmData, setLLMData] = useState<LLMFormData>({
     provider: 'none',
@@ -81,12 +95,15 @@ const SetupWizard: React.FC = () => {
           if (!status.has_admin) {
             // No admin account yet, show step 1
             setCurrentStep(1);
-          } else if (status.has_admin && !status.has_llm_config) {
-            // Admin account exists but no LLM config, show step 2
+          } else if (status.has_admin && !status.has_user_staff) {
+            // Admin account exists but no staff, show step 2 (Staff config)
             setCurrentStep(2);
-          } else if (status.has_admin && status.has_llm_config) {
-            // Both admin and LLM config exist, show step 3 (verification)
+          } else if (status.has_admin && status.has_user_staff && !status.has_llm_config) {
+            // Admin and staff exist but no LLM config, show step 3 (LLM config)
             setCurrentStep(3);
+          } else if (status.has_admin && status.has_user_staff && status.has_llm_config) {
+            // All configs exist, show step 4 (verification)
+            setCurrentStep(4);
           }
         }
       } catch (error) {
@@ -124,7 +141,59 @@ const SetupWizard: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Validate Step 2 (LLM Config) - optional
+  // Validate Step 2 (Staff) - required, at least one staff must be added
+  const validateStaffForm = (): boolean => {
+    if (staffList.length === 0) {
+      setErrors(prev => ({ ...prev, general: t('setup.staff.validation.atLeastOne') }));
+      return false;
+    }
+
+    const staffErrors: Record<string, { username?: string; password?: string; confirmPassword?: string; name?: string }> = {};
+    let hasErrors = false;
+
+    staffList.forEach((staff) => {
+      const itemErrors: { username?: string; password?: string; confirmPassword?: string; name?: string } = {};
+
+      // Username is required
+      if (!staff.username.trim()) {
+        itemErrors.username = t('setup.staff.validation.usernameRequired');
+        hasErrors = true;
+      } else if (staff.username.length < 1 || staff.username.length > 50) {
+        itemErrors.username = t('setup.staff.validation.usernameLength');
+        hasErrors = true;
+      }
+
+      // Name is required
+      if (!staff.name.trim()) {
+        itemErrors.name = t('setup.staff.validation.nameRequired');
+        hasErrors = true;
+      }
+
+      // Password is required
+      if (!staff.password) {
+        itemErrors.password = t('setup.staff.validation.passwordRequired');
+        hasErrors = true;
+      } else if (staff.password.length < 8) {
+        itemErrors.password = t('setup.staff.validation.passwordLength');
+        hasErrors = true;
+      }
+
+      // Confirm password
+      if (staff.password !== staff.confirmPassword) {
+        itemErrors.confirmPassword = t('setup.staff.validation.passwordMismatch');
+        hasErrors = true;
+      }
+
+      if (Object.keys(itemErrors).length > 0) {
+        staffErrors[staff.id] = itemErrors;
+      }
+    });
+
+    setErrors(prev => ({ ...prev, staff: hasErrors ? staffErrors : undefined }));
+    return !hasErrors;
+  };
+
+  // Validate Step 3 (LLM Config) - optional
   const validateLLMForm = (): boolean => {
     if (llmData.provider === 'none') {
       return true; // Skip validation if not configuring
@@ -165,6 +234,50 @@ const SetupWizard: React.FC = () => {
     }
   };
 
+  // Staff handlers
+  const handleAddStaff = () => {
+    const newStaff: StaffFormItem = {
+      id: `staff-${Date.now()}`,
+      username: '',
+      password: '',
+      confirmPassword: '',
+      name: '',
+    };
+    setStaffList(prev => [...prev, newStaff]);
+  };
+
+  const handleRemoveStaff = (id: string) => {
+    setStaffList(prev => prev.filter(s => s.id !== id));
+    // Clear errors for this staff
+    if (errors.staff?.[id]) {
+      setErrors(prev => {
+        const newStaffErrors = { ...prev.staff };
+        delete newStaffErrors[id];
+        return { ...prev, staff: Object.keys(newStaffErrors).length > 0 ? newStaffErrors : undefined };
+      });
+    }
+  };
+
+  const handleStaffInputChange = (id: string, field: keyof StaffFormItem, value: string) => {
+    setStaffList(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+    // Clear error for this field
+    if (errors.staff?.[id]?.[field as keyof typeof errors.staff[string]]) {
+      setErrors(prev => {
+        const newStaffErrors = { ...prev.staff };
+        if (newStaffErrors[id]) {
+          const newItemErrors = { ...newStaffErrors[id] };
+          delete newItemErrors[field as keyof typeof newItemErrors];
+          if (Object.keys(newItemErrors).length > 0) {
+            newStaffErrors[id] = newItemErrors;
+          } else {
+            delete newStaffErrors[id];
+          }
+        }
+        return { ...prev, staff: Object.keys(newStaffErrors).length > 0 ? newStaffErrors : undefined };
+      });
+    }
+  };
+
   // Handle Next button
   const handleNext = async () => {
     if (currentStep === 1) {
@@ -183,6 +296,26 @@ const SetupWizard: React.FC = () => {
         setIsLoading(false);
       }
     } else if (currentStep === 2) {
+      // Staff step
+      if (!validateStaffForm()) return;
+
+      setIsLoading(true);
+      try {
+        // Create staff members using batch API
+        await setupApiService.createStaffBatch({
+          staff_list: staffList.map(staff => ({
+            username: staff.username,
+            password: staff.password,
+            name: staff.name || null,
+          })),
+        });
+        setCurrentStep(3);
+      } catch (error: any) {
+        setErrors({ general: error?.message || t('setup.errors.createStaffFailed') });
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (currentStep === 3) {
       if (!validateLLMForm()) return;
 
       setIsLoading(true);
@@ -209,7 +342,7 @@ const SetupWizard: React.FC = () => {
         setIsLoading(false);
       }
 
-      setCurrentStep(3);
+      setCurrentStep(4);
       // Trigger verification
       verifyInstallation();
     }
@@ -222,19 +355,19 @@ const SetupWizard: React.FC = () => {
     }
   };
 
-  // Handle Skip button (Step 2 only)
+  // Handle Skip button (Step 3 - LLM only, Staff step is required)
   const handleSkip = async () => {
-    if (currentStep === 2) {
+    if (currentStep === 3) {
       setIsLoading(true);
       try {
         // Call skip-llm API
         await setupApiService.skipLLM();
-        setCurrentStep(3);
+        setCurrentStep(4);
         verifyInstallation();
       } catch (error: any) {
         console.error('Failed to skip LLM configuration:', error);
         // Even if the API call fails, we still proceed to the next step
-        setCurrentStep(3);
+        setCurrentStep(4);
         verifyInstallation();
       } finally {
         setIsLoading(false);
@@ -379,7 +512,180 @@ const SetupWizard: React.FC = () => {
     </div>
   );
 
-  // Render Step 2: LLM Configuration
+  // Render Step 2: Staff Configuration
+  const renderStaffStep = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
+          {t('setup.staff.title')}
+        </h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          {t('setup.staff.description')}
+        </p>
+      </div>
+
+      {/* Info Box */}
+      <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
+        <p className="text-sm text-blue-800 dark:text-blue-300">
+          {t('setup.staff.infoText')}
+        </p>
+      </div>
+
+      {/* General Error Message */}
+      {errors.general && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-md">
+          <p className="text-sm text-red-600 dark:text-red-400">{errors.general}</p>
+        </div>
+      )}
+
+      {/* Staff List */}
+      <div className="space-y-4">
+        {staffList.map((staff, index) => (
+          <div key={staff.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('setup.staff.staffItem', { index: index + 1 })}
+              </h3>
+              <button
+                type="button"
+                onClick={() => handleRemoveStaff(staff.id)}
+                className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                disabled={isLoading}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Username */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  {t('setup.staff.username')} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={staff.username}
+                  onChange={(e) => handleStaffInputChange(staff.id, 'username', e.target.value)}
+                  className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${
+                    errors.staff?.[staff.id]?.username ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950' : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  placeholder={t('setup.staff.usernamePlaceholder')}
+                  disabled={isLoading}
+                />
+                {errors.staff?.[staff.id]?.username && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.staff[staff.id].username}</p>
+                )}
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  {t('setup.staff.name')} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={staff.name}
+                  onChange={(e) => handleStaffInputChange(staff.id, 'name', e.target.value)}
+                  className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${
+                    errors.staff?.[staff.id]?.name ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950' : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  placeholder={t('setup.staff.namePlaceholder')}
+                  disabled={isLoading}
+                />
+                {errors.staff?.[staff.id]?.name && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.staff[staff.id].name}</p>
+                )}
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  {t('setup.staff.password')} <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showStaffPasswords[staff.id] ? 'text' : 'password'}
+                    value={staff.password}
+                    onChange={(e) => handleStaffInputChange(staff.id, 'password', e.target.value)}
+                    className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${
+                      errors.staff?.[staff.id]?.password ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950' : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                    placeholder={t('setup.staff.passwordPlaceholder')}
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffPasswords(prev => ({ ...prev, [staff.id]: !prev[staff.id] }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                  >
+                    {showStaffPasswords[staff.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {errors.staff?.[staff.id]?.password && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.staff[staff.id].password}</p>
+                )}
+              </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  {t('setup.staff.confirmPassword')} <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showStaffConfirmPasswords[staff.id] ? 'text' : 'password'}
+                    value={staff.confirmPassword}
+                    onChange={(e) => handleStaffInputChange(staff.id, 'confirmPassword', e.target.value)}
+                    className={`w-full px-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${
+                      errors.staff?.[staff.id]?.confirmPassword ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950' : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                    placeholder={t('setup.staff.confirmPasswordPlaceholder')}
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffConfirmPasswords(prev => ({ ...prev, [staff.id]: !prev[staff.id] }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                  >
+                    {showStaffConfirmPasswords[staff.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {errors.staff?.[staff.id]?.confirmPassword && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.staff[staff.id].confirmPassword}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Add Staff Button */}
+        <button
+          type="button"
+          onClick={handleAddStaff}
+          disabled={isLoading}
+          className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-500 dark:hover:border-blue-400 dark:hover:text-blue-400 transition-colors flex items-center justify-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          {t('setup.staff.addStaff')}
+        </button>
+
+        {/* Empty State Hint */}
+        {staffList.length === 0 && (
+          <div className="text-center py-4">
+            <UserPlus className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {t('setup.staff.emptyHint')}
+            </p>
+            <p className="text-xs text-orange-500 dark:text-orange-400 mt-2">
+              {t('setup.staff.requiredHint')}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Render Step 3: LLM Configuration
   const renderLLMStep = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
@@ -509,7 +815,7 @@ const SetupWizard: React.FC = () => {
     </div>
   );
 
-  // Render Step 3: Verification
+  // Render Step 4: Verification
   const renderVerifyStep = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
@@ -527,6 +833,19 @@ const SetupWizard: React.FC = () => {
         <div className="flex items-center text-sm text-blue-800 dark:text-blue-300">
           <CheckCircle className="w-4 h-4 mr-2 text-green-600 dark:text-green-400" />
           {t('setup.verify.adminCreated')}: <span className="font-medium ml-1">{adminData.username}</span>
+        </div>
+        <div className="flex items-center text-sm text-blue-800 dark:text-blue-300">
+          {staffList.length > 0 ? (
+            <>
+              <CheckCircle className="w-4 h-4 mr-2 text-green-600 dark:text-green-400" />
+              {t('setup.verify.staffCreated', { count: staffList.length })}
+            </>
+          ) : (
+            <>
+              <XCircle className="w-4 h-4 mr-2 text-yellow-600 dark:text-yellow-400" />
+              {t('setup.verify.staffNotConfigured')}
+            </>
+          )}
         </div>
         <div className="flex items-center text-sm text-blue-800 dark:text-blue-300">
           {llmData.provider !== 'none' ? (
@@ -624,11 +943,11 @@ const SetupWizard: React.FC = () => {
 
         {/* Step Indicator */}
         <div className="mb-8">
-          <div className="flex items-center justify-center space-x-4">
-            {[1, 2, 3].map((step) => (
+          <div className="flex items-center justify-center space-x-2 sm:space-x-4">
+            {[1, 2, 3, 4].map((step) => (
               <div key={step} className="flex items-center">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold ${
                     currentStep === step
                       ? 'bg-blue-600 text-white'
                       : currentStep > step
@@ -636,11 +955,11 @@ const SetupWizard: React.FC = () => {
                       : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                   }`}
                 >
-                  {currentStep > step ? <CheckCircle className="w-5 h-5" /> : step}
+                  {currentStep > step ? <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" /> : step}
                 </div>
-                {step < 3 && (
+                {step < 4 && (
                   <div
-                    className={`w-16 h-1 mx-2 ${
+                    className={`w-8 sm:w-16 h-1 mx-1 sm:mx-2 ${
                       currentStep > step ? 'bg-green-600' : 'bg-gray-200 dark:bg-gray-700'
                     }`}
                   />
@@ -650,7 +969,7 @@ const SetupWizard: React.FC = () => {
           </div>
           <div className="text-center mt-3">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {t('setup.stepIndicator', { current: currentStep, total: 3 })}
+              {t('setup.stepIndicator', { current: currentStep, total: 4 })}
             </p>
           </div>
         </div>
@@ -659,14 +978,15 @@ const SetupWizard: React.FC = () => {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
           {/* Step Content */}
           {currentStep === 1 && renderAdminStep()}
-          {currentStep === 2 && renderLLMStep()}
-          {currentStep === 3 && renderVerifyStep()}
+          {currentStep === 2 && renderStaffStep()}
+          {currentStep === 3 && renderLLMStep()}
+          {currentStep === 4 && renderVerifyStep()}
 
           {/* Navigation Buttons */}
           <div className="mt-8 flex items-center justify-between">
             {/* Previous Button */}
-            {/* Only show "Previous" button if we're on step 2 and admin hasn't been created yet */}
-            {currentStep === 2 && !hasAdmin && (
+            {/* Show "Previous" button on steps 2 and 3 */}
+            {(currentStep === 2 || currentStep === 3) && (
               <button
                 onClick={handlePrevious}
                 disabled={isLoading}
@@ -678,8 +998,8 @@ const SetupWizard: React.FC = () => {
 
             <div className="flex-1" />
 
-            {/* Skip Button (Step 2 only) */}
-            {currentStep === 2 && (
+            {/* Skip Button (Step 3 - LLM only, Staff step is required) */}
+            {currentStep === 3 && (
               <button
                 onClick={handleSkip}
                 disabled={isLoading}
@@ -690,7 +1010,7 @@ const SetupWizard: React.FC = () => {
             )}
 
             {/* Next/Finish Button */}
-            {currentStep < 3 ? (
+            {currentStep < 4 ? (
               <button
                 onClick={handleNext}
                 disabled={isLoading}

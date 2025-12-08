@@ -53,7 +53,13 @@ export interface VisitorAssignmentRuleResponse {
   model: string | null;
   prompt: string | null;
   effective_prompt: string;
-  is_enabled: boolean;
+  llm_assignment_enabled: boolean;
+  timezone: string;
+  service_weekdays: number[];
+  service_start_time: string;
+  service_end_time: string;
+  max_concurrent_chats: number;
+  auto_close_hours: number;
   created_at: string;
   updated_at: string;
 }
@@ -63,7 +69,13 @@ export interface VisitorAssignmentRuleUpdate {
   ai_provider_id?: string | null;
   model?: string | null;
   prompt?: string | null;
-  is_enabled?: boolean | null;
+  llm_assignment_enabled?: boolean | null;
+  timezone?: string | null;
+  service_weekdays?: number[] | null;
+  service_start_time?: string | null;
+  service_end_time?: string | null;
+  max_concurrent_chats?: number | null;
+  auto_close_hours?: number | null;
 }
 
 /**

@@ -18,8 +18,8 @@ from app.models.visitor_system_info import VisitorSystemInfo
 if TYPE_CHECKING:
     from app.models.visitor_activity import VisitorActivity
     from app.models.visitor_tag import VisitorTag
-    from app.models.manual_service_request import ManualServiceRequest
     from app.models.visitor_customer_update import VisitorCustomerUpdate
+    from app.models.visitor_session import VisitorSession
 
 
 class Visitor(Base):
@@ -198,13 +198,14 @@ class Visitor(Base):
         cascade="all, delete-orphan",
         lazy="select"
     )
-    manual_service_requests: Mapped[List["ManualServiceRequest"]] = relationship(
-        "ManualServiceRequest",
-        back_populates="visitor",
-        lazy="select",
-    )
     customer_updates: Mapped[List["VisitorCustomerUpdate"]] = relationship(
         "VisitorCustomerUpdate",
+        back_populates="visitor",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+    sessions: Mapped[List["VisitorSession"]] = relationship(
+        "VisitorSession",
         back_populates="visitor",
         cascade="all, delete-orphan",
         lazy="select",

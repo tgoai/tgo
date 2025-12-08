@@ -20,6 +20,10 @@ class SetupStatusResponse(BaseSchema):
         ...,
         description="Whether at least one admin account exists"
     )
+    has_user_staff: bool = Field(
+        ...,
+        description="Whether at least one non-admin staff (user role) exists"
+    )
     has_llm_config: bool = Field(
         ...,
         description="Whether at least one LLM provider is configured and enabled"
@@ -177,4 +181,68 @@ class SkipLLMConfigResponse(BaseSchema):
     setup_completed_at: datetime = Field(
         ...,
         description="Timestamp when setup was marked as completed",
+    )
+
+
+class StaffCreateItem(BaseSchema):
+    """Single staff item for batch creation."""
+
+    username: str = Field(
+        ...,
+        min_length=3,
+        max_length=50,
+        description="Staff username for login (unique)"
+    )
+    password: str = Field(
+        ...,
+        min_length=8,
+        max_length=128,
+        description="Staff password (will be hashed)"
+    )
+    name: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Staff real name"
+    )
+    nickname: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Staff display name"
+    )
+    description: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Staff description for LLM assignment"
+    )
+
+
+class BatchCreateStaffRequest(BaseSchema):
+    """Request schema for batch creating staff members during setup."""
+
+    staff_list: List[StaffCreateItem] = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="List of staff members to create (max 100)"
+    )
+
+
+class StaffCreatedItem(BaseSchema):
+    """Created staff item response."""
+
+    id: UUID = Field(..., description="Staff ID")
+    username: str = Field(..., description="Staff username")
+    name: Optional[str] = Field(None, description="Staff real name")
+    nickname: Optional[str] = Field(None, description="Staff display name")
+    created_at: datetime = Field(..., description="Creation timestamp")
+
+
+class BatchCreateStaffResponse(BaseSchema):
+    """Response schema for batch staff creation."""
+
+    created_count: int = Field(..., description="Number of staff members created")
+    staff_list: List[StaffCreatedItem] = Field(..., description="List of created staff members")
+    skipped_usernames: List[str] = Field(
+        default_factory=list,
+        description="Usernames that were skipped (already exist)"
     )

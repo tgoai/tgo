@@ -178,7 +178,36 @@ class Settings(BaseSettings):
         description="Enable periodic background sync for ProjectAIConfig",
     )
 
-
+    # Queue Processor settings (unified waiting queue processing)
+    QUEUE_PROCESS_ENABLED: bool = Field(
+        default=True,
+        description="Enable periodic processing of waiting queue entries",
+    )
+    QUEUE_PROCESS_INTERVAL_SECONDS: int = Field(
+        default=5,
+        description="Interval in seconds for scanning and processing waiting queue",
+        gt=0,
+    )
+    QUEUE_PROCESS_BATCH_SIZE: int = Field(
+        default=50,
+        description="Maximum number of queue entries to process per batch",
+        gt=0,
+    )
+    QUEUE_PROCESS_MAX_WORKERS: int = Field(
+        default=5,
+        description="Maximum number of concurrent workers for queue processing",
+        gt=0,
+    )
+    QUEUE_PROCESS_MAX_RETRIES: int = Field(
+        default=3,
+        description="Maximum retry attempts before marking queue entry as expired",
+        ge=0,
+    )
+    QUEUE_PROCESS_RETRY_DELAY_SECONDS: int = Field(
+        default=60,
+        description="Delay in seconds before retrying a queue entry",
+        gt=0,
+    )
 
     # Platform Service settings (TGO Platform Service)
     PLATFORM_SERVICE_URL: str = Field(

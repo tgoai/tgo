@@ -28,7 +28,7 @@ async def get_visitor_assignment_rule(
     Get visitor assignment rule for current project.
 
     Returns the assignment rule configuration for the current project.
-    If no rule exists, returns a default configuration with is_enabled=False.
+    If no rule exists, returns a default configuration with llm_assignment_enabled=False.
     The effective_prompt field contains the actual prompt to use (custom or system default).
     Requires visitor_assignment_rules:read permission.
     """
@@ -46,7 +46,13 @@ async def get_visitor_assignment_rule(
             model=rule.model,
             prompt=rule.prompt,
             effective_prompt=rule.effective_prompt,
-            is_enabled=rule.is_enabled,
+            llm_assignment_enabled=rule.llm_assignment_enabled,
+            timezone=rule.timezone,
+            service_weekdays=rule.service_weekdays,
+            service_start_time=rule.service_start_time,
+            service_end_time=rule.service_end_time,
+            max_concurrent_chats=rule.max_concurrent_chats,
+            auto_close_hours=rule.auto_close_hours,
             created_at=rule.created_at,
             updated_at=rule.updated_at,
         )
@@ -62,7 +68,13 @@ async def get_visitor_assignment_rule(
         model=None,
         prompt=None,
         effective_prompt=DEFAULT_ASSIGNMENT_PROMPT,
-        is_enabled=False,  # Default to disabled
+        llm_assignment_enabled=False,  # Default to disabled
+        timezone="Asia/Shanghai",
+        service_weekdays=None,
+        service_start_time=None,
+        service_end_time=None,
+        max_concurrent_chats=10,
+        auto_close_hours=48,
         created_at=now,
         updated_at=now,
     )
@@ -119,7 +131,13 @@ async def update_visitor_assignment_rule(
             ai_provider_id=rule_data.ai_provider_id,
             model=rule_data.model,
             prompt=rule_data.prompt,
-            is_enabled=rule_data.is_enabled if rule_data.is_enabled is not None else True,
+            llm_assignment_enabled=rule_data.llm_assignment_enabled if rule_data.llm_assignment_enabled is not None else True,
+            timezone=rule_data.timezone if rule_data.timezone is not None else "Asia/Shanghai",
+            service_weekdays=rule_data.service_weekdays,
+            service_start_time=rule_data.service_start_time,
+            service_end_time=rule_data.service_end_time,
+            max_concurrent_chats=rule_data.max_concurrent_chats if rule_data.max_concurrent_chats is not None else 10,
+            auto_close_hours=rule_data.auto_close_hours if rule_data.auto_close_hours is not None else 48,
         )
         db.add(rule)
         logger.info(f"Created new visitor assignment rule for project {current_user.project_id}")
@@ -134,7 +152,13 @@ async def update_visitor_assignment_rule(
         model=rule.model,
         prompt=rule.prompt,
         effective_prompt=rule.effective_prompt,
-        is_enabled=rule.is_enabled,
+        llm_assignment_enabled=rule.llm_assignment_enabled,
+        timezone=rule.timezone,
+        service_weekdays=rule.service_weekdays,
+        service_start_time=rule.service_start_time,
+        service_end_time=rule.service_end_time,
+        max_concurrent_chats=rule.max_concurrent_chats,
+        auto_close_hours=rule.auto_close_hours,
         created_at=rule.created_at,
         updated_at=rule.updated_at,
     )

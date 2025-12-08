@@ -575,5 +575,54 @@ class AIServiceClient:
 
 
 
+    # Chat completions endpoint
+    async def chat_completions(
+        self,
+        project_id: str,
+        provider_id: str,
+        model: str,
+        messages: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        stream: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Create a chat completion using the AI service.
+        
+        This proxies to the AI service's /api/v1/chat/completions endpoint,
+        which is compatible with OpenAI's Chat Completions API format.
+        
+        Args:
+            project_id: Project ID for authorization
+            provider_id: UUID of the LLM provider to use
+            model: Model identifier (e.g., 'gpt-4', 'claude-3-opus')
+            messages: List of conversation messages with 'role' and 'content'
+            temperature: Sampling temperature (0-2)
+            max_tokens: Maximum tokens to generate
+            stream: Whether to stream the response (not supported yet)
+            
+        Returns:
+            Chat completion response with choices
+        """
+        payload: Dict[str, Any] = {
+            "provider_id": provider_id,
+            "model": model,
+            "messages": messages,
+            "stream": stream,
+        }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+
+        response = await self._make_request(
+            "POST",
+            "/api/v1/chat/completions",
+            json_data=payload,
+            params={"project_id": project_id},
+        )
+        return await self._handle_response(response)
+
+
 # Global AI client instance
 ai_client = AIServiceClient()

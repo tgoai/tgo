@@ -64,6 +64,11 @@ class VisitorAssignmentHistory(Base):
         nullable=True,
         comment="Assignment rule used (for LLM assignments)",
     )
+    session_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("api_visitor_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Associated visitor session",
+    )
 
     # Assignment details
     source: Mapped[str] = mapped_column(
@@ -171,6 +176,11 @@ class VisitorAssignmentHistory(Base):
     )
     assignment_rule: Mapped[Optional["VisitorAssignmentRule"]] = relationship(
         "VisitorAssignmentRule",
+        lazy="select",
+    )
+    session: Mapped[Optional["VisitorSession"]] = relationship(
+        "VisitorSession",
+        back_populates="assignment_histories",
         lazy="select",
     )
 

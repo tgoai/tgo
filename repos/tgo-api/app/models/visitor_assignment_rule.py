@@ -4,7 +4,8 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -56,11 +57,48 @@ class VisitorAssignmentRule(Base):
         nullable=True,
         comment="Custom prompt for assignment analysis. If null, uses system default",
     )
-    is_enabled: Mapped[bool] = mapped_column(
+    llm_assignment_enabled: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=True,
-        comment="Whether LLM-based assignment is enabled for this project",
+        comment="Whether to use LLM for automatic visitor assignment",
+    )
+
+    # Service time configuration
+    timezone: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        default="Asia/Shanghai",
+        comment="Timezone for service hours (e.g., Asia/Shanghai, America/New_York, Europe/London)",
+    )
+    service_weekdays: Mapped[Optional[list]] = mapped_column(
+        ARRAY(Integer),
+        nullable=True,
+        comment="Service weekdays (1=Monday, 7=Sunday), e.g., [1,2,3,4,5]",
+    )
+    service_start_time: Mapped[Optional[str]] = mapped_column(
+        String(5),
+        nullable=True,
+        comment="Service start time in HH:MM format, e.g., 09:00",
+    )
+    service_end_time: Mapped[Optional[str]] = mapped_column(
+        String(5),
+        nullable=True,
+        comment="Service end time in HH:MM format, e.g., 18:00",
+    )
+
+    # Capacity and timeout settings
+    max_concurrent_chats: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        default=10,
+        comment="Maximum concurrent chats per staff member",
+    )
+    auto_close_hours: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        default=48,
+        comment="Auto close chat after N hours of inactivity (e.g., 48 hours)",
     )
 
     # Timestamps
@@ -88,7 +126,7 @@ class VisitorAssignmentRule(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<VisitorAssignmentRule(id={self.id}, project_id={self.project_id}, is_enabled={self.is_enabled})>"
+        return f"<VisitorAssignmentRule(id={self.id}, project_id={self.project_id}, llm_assignment_enabled={self.llm_assignment_enabled})>"
 
     @property
     def effective_prompt(self) -> str:

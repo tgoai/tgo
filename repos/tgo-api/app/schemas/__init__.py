@@ -164,6 +164,14 @@ from app.schemas.visitor_assignment_history import (
     VisitorAssignmentHistoryListParams,
     VisitorAssignmentHistoryListResponse,
 )
+from app.schemas.visitor_session import (
+    SessionStatus,
+    VisitorSessionCreate,
+    VisitorSessionUpdate,
+    VisitorSessionResponse,
+    VisitorSessionDetailResponse,
+    VisitorSessionListParams,
+)
 from app.schemas.visitor import (
     VisitorCreate,
     VisitorAttributesUpdate,
@@ -318,6 +326,13 @@ __all__ = [
     "VisitorAssignmentHistoryDetailResponse",
     "VisitorAssignmentHistoryListParams",
     "VisitorAssignmentHistoryListResponse",
+    # Visitor Session schemas
+    "SessionStatus",
+    "VisitorSessionCreate",
+    "VisitorSessionUpdate",
+    "VisitorSessionResponse",
+    "VisitorSessionDetailResponse",
+    "VisitorSessionListParams",
     # AI schemas
     "TeamCreateRequest",
     "TeamUpdateRequest",

@@ -16,6 +16,46 @@ TGO is an open-source AI agent customer service platform dedicated to helping en
 
 <img src="resources/screenshot/en/home_dark.png" width="100%">
 
+## ✨ Features
+
+### 🤖 AI Agent Orchestration
+- **Multi-Agent Support** - Configure multiple AI agents for different business scenarios
+- **Multi-Model Integration** - Connect with various LLM providers (OpenAI, Anthropic, etc.)
+- **Streaming Response** - Real-time AI responses via SSE for smooth conversation experience
+- **Context Memory** - Maintain conversation history for coherent dialogue
+
+### 📚 Knowledge Base (RAG)
+- **Document Knowledge Base** - Upload documents to enhance AI response accuracy
+- **Q&A Knowledge Base** - Create question-answer pairs for quick knowledge expansion
+- **Website Knowledge Base** - Crawl website content to keep information up-to-date
+- **Smart Retrieval** - Vector-based semantic search for precise answers
+
+### 🔧 MCP Tools Integration
+- **Tool Store** - Rich library of MCP tools, enable on demand
+- **Custom Tools** - Project-level tool configuration and management
+- **OpenAPI Schema** - Auto-parse schemas to generate interactive forms
+
+### 🌐 Multi-Channel Access
+- **Web Widget** - Embeddable chat widget for websites
+- **WeChat Integration** - Official Account and Mini Program support
+- **Unified Management** - Manage all channels from a single dashboard
+
+### 💬 Real-time Communication
+- **WuKongIM Integration** - Stable and reliable instant messaging
+- **WebSocket Connection** - Efficient bidirectional communication
+- **Message Sync** - Read/unread status, delivery confirmation
+- **Rich Media** - Support for text, images, files and more
+
+### 👥 Human-AI Collaboration
+- **Smart Handoff** - Seamlessly transfer to human agents when needed
+- **Visitor Management** - Collect visitor info, assign sessions, track history
+- **Agent Workspace** - Unified interface for human agents
+
+### 🎨 UI Widget System
+- **Structured Display** - Render orders, products, logistics as beautiful cards
+- **Rich Components** - Order cards, logistics tracking, product display, price comparison
+- **Action Protocol** - Standardized URI protocol for interactions
+
 ## Product Preview
 
 | | |

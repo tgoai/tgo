@@ -156,6 +156,48 @@
         }
       }
     },
+    "/v1/setup/staff": {
+      "post": {
+        "tags": [
+          "Setup"
+        ],
+        "summary": "Batch create staff members during setup",
+        "description": "Batch create non-admin staff members (user role) during initial system setup. This endpoint can ONLY be called when the system is NOT yet installed. Once the system installation is complete (is_installed=True), this endpoint will be disabled for security reasons. Use the normal staff management endpoints after installation is complete.",
+        "operationId": "batch_create_staff_v1_setup_staff_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchCreateStaffRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreateStaffResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/projects": {
       "get": {
         "tags": [
@@ -2290,7 +2332,7 @@
           "Visitor Assignment Rules"
         ],
         "summary": "Get Visitor Assignment Rule",
-        "description": "Get visitor assignment rule for current project.\n\nReturns the assignment rule configuration for the current project.\nIf no rule exists, returns a default configuration with is_enabled=False.\nThe effective_prompt field contains the actual prompt to use (custom or system default).\nRequires visitor_assignment_rules:read permission.",
+        "description": "Get visitor assignment rule for current project.\n\nReturns the assignment rule configuration for the current project.\nIf no rule exists, returns a default configuration with llm_assignment_enabled=False.\nThe effective_prompt field contains the actual prompt to use (custom or system default).\nRequires visitor_assignment_rules:read permission.",
         "operationId": "get_visitor_assignment_rule_v1_visitor_assignment_rules_get",
         "responses": {
           "200": {
@@ -11645,6 +11687,58 @@
         "title": "AgentWithDetailsResponse",
         "description": "Schema for agent response with additional details."
       },
+      "BatchCreateStaffRequest": {
+        "properties": {
+          "staff_list": {
+            "items": {
+              "$ref": "#/components/schemas/StaffCreateItem"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Staff List",
+            "description": "List of staff members to create (max 100)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "staff_list"
+        ],
+        "title": "BatchCreateStaffRequest",
+        "description": "Request schema for batch creating staff members during setup."
+      },
+      "BatchCreateStaffResponse": {
+        "properties": {
+          "created_count": {
+            "type": "integer",
+            "title": "Created Count",
+            "description": "Number of staff members created"
+          },
+          "staff_list": {
+            "items": {
+              "$ref": "#/components/schemas/StaffCreatedItem"
+            },
+            "type": "array",
+            "title": "Staff List",
+            "description": "List of created staff members"
+          },
+          "skipped_usernames": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skipped Usernames",
+            "description": "Usernames that were skipped (already exist)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_count",
+          "staff_list"
+        ],
+        "title": "BatchCreateStaffResponse",
+        "description": "Response schema for batch staff creation."
+      },
       "BatchFileUploadResponse": {
         "properties": {
           "summary": {
@@ -16499,6 +16593,11 @@
             "title": "Has Admin",
             "description": "Whether at least one admin account exists"
           },
+          "has_user_staff": {
+            "type": "boolean",
+            "title": "Has User Staff",
+            "description": "Whether at least one non-admin staff (user role) exists"
+          },
           "has_llm_config": {
             "type": "boolean",
             "title": "Has Llm Config",
@@ -16527,6 +16626,7 @@
         "required": [
           "is_installed",
           "has_admin",
+          "has_user_staff",
           "has_llm_config",
           "skip_llm_config"
         ],
@@ -16618,6 +16718,19 @@
             "title": "Username",
             "description": "Staff username for login"
           },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Staff real name"
+          },
           "nickname": {
             "anyOf": [
               {
@@ -16696,6 +16809,123 @@
         "title": "StaffCreate",
         "description": "Schema for creating a staff member."
       },
+      "StaffCreateItem": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 3,
+            "title": "Username",
+            "description": "Staff username for login (unique)"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password",
+            "description": "Staff password (will be hashed)"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Staff real name"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname",
+            "description": "Staff display name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Staff description for LLM assignment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "StaffCreateItem",
+        "description": "Single staff item for batch creation."
+      },
+      "StaffCreatedItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "Staff ID"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "description": "Staff username"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Staff real name"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname",
+            "description": "Staff display name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Creation timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "created_at"
+        ],
+        "title": "StaffCreatedItem",
+        "description": "Created staff item response."
+      },
       "StaffListResponse": {
         "properties": {
           "data": {
@@ -16769,6 +16999,18 @@
             "type": "string",
             "title": "Username",
             "description": "Staff username"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Staff real name"
           },
           "nickname": {
             "anyOf": [
@@ -17023,6 +17265,19 @@
       },
       "StaffUpdate": {
         "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Updated real name"
+          },
           "nickname": {
             "anyOf": [
               {
@@ -18807,10 +19062,85 @@
             "title": "Effective Prompt",
             "description": "Effective prompt (custom or default)"
           },
-          "is_enabled": {
+          "llm_assignment_enabled": {
             "type": "boolean",
-            "title": "Is Enabled",
-            "description": "Whether enabled"
+            "title": "Llm Assignment Enabled",
+            "description": "Whether to use LLM for automatic visitor assignment"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone",
+            "description": "Timezone for service hours"
+          },
+          "service_weekdays": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Weekdays",
+            "description": "Service weekdays (1=Monday, 7=Sunday)"
+          },
+          "service_start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Start Time",
+            "description": "Service start time in HH:MM format"
+          },
+          "service_end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service End Time",
+            "description": "Service end time in HH:MM format"
+          },
+          "max_concurrent_chats": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrent Chats",
+            "description": "Maximum concurrent chats per staff"
+          },
+          "auto_close_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Close Hours",
+            "description": "Auto close chat after N hours"
           },
           "created_at": {
             "type": "string",
@@ -18830,7 +19160,7 @@
           "id",
           "project_id",
           "effective_prompt",
-          "is_enabled",
+          "llm_assignment_enabled",
           "created_at",
           "updated_at"
         ],
@@ -18868,16 +19198,17 @@
           "prompt": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 1000
               },
               {
                 "type": "null"
               }
             ],
             "title": "Prompt",
-            "description": "Updated prompt for assignment analysis"
+            "description": "Updated prompt for assignment analysis (max 1000 chars)"
           },
-          "is_enabled": {
+          "llm_assignment_enabled": {
             "anyOf": [
               {
                 "type": "boolean"
@@ -18886,8 +19217,90 @@
                 "type": "null"
               }
             ],
-            "title": "Is Enabled",
-            "description": "Updated enabled status"
+            "title": "Llm Assignment Enabled",
+            "description": "Whether to use LLM for automatic visitor assignment"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone",
+            "description": "Updated timezone for service hours (e.g., Asia/Shanghai, America/New_York)"
+          },
+          "service_weekdays": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Weekdays",
+            "description": "Updated service weekdays (1=Monday, 7=Sunday)"
+          },
+          "service_start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Start Time",
+            "description": "Updated service start time in HH:MM format"
+          },
+          "service_end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service End Time",
+            "description": "Updated service end time in HH:MM format"
+          },
+          "max_concurrent_chats": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100,
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrent Chats",
+            "description": "Updated maximum concurrent chats per staff (1-100)"
+          },
+          "auto_close_hours": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 720,
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Close Hours",
+            "description": "Updated auto close hours (1-720)"
           }
         },
         "type": "object",

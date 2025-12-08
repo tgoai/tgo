@@ -166,6 +166,13 @@ async def startup_event():
         # best-effort; don't block startup
         pass
 
+    # Start periodic waiting queue processor task (best-effort)
+    try:
+        from app.tasks.process_waiting_queue import start_queue_processor
+        start_queue_processor()
+    except Exception:
+        # best-effort; don't block startup
+        pass
 
     # Require Kafka configuration; fail fast if missing
     if not (settings.KAFKA_BOOTSTRAP_SERVERS and settings.KAFKA_BOOTSTRAP_SERVERS.strip()):
@@ -209,6 +216,13 @@ async def shutdown_event():
     try:
         from app.tasks.sync_project_ai_configs import stop_project_ai_config_sync_task
         await stop_project_ai_config_sync_task()
+    except Exception:
+        pass
+
+    # Stop periodic waiting queue processor task (best-effort)
+    try:
+        from app.tasks.process_waiting_queue import stop_queue_processor
+        await stop_queue_processor()
     except Exception:
         pass
 

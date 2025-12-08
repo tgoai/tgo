@@ -80,6 +80,7 @@ export interface VerifySetupResponse {
 export interface SetupStatusResponse {
   is_installed: boolean;
   has_admin: boolean;
+  has_user_staff: boolean;
   has_llm_config: boolean;
   setup_completed_at: string | null;
 }
@@ -93,12 +94,37 @@ export interface SkipLLMResponse {
 }
 
 /**
+ * Request schema for creating a single staff member in batch
+ */
+export interface SetupStaffItem {
+  username: string;
+  password: string;
+  name?: string | null;
+}
+
+/**
+ * Request schema for batch creating staff members
+ */
+export interface CreateStaffBatchRequest {
+  staff_list: SetupStaffItem[];
+}
+
+/**
+ * Response schema for batch staff creation
+ */
+export interface CreateStaffBatchResponse {
+  created_count: number;
+  staff_ids: string[];
+}
+
+/**
  * Setup API Service Class
  */
 class SetupApiService extends BaseApiService {
   protected readonly endpoints = {
     status: '/v1/setup/status',
     admin: '/v1/setup/admin',
+    staff: '/v1/setup/staff',
     llmConfig: '/v1/setup/llm-config',
     skipLLM: '/v1/setup/skip-llm',
     verify: '/v1/setup/verify',
@@ -120,6 +146,14 @@ class SetupApiService extends BaseApiService {
    */
   async createAdmin(data: CreateAdminRequest): Promise<CreateAdminResponse> {
     return this.post<CreateAdminResponse>(this.endpoints.admin, data);
+  }
+
+  /**
+   * Batch create staff members
+   * POST /v1/setup/staff
+   */
+  async createStaffBatch(data: CreateStaffBatchRequest): Promise<CreateStaffBatchResponse> {
+    return this.post<CreateStaffBatchResponse>(this.endpoints.staff, data);
   }
 
   /**

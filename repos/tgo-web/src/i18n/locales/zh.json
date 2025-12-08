@@ -120,6 +120,28 @@
       "descriptionText": "当AI智能体无法解决用户问题时，系统会自动将对话分配给人工坐席。人工坐席可以接管对话，为用户提供更专业的人工服务。",
       "assignmentRules": "分配规则",
       "assignmentRulesHint": "配置人工坐席的分配规则。系统将使用大模型根据此提示词来智能分配对话给最合适的坐席。",
+      "serviceTime": "服务时间",
+      "serviceWeekdays": "服务日期",
+      "serviceStartTime": "开始时间",
+      "serviceEndTime": "结束时间",
+      "timezone": "时区",
+      "weekday": {
+        "mon": "周一",
+        "tue": "周二",
+        "wed": "周三",
+        "thu": "周四",
+        "fri": "周五",
+        "sat": "周六",
+        "sun": "周日"
+      },
+      "chatSettings": "会话设置",
+      "maxConcurrentChats": "最大并发会话数",
+      "maxConcurrentChatsHint": "每个坐席同时处理的最大会话数",
+      "autoCloseHours": "自动关闭时间",
+      "autoCloseHoursHint": "会话无活动后自动关闭的时间",
+      "hours": "小时",
+      "llmAssignment": "智能分配",
+      "llmAssignmentHint": "启用后，系统将使用大模型根据提示词智能分配对话给最合适的坐席。",
       "assignmentModel": "分配模型",
       "selectModel": "请选择模型",
       "assignmentModelHint": "选择用于智能分配对话的大模型，模型来自模型提供商配置",
@@ -2072,6 +2094,7 @@
     "subtitle": "欢迎使用 Tgo CS，让我们开始配置您的系统",
     "steps": {
       "admin": "管理员账号",
+      "staff": "人工坐席",
       "llm": "大模型配置",
       "verify": "验证安装"
     },
@@ -2095,6 +2118,32 @@
         "passwordStrength": "密码必须包含大小写字母和数字",
         "confirmPasswordRequired": "请再次输入密码",
         "passwordMismatch": "两次输入的密码不一致"
+      }
+    },
+    "staff": {
+      "title": "配置人工坐席",
+      "description": "添加人工客服坐席账号，用于处理用户咨询",
+      "infoText": "当AI智能体无法解决用户问题时，系统会自动将对话分配给人工坐席。人工坐席可以接管对话，为用户提供更专业的人工服务。",
+      "staffItem": "坐席 {{index}}",
+      "username": "用户名",
+      "usernamePlaceholder": "请输入用户名",
+      "name": "姓名",
+      "namePlaceholder": "请输入坐席姓名",
+      "password": "密码",
+      "passwordPlaceholder": "请输入密码（至少8位）",
+      "confirmPassword": "确认密码",
+      "confirmPasswordPlaceholder": "请再次输入密码",
+      "addStaff": "添加坐席",
+      "emptyHint": "点击上方按钮添加人工坐席账号",
+      "requiredHint": "* 至少需要添加一个人工坐席",
+      "validation": {
+        "usernameRequired": "请输入用户名",
+        "usernameLength": "用户名长度需在1-50个字符之间",
+        "nameRequired": "请输入姓名",
+        "passwordRequired": "请输入密码",
+        "passwordLength": "密码长度至少8个字符",
+        "passwordMismatch": "两次输入的密码不一致",
+        "atLeastOne": "请至少添加一个人工坐席"
       }
     },
     "llm": {
@@ -2133,6 +2182,8 @@
       "description": "正在验证系统配置...",
       "summary": "安装摘要",
       "adminCreated": "管理员账号已创建",
+      "staffCreated": "已创建 {{count}} 个人工坐席",
+      "staffNotConfigured": "人工坐席未配置（可稍后设置）",
       "llmConfigured": "大模型已配置",
       "llmNotConfigured": "大模型未配置（可稍后设置）",
       "checks": {
@@ -2161,6 +2212,7 @@
     },
     "errors": {
       "createAdminFailed": "创建管理员账号失败",
+      "createStaffFailed": "创建人工坐席失败",
       "configureLLMFailed": "配置大模型失败",
       "verifyFailed": "验证安装失败",
       "alreadyInstalled": "系统已安装，无需重复安装"

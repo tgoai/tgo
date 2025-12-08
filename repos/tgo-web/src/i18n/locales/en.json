@@ -120,6 +120,28 @@
       "descriptionText": "When AI agents cannot resolve user issues, the system automatically assigns conversations to human agents. Human agents can take over conversations to provide more professional human support.",
       "assignmentRules": "Assignment Rules",
       "assignmentRulesHint": "Configure assignment rules for human agents. The system uses an LLM with this prompt to intelligently assign conversations to the most suitable agent.",
+      "serviceTime": "Service Hours",
+      "serviceWeekdays": "Service Days",
+      "serviceStartTime": "Start Time",
+      "serviceEndTime": "End Time",
+      "timezone": "Timezone",
+      "weekday": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      },
+      "chatSettings": "Chat Settings",
+      "maxConcurrentChats": "Max Concurrent Chats",
+      "maxConcurrentChatsHint": "Maximum number of conversations each agent can handle simultaneously",
+      "autoCloseHours": "Auto Close Time",
+      "autoCloseHoursHint": "Time after which inactive conversations are automatically closed",
+      "hours": "hours",
+      "llmAssignment": "Intelligent Assignment",
+      "llmAssignmentHint": "When enabled, the system uses an LLM with this prompt to intelligently assign conversations to the most suitable agent.",
       "assignmentModel": "Assignment Model",
       "selectModel": "Select a model",
       "assignmentModelHint": "Select the LLM for intelligent conversation assignment, models come from Model Providers configuration",
@@ -2172,6 +2194,7 @@
     "subtitle": "Welcome to Tgo CS, let's configure your system",
     "steps": {
       "admin": "Admin Account",
+      "staff": "Human Agents",
       "llm": "LLM Configuration",
       "verify": "Verify Installation"
     },
@@ -2195,6 +2218,32 @@
         "passwordStrength": "Password must contain uppercase, lowercase and numbers",
         "confirmPasswordRequired": "Please confirm your password",
         "passwordMismatch": "Passwords do not match"
+      }
+    },
+    "staff": {
+      "title": "Configure Human Agents",
+      "description": "Add human agent accounts to handle customer inquiries",
+      "infoText": "When the AI agent cannot resolve user issues, the system will automatically assign the conversation to a human agent. Human agents can take over the conversation and provide more professional assistance.",
+      "staffItem": "Agent {{index}}",
+      "username": "Username",
+      "usernamePlaceholder": "Enter username",
+      "name": "Name",
+      "namePlaceholder": "Enter agent name",
+      "password": "Password",
+      "passwordPlaceholder": "Enter password (at least 8 characters)",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Re-enter password",
+      "addStaff": "Add Agent",
+      "emptyHint": "Click the button above to add human agent accounts",
+      "requiredHint": "* At least one human agent is required",
+      "validation": {
+        "usernameRequired": "Username is required",
+        "usernameLength": "Username must be 1-50 characters",
+        "nameRequired": "Name is required",
+        "passwordRequired": "Password is required",
+        "passwordLength": "Password must be at least 8 characters",
+        "passwordMismatch": "Passwords do not match",
+        "atLeastOne": "Please add at least one human agent"
       }
     },
     "llm": {
@@ -2233,6 +2282,8 @@
       "description": "Verifying system configuration...",
       "summary": "Installation Summary",
       "adminCreated": "Administrator account created",
+      "staffCreated": "{{count}} human agent(s) created",
+      "staffNotConfigured": "Human agents not configured (can be set later)",
       "llmConfigured": "LLM configured",
       "llmNotConfigured": "LLM not configured (can be set later)",
       "checks": {
@@ -2261,6 +2312,7 @@
     },
     "errors": {
       "createAdminFailed": "Failed to create administrator account",
+      "createStaffFailed": "Failed to create human agent",
       "configureLLMFailed": "Failed to configure LLM",
       "verifyFailed": "Failed to verify installation",
       "alreadyInstalled": "System is already installed"

@@ -22,6 +22,9 @@ import {
   Save,
   ChevronDown,
   ChevronUp,
+  Clock,
+  MessageSquare,
+  Brain,
 } from 'lucide-react';
 import { staffApi, StaffRole, StaffStatus, StaffUpdateRequest, VisitorAssignmentRuleResponse } from '@/services/staffApi';
 import { StaffResponse, StaffCreateRequest } from '@/services/api';
@@ -490,6 +493,15 @@ const StaffSettings: React.FC = () => {
   const [selectedModelId, setSelectedModelId] = useState<string>('');
   const [savingRules, setSavingRules] = useState(false);
   const [rulesLoading, setRulesLoading] = useState(true);
+  
+  // New assignment rule fields
+  const [llmAssignmentEnabled, setLlmAssignmentEnabled] = useState(false);
+  const [timezone, setTimezone] = useState('Asia/Shanghai');
+  const [serviceWeekdays, setServiceWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [serviceStartTime, setServiceStartTime] = useState('09:00');
+  const [serviceEndTime, setServiceEndTime] = useState('18:00');
+  const [maxConcurrentChats, setMaxConcurrentChats] = useState(10);
+  const [autoCloseHours, setAutoCloseHours] = useState(48);
 
   // Providers store for model options
   const { providers, loadProviders } = useProvidersStore();
@@ -576,6 +588,15 @@ const StaffSettings: React.FC = () => {
         if (ruleRes.ai_provider_id && ruleRes.model) {
           setSelectedModelId(`${ruleRes.ai_provider_id}:${ruleRes.model}`);
         }
+        
+        // Set new fields
+        setLlmAssignmentEnabled(ruleRes.llm_assignment_enabled);
+        setTimezone(ruleRes.timezone || 'Asia/Shanghai');
+        setServiceWeekdays(ruleRes.service_weekdays || [1, 2, 3, 4, 5]);
+        setServiceStartTime(ruleRes.service_start_time || '09:00');
+        setServiceEndTime(ruleRes.service_end_time || '18:00');
+        setMaxConcurrentChats(ruleRes.max_concurrent_chats || 10);
+        setAutoCloseHours(ruleRes.auto_close_hours || 48);
       } catch (error) {
         console.error('Failed to fetch assignment rules:', error);
         // Use default prompt if API fails
@@ -668,7 +689,13 @@ const StaffSettings: React.FC = () => {
         ai_provider_id,
         model,
         prompt: assignmentPrompt || null,
-        is_enabled: true,
+        llm_assignment_enabled: llmAssignmentEnabled,
+        timezone,
+        service_weekdays: serviceWeekdays,
+        service_start_time: serviceStartTime,
+        service_end_time: serviceEndTime,
+        max_concurrent_chats: maxConcurrentChats,
+        auto_close_hours: autoCloseHours,
       });
       
       setAssignmentRule(ruleRes);
@@ -747,106 +774,269 @@ const StaffSettings: React.FC = () => {
                 <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
               </div>
             ) : (
-              <>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 mb-3">
-              {t('settings.staff.assignmentRulesHint', '配置人工坐席的分配规则。系统将使用大模型根据此提示词来智能分配对话给最合适的坐席。')}
-            </p>
-            
-            {/* Model Selector */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('settings.staff.assignmentModel', '分配模型')}
-              </label>
-              <select
-                value={selectedModelId}
-                onChange={(e) => setSelectedModelId(e.target.value)}
-                className="
-                  w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
-                  bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-0
-                  transition-colors
-                "
-                disabled={modelsLoading}
-              >
-                <option value="">{t('settings.staff.selectModel', '请选择模型')}</option>
-                {llmOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {t('settings.staff.assignmentModelHint', '选择用于智能分配对话的大模型，模型来自模型提供商配置')}
-              </p>
-            </div>
+              <div className="space-y-6 mt-4">
+                {/* Service Time Settings */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <h3 className="font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.staff.serviceTime', '服务时间')}
+                    </h3>
+                  </div>
+                  
+                  {/* Weekdays */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {t('settings.staff.serviceWeekdays', '服务日期')}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: 1, label: t('settings.staff.weekday.mon', '周一') },
+                        { value: 2, label: t('settings.staff.weekday.tue', '周二') },
+                        { value: 3, label: t('settings.staff.weekday.wed', '周三') },
+                        { value: 4, label: t('settings.staff.weekday.thu', '周四') },
+                        { value: 5, label: t('settings.staff.weekday.fri', '周五') },
+                        { value: 6, label: t('settings.staff.weekday.sat', '周六') },
+                        { value: 7, label: t('settings.staff.weekday.sun', '周日') },
+                      ].map((day) => (
+                        <button
+                          key={day.value}
+                          type="button"
+                          onClick={() => {
+                            if (serviceWeekdays.includes(day.value)) {
+                              setServiceWeekdays(serviceWeekdays.filter(d => d !== day.value));
+                            } else {
+                              setServiceWeekdays([...serviceWeekdays, day.value].sort());
+                            }
+                          }}
+                          className={`
+                            px-3 py-1.5 text-sm rounded-lg border transition-colors
+                            ${serviceWeekdays.includes(day.value)
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-blue-500'
+                            }
+                          `}
+                        >
+                          {day.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Time Range */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {t('settings.staff.serviceStartTime', '开始时间')}
+                      </label>
+                      <input
+                        type="time"
+                        value={serviceStartTime}
+                        onChange={(e) => setServiceStartTime(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {t('settings.staff.serviceEndTime', '结束时间')}
+                      </label>
+                      <input
+                        type="time"
+                        value={serviceEndTime}
+                        onChange={(e) => setServiceEndTime(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Timezone */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('settings.staff.timezone', '时区')}
+                    </label>
+                    <select
+                      value={timezone}
+                      onChange={(e) => setTimezone(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option>
+                      <option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+                      <option value="Asia/Singapore">Asia/Singapore (UTC+8)</option>
+                      <option value="America/New_York">America/New_York (UTC-5)</option>
+                      <option value="America/Los_Angeles">America/Los_Angeles (UTC-8)</option>
+                      <option value="Europe/London">Europe/London (UTC+0)</option>
+                      <option value="Europe/Paris">Europe/Paris (UTC+1)</option>
+                    </select>
+                  </div>
+                </div>
 
-            {/* Assignment Prompt */}
-            <div className="mb-3">
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('settings.staff.assignmentPrompt', '分配提示词')}
-                </label>
-                <span className={`text-xs ${assignmentPrompt.length > 1000 ? 'text-red-500' : 'text-gray-400'}`}>
-                  {assignmentPrompt.length}/1000
-                </span>
+                {/* Chat Settings */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2 mb-4">
+                    <MessageSquare className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <h3 className="font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.staff.chatSettings', '会话设置')}
+                    </h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Max Concurrent Chats */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {t('settings.staff.maxConcurrentChats', '最大并发会话数')}
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={maxConcurrentChats}
+                        onChange={(e) => setMaxConcurrentChats(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {t('settings.staff.maxConcurrentChatsHint', '每个坐席同时处理的最大会话数')}
+                      </p>
+                    </div>
+                    
+                    {/* Auto Close Hours */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {t('settings.staff.autoCloseHours', '自动关闭时间')}
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="720"
+                          value={autoCloseHours}
+                          onChange={(e) => setAutoCloseHours(Math.max(1, Math.min(720, parseInt(e.target.value) || 1)))}
+                          className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {t('settings.staff.hours', '小时')}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {t('settings.staff.autoCloseHoursHint', '会话无活动后自动关闭的时间')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* LLM Assignment Settings */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                      <h3 className="font-medium text-gray-800 dark:text-gray-200">
+                        {t('settings.staff.llmAssignment', '智能分配')}
+                      </h3>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={llmAssignmentEnabled}
+                        onChange={(e) => setLlmAssignmentEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                  
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    {t('settings.staff.llmAssignmentHint', '启用后，系统将使用大模型根据提示词智能分配对话给最合适的坐席。')}
+                  </p>
+                  
+                  {llmAssignmentEnabled && (
+                    <>
+                      {/* Model Selector */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {t('settings.staff.assignmentModel', '分配模型')}
+                        </label>
+                        <select
+                          value={selectedModelId}
+                          onChange={(e) => setSelectedModelId(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                          disabled={modelsLoading}
+                        >
+                          <option value="">{t('settings.staff.selectModel', '请选择模型')}</option>
+                          {llmOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {t('settings.staff.assignmentModelHint', '选择用于智能分配对话的大模型，模型来自模型提供商配置')}
+                        </p>
+                      </div>
+
+                      {/* Assignment Prompt */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {t('settings.staff.assignmentPrompt', '分配提示词')}
+                          </label>
+                          <span className={`text-xs ${assignmentPrompt.length > 1000 ? 'text-red-500' : 'text-gray-400'}`}>
+                            {assignmentPrompt.length}/1000
+                          </span>
+                        </div>
+                        <textarea
+                          value={assignmentPrompt}
+                          onChange={(e) => {
+                            if (e.target.value.length <= 1000) {
+                              setAssignmentPrompt(e.target.value);
+                            }
+                          }}
+                          maxLength={1000}
+                          rows={8}
+                          className={`
+                            w-full px-3 py-2 rounded-lg border
+                            bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                            focus:outline-none focus:ring-2 focus:ring-offset-0
+                            placeholder:text-gray-400 transition-colors font-mono text-sm
+                            resize-y min-h-[150px]
+                            ${assignmentPrompt.length > 1000
+                              ? 'border-red-500 focus:ring-red-500'
+                              : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                            }
+                          `}
+                          placeholder={t('settings.staff.assignmentRulesPlaceholder', '请输入分配规则提示词...')}
+                        />
+                        {assignmentPrompt.length > 1000 && (
+                          <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {t('settings.staff.promptTooLong', '提示词不能超过1000个字符')}
+                          </p>
+                        )}
+                        <button
+                          onClick={handleResetRules}
+                          className="mt-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                        >
+                          {t('settings.staff.resetToDefault', '恢复默认')}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Save Button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleSaveRules}
+                    disabled={savingRules || assignmentPrompt.length > 1000}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingRules ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    {t('settings.staff.saveRules', '保存规则')}
+                  </button>
+                </div>
               </div>
-            </div>
-            <textarea
-              value={assignmentPrompt}
-              onChange={(e) => {
-                if (e.target.value.length <= 1000) {
-                  setAssignmentPrompt(e.target.value);
-                }
-              }}
-              maxLength={1000}
-              rows={12}
-              className={`
-                w-full px-3 py-2 rounded-lg border
-                bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                focus:outline-none focus:ring-2 focus:ring-offset-0
-                placeholder:text-gray-400 transition-colors font-mono text-sm
-                resize-y min-h-[200px]
-                ${assignmentPrompt.length > 1000
-                  ? 'border-red-500 focus:ring-red-500'
-                  : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                }
-              `}
-              placeholder={t('settings.staff.assignmentRulesPlaceholder', '请输入分配规则提示词...')}
-            />
-            {assignmentPrompt.length > 1000 && (
-              <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {t('settings.staff.promptTooLong', '提示词不能超过1000个字符')}
-              </p>
-            )}
-            <div className="flex items-center justify-between mt-3">
-              <button
-                onClick={handleResetRules}
-                className="
-                  px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400
-                  hover:text-gray-800 dark:hover:text-gray-200 transition-colors
-                "
-              >
-                {t('settings.staff.resetToDefault', '恢复默认')}
-              </button>
-              <button
-                onClick={handleSaveRules}
-                disabled={savingRules || assignmentPrompt.length > 1000}
-                className="
-                  flex items-center gap-2 px-4 py-2 rounded-lg
-                  bg-blue-600 text-white hover:bg-blue-700 transition-colors
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                "
-              >
-                {savingRules ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                {t('settings.staff.saveRules', '保存规则')}
-              </button>
-            </div>
-              </>
             )}
           </div>
         )}

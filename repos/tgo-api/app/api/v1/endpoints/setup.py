@@ -21,9 +21,12 @@ from app.models import (
     Staff,
     SystemSetup,
     Visitor,
+    VisitorAssignmentRule,
 )
 from app.models.staff import StaffRole, StaffStatus
 from app.schemas.setup import (
+    BatchCreateStaffRequest,
+    BatchCreateStaffResponse,
     ConfigureLLMRequest,
     ConfigureLLMResponse,
     CreateAdminRequest,
@@ -31,6 +34,7 @@ from app.schemas.setup import (
     SetupCheckResult,
     SetupStatusResponse,
     SkipLLMConfigResponse,
+    StaffCreatedItem,
     VerifySetupResponse,
 )
 from app.services.ai_client import ai_client
@@ -86,18 +90,25 @@ def _recalculate_install_flags(setup: SystemSetup) -> None:
             setup.setup_completed_at = datetime.now(timezone.utc)
 
 
-def _check_system_installed(db: Session) -> tuple[bool, bool, bool, bool]:
+def _check_system_installed(db: Session) -> tuple[bool, bool, bool, bool, bool]:
     """Check installation state from the SystemSetup table.
 
     Returns:
-        tuple[bool, bool, bool, bool]:
-            (is_installed, has_admin, has_llm_config, skip_llm_config)
+        tuple[bool, bool, bool, bool, bool]:
+            (is_installed, has_admin, has_user_staff, has_llm_config, skip_llm_config)
     """
     setup = _get_or_create_system_setup(db)
     _recalculate_install_flags(setup)
     db.commit()
     db.refresh(setup)
-    return setup.is_installed, setup.admin_created, setup.llm_configured, setup.skip_llm_config
+    
+    # Check if any non-admin staff (user role) exists
+    has_user_staff = db.query(Staff).filter(
+        Staff.role == StaffRole.USER.value,
+        Staff.deleted_at.is_(None),
+    ).first() is not None
+    
+    return setup.is_installed, setup.admin_created, has_user_staff, setup.llm_configured, setup.skip_llm_config
 
 
 def _get_setup_completed_time(db: Session) -> Optional[datetime]:
@@ -122,21 +133,23 @@ async def get_setup_status(
 
     Returns information about whether the system has been set up, including:
     - Whether an admin account exists
+    - Whether any non-admin staff (user role) exists
     - Whether LLM provider is configured
     - When setup was completed (if applicable)
     """
-    is_installed, has_admin, has_llm_config, skip_llm_config = _check_system_installed(db)
+    is_installed, has_admin, has_user_staff, has_llm_config, skip_llm_config = _check_system_installed(db)
     setup_completed_at = _get_setup_completed_time(db) if is_installed else None
 
     logger.info(
         f"Setup status check: installed={is_installed}, "
-        f"has_admin={has_admin}, has_llm={has_llm_config}, "
-        f"skip_llm={skip_llm_config}"
+        f"has_admin={has_admin}, has_user_staff={has_user_staff}, "
+        f"has_llm={has_llm_config}, skip_llm={skip_llm_config}"
     )
 
     return SetupStatusResponse(
         is_installed=is_installed,
         has_admin=has_admin,
+        has_user_staff=has_user_staff,
         has_llm_config=has_llm_config,
         skip_llm_config=skip_llm_config,
         setup_completed_at=setup_completed_at,
@@ -678,7 +691,7 @@ async def verify_setup(
         errors.append(f"Database connection error: {str(e)}")
 
     # Check 2: Admin / LLM / skip flags from SystemSetup
-    is_installed, has_admin, has_llm_config, skip_llm_config = _check_system_installed(db)
+    is_installed, has_admin, has_user_staff, has_llm_config, skip_llm_config = _check_system_installed(db)
 
     if has_admin:
         admin_count = db.query(Staff).filter(Staff.deleted_at.is_(None)).count()
@@ -757,6 +770,10 @@ async def verify_setup(
         warnings.append("Admin created but LLM provider not configured yet")
     elif has_llm_config and not has_admin:
         warnings.append("LLM provider configured but no admin account exists")
+    
+    # Warning if no user staff exists
+    if has_admin and not has_user_staff:
+        warnings.append("No user staff members found; consider adding customer service staff")
 
     logger.info(
         f"Setup verification: valid={is_valid}, "
@@ -768,5 +785,150 @@ async def verify_setup(
         checks=checks,
         errors=errors,
         warnings=warnings,
+    )
+
+
+@router.post(
+    "/staff",
+    response_model=BatchCreateStaffResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Batch create staff members during setup",
+    description=(
+        "Batch create non-admin staff members (user role) during initial system setup. "
+        "This endpoint can ONLY be called when the system is NOT yet installed. "
+        "Once the system installation is complete (is_installed=True), this endpoint "
+        "will be disabled for security reasons. Use the normal staff management "
+        "endpoints after installation is complete."
+    ),
+)
+async def batch_create_staff(
+    staff_data: BatchCreateStaffRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> BatchCreateStaffResponse:
+    """
+    Batch create staff members during initial setup.
+
+    SECURITY: This endpoint is ONLY available during setup (before is_installed=True).
+    Once the system is installed, this endpoint returns 403 Forbidden.
+
+    This endpoint:
+    1. Checks that the system is NOT yet installed
+    2. Checks that an admin account exists (required before creating staff)
+    3. Creates staff members with 'user' role (not admin)
+    4. Skips any usernames that already exist
+    5. Returns the list of created staff members
+
+    After installation, use the authenticated staff management endpoints instead.
+    """
+    # Ensure we have a SystemSetup row and check installation state
+    setup = _get_or_create_system_setup(db)
+
+    # CRITICAL: Block this endpoint after installation for security
+    if setup.is_installed:
+        logger.warning(
+            f"SECURITY: Attempt to call batch staff creation after installation: {request.url.path}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "System installation is already complete. "
+                "This setup endpoint is disabled for security reasons. "
+                "Please use the authenticated staff management endpoints instead."
+            ),
+        )
+
+    # Check if admin exists (required before creating staff)
+    if not setup.admin_created:
+        logger.warning("Attempt to create staff before admin account exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admin account must be created before adding staff members"
+        )
+
+    # Get the project (created during admin setup)
+    project = db.query(Project).filter(Project.deleted_at.is_(None)).first()
+    if not project:
+        logger.error("No project found despite admin existing")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="System error: No project found"
+        )
+
+    created_staff = []
+    skipped_usernames = []
+
+    for item in staff_data.staff_list:
+        # Check if username already exists
+        existing = db.query(Staff).filter(
+            Staff.username == item.username,
+            Staff.deleted_at.is_(None),
+        ).first()
+
+        if existing:
+            logger.info(f"Staff username already exists, skipping: {item.username}")
+            skipped_usernames.append(item.username)
+            continue
+
+        # Create staff with user role (NOT admin)
+        password_hash = get_password_hash(item.password)
+        staff = Staff(
+            project_id=project.id,
+            username=item.username,
+            password_hash=password_hash,
+            name=item.name,
+            nickname=item.nickname or item.name or item.username,
+            description=item.description,
+            role=StaffRole.USER,  # Always user role, never admin
+            status=StaffStatus.OFFLINE,
+        )
+        db.add(staff)
+        created_staff.append(staff)
+
+    if created_staff:
+        # Check if VisitorAssignmentRule exists for this project, create default if not
+        existing_rule = db.query(VisitorAssignmentRule).filter(
+            VisitorAssignmentRule.project_id == project.id
+        ).first()
+        
+        if not existing_rule:
+            # Create default visitor assignment rule
+            default_rule = VisitorAssignmentRule(
+                project_id=project.id,
+                llm_assignment_enabled=False,  # Disable LLM by default, use load balancing
+                timezone="Asia/Shanghai",
+                service_weekdays=[1, 2, 3, 4, 5],  # Monday to Friday
+                service_start_time="09:00",
+                service_end_time="18:00",
+                max_concurrent_chats=10,
+                auto_close_hours=48,
+            )
+            db.add(default_rule)
+            logger.info(
+                f"Created default visitor assignment rule for project {project.id}"
+            )
+        
+        db.commit()
+        for staff in created_staff:
+            db.refresh(staff)
+
+        logger.info(
+            f"Batch created {len(created_staff)} staff members during setup, "
+            f"skipped {len(skipped_usernames)} existing usernames"
+        )
+
+    return BatchCreateStaffResponse(
+        created_count=len(created_staff),
+        staff_list=[
+            StaffCreatedItem(
+                id=staff.id,
+                username=staff.username,
+                name=staff.name,
+                nickname=staff.nickname,
+                created_at=staff.created_at,
+            )
+            for staff in created_staff
+        ],
+        skipped_usernames=skipped_usernames,
     )
 
