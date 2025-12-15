@@ -26,6 +26,8 @@ markdownify = "^1.2.0"
 markdown2 = "^2.5.4"
 redis = "^7.1.0"
 beautifulsoup4 = "^4.14.2"
+geoip2 = "^4.8.0"
+py-ip2region = "^3.0.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"

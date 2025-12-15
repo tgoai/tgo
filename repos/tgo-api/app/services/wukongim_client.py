@@ -35,6 +35,7 @@ class MessageType:
     System message types (1000-2000):
         - STAFF_ASSIGNED (1000): Staff assigned to visitor notification
         - SESSION_CLOSED (1001): Session closed notification
+        - SESSION_TRANSFERRED (1002): Session transferred notification
     """
     # Standard message types
     TEXT = 1
@@ -42,6 +43,7 @@ class MessageType:
     # System message types (1000-2000 reserved for system notifications)
     STAFF_ASSIGNED = 1000
     SESSION_CLOSED = 1001
+    SESSION_TRANSFERRED = 1002
 
 
 class EventType:
@@ -391,7 +393,7 @@ class WuKongIMClient:
         # System message: Staff assigned
         payload: Dict[str, Any] = {
             "type": MessageType.STAFF_ASSIGNED,
-            "content": "您已接入人工客服，客服{0} 将为您服务",
+            "content": "You have been connected to customer service. Agent {0} will assist you.",
             "extra": [
                 {"uid": staff_uid, "name": staff_name},
             ],
@@ -450,7 +452,7 @@ class WuKongIMClient:
         if staff_uid and staff_name:
             payload: Dict[str, Any] = {
                 "type": MessageType.SESSION_CLOSED,
-                "content": "会话已结束，客服{0} 已结束本次服务",
+                "content": "Session ended. Agent {0} has completed the service.",
                 "extra": [
                     {"uid": staff_uid, "name": staff_name},
                 ],
@@ -458,7 +460,7 @@ class WuKongIMClient:
         else:
             payload = {
                 "type": MessageType.SESSION_CLOSED,
-                "content": "会话已结束",
+                "content": "Session ended.",
                 "extra": [],
             }
 
@@ -470,6 +472,71 @@ class WuKongIMClient:
                 "channel_type": channel_type,
                 "staff_uid": staff_uid,
                 "staff_name": staff_name,
+            }
+        )
+
+        return await self.send_message(
+            payload=payload,
+            from_uid=from_uid,
+            channel_id=channel_id,
+            channel_type=channel_type,
+            client_msg_no=client_msg_no or str(uuid4()),
+        )
+
+    async def send_session_transferred_message(
+        self,
+        *,
+        from_uid: str,
+        channel_id: str,
+        channel_type: int,
+        from_staff_uid: str,
+        from_staff_name: str,
+        to_staff_uid: str,
+        to_staff_name: str,
+        client_msg_no: Optional[str] = None,
+    ) -> Optional[WuKongIMMessageSendResponse]:
+        """Send a system message when a session is transferred to another staff.
+
+        System message types are defined in range 1000-2000.
+        Type 1002: Session transferred notification.
+
+        Args:
+            from_uid: Sender UID (typically system or staff UID)
+            channel_id: Channel ID
+            channel_type: Channel type (251=customer_service)
+            from_staff_uid: The original staff's UID
+            from_staff_name: The original staff's display name
+            to_staff_uid: The new staff's UID
+            to_staff_name: The new staff's display name
+            client_msg_no: Optional client-provided id to correlate webhook callbacks
+
+        Returns:
+            WuKongIMMessageSendResponse with message_id, client_msg_no
+        """
+        if not self.enabled:
+            logger.debug("WuKongIM integration is disabled; skipping send_session_transferred_message")
+            return None
+
+        # System message: Session transferred
+        payload: Dict[str, Any] = {
+            "type": MessageType.SESSION_TRANSFERRED,
+            "content": "Session transferred. Agent {0} has transferred you to Agent {1}.",
+            "extra": [
+                {"uid": from_staff_uid, "name": from_staff_name},
+                {"uid": to_staff_uid, "name": to_staff_name},
+            ],
+        }
+
+        logger.info(
+            "Sending session transferred system message",
+            extra={
+                "from_uid": from_uid,
+                "channel_id": channel_id,
+                "channel_type": channel_type,
+                "from_staff_uid": from_staff_uid,
+                "from_staff_name": from_staff_name,
+                "to_staff_uid": to_staff_uid,
+                "to_staff_name": to_staff_name,
             }
         )
 

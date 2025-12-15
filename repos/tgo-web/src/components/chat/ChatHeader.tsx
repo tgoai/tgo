@@ -141,11 +141,20 @@ const ChatHeader: React.FC<ChatHeaderProps> = React.memo(({ activeChat, onEndCha
       await visitorApiService.transferSession(visitorId, targetStaffId);
       showSuccess(t('chat.header.transferSuccess', '已转接给 {{name}}', { name: staffName }));
       
+      // 保存 channel 信息用于通知父组件
+      const channelId = activeChat.channelId;
+      const channelType = activeChat.channelType;
+      
       // 更新本地状态
-      if (activeChat.channelId && activeChat.channelType !== undefined) {
-        updateChannelExtra(activeChat.channelId, activeChat.channelType, {
+      if (channelId && channelType !== undefined) {
+        updateChannelExtra(channelId, channelType, {
           service_status: 'closed' as VisitorServiceStatus,
         });
+        // 从最近会话列表移除当前会话
+        deleteChat(activeChat.id);
+        
+        // 通知父组件转接成功（传递 channel 信息），让父组件处理移除和选中下一个会话
+        onEndChatSuccess?.(channelId, channelType);
       }
     } catch (error: any) {
       console.error('Failed to transfer session:', error);
@@ -153,7 +162,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = React.memo(({ activeChat, onEndCha
     } finally {
       setIsTransferring(false);
     }
-  }, [visitorId, isTransferring, showSuccess, showError, t, activeChat.channelId, activeChat.channelType, updateChannelExtra]);
+  }, [visitorId, isTransferring, showSuccess, showError, t, activeChat.channelId, activeChat.channelType, activeChat.id, updateChannelExtra, deleteChat, onEndChatSuccess]);
 
   // 点击外部关闭菜单
   useEffect(() => {

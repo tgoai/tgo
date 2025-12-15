@@ -327,8 +327,6 @@ const ChatListComponent: React.FC<ChatListProps> = ({
     if (refreshTrigger !== undefined && refreshTrigger !== prevRefreshTriggerRef.current) {
       prevRefreshTriggerRef.current = refreshTrigger;
       console.log('📋 ChatList: refreshTrigger changed, refreshing lists');
-      // 清除已删除会话的记录（因为我们要刷新列表）
-      deletedChatKeysRef.current.clear();
       // 强制刷新"我的"会话
       loadedTabsRef.current.delete('mine');
       fetchMyConversations(true);
@@ -338,59 +336,42 @@ const ChatListComponent: React.FC<ChatListProps> = ({
     }
   }, [refreshTrigger, fetchMyConversations, fetchUnassignedConversations, fetchUnassignedCount]);
   
+  // 追踪上一次处理的 deletedChatChannel，避免重复处理
+  const lastDeletedChannelRef = useRef<string | null>(null);
+  
   // 当 deletedChatChannel 变化时，从本地状态中移除该会话并选中下一个
   useEffect(() => {
     if (deletedChatChannel?.channelId && deletedChatChannel?.channelType != null) {
       const { channelId, channelType } = deletedChatChannel;
       const key = getChannelKey(channelId, channelType);
+      
+      // 避免重复处理同一个删除
+      if (lastDeletedChannelRef.current === key) {
+        return;
+      }
+      lastDeletedChannelRef.current = key;
+      
       console.log('📋 ChatList: Removing deleted chat from local state:', key);
       
-      // 获取当前显示的会话列表（根据 tab）
-      const currentChats = activeTab === 'mine' ? myChats : activeTab === 'all' ? allChats : unassignedChats;
-      
-      // 找到被删除会话的索引
-      const deletedIndex = currentChats.findIndex(c => c.channelId === channelId && c.channelType === channelType);
-      
-      // 过滤后的会话列表
-      const remainingChats = currentChats.filter(c => !(c.channelId === channelId && c.channelType === channelType));
-      
-      // 从本地状态中移除
-      setMyChats(prev => prev.filter(c => !(c.channelId === channelId && c.channelType === channelType)));
+      // 从本地状态中移除（使用函数式更新，不依赖外部状态）
+      setMyChats(prev => {
+        const remaining = prev.filter(c => !(c.channelId === channelId && c.channelType === channelType));
+        
+        // 如果被删除的是当前选中的会话，选中下一个
+        if (activeChat?.channelId === channelId && activeChat?.channelType === channelType && remaining.length > 0 && activeTab === 'mine') {
+          const deletedIndex = prev.findIndex(c => c.channelId === channelId && c.channelType === channelType);
+          const nextIndex = Math.min(deletedIndex, remaining.length - 1);
+          const nextChat = remaining[Math.max(0, nextIndex)];
+          console.log('📋 ChatList: Selecting next chat:', nextChat.channelId);
+          // 使用 setTimeout 避免在 setState 回调中调用
+          setTimeout(() => onChatSelect(nextChat), 0);
+        }
+        
+        return remaining;
+      });
       setAllChats(prev => prev.filter(c => !(c.channelId === channelId && c.channelType === channelType)));
-      
-      // 也添加到已删除集合中，防止合并时又出现
-      deletedChatKeysRef.current.add(key);
-      
-      // 如果被删除的是当前选中的会话，选中下一个
-      if (activeChat?.channelId === channelId && activeChat?.channelType === channelType && remainingChats.length > 0) {
-        // 选中下一个会话（保持相同索引位置，或最后一个）
-        const nextIndex = Math.min(deletedIndex, remainingChats.length - 1);
-        const nextChat = remainingChats[Math.max(0, nextIndex)];
-        console.log('📋 ChatList: Selecting next chat:', nextChat.channelId);
-        onChatSelect(nextChat);
-      }
     }
-  }, [deletedChatChannel, activeTab, myChats, allChats, unassignedChats, activeChat, onChatSelect]);
-  
-  // 追踪已删除的会话（通过比较 realtimeChats 的变化）
-  const deletedChatKeysRef = useRef<Set<string>>(new Set());
-  const prevRealtimeChatsRef = useRef<Chat[]>([]);
-  
-  // 检测被删除的会话
-  useEffect(() => {
-    const prevKeys = new Set(prevRealtimeChatsRef.current.map(c => getChannelKey(c.channelId, c.channelType)));
-    const currentKeys = new Set(realtimeChats.map(c => getChannelKey(c.channelId, c.channelType)));
-    
-    // 找出被删除的会话（之前存在但现在不存在）
-    prevKeys.forEach(key => {
-      if (!currentKeys.has(key)) {
-        deletedChatKeysRef.current.add(key);
-        console.log('📋 ChatList: Detected deleted chat:', key);
-      }
-    });
-    
-    prevRealtimeChatsRef.current = realtimeChats;
-  }, [realtimeChats]);
+  }, [deletedChatChannel, activeChat, activeTab, onChatSelect]);
   
   // 合并"我的"会话：API 返回的 + 新消息创建的会话
   // 优先使用 realtimeChats 中的更新数据（包含最新的 lastMessage 和 unreadCount）
@@ -403,14 +384,8 @@ const ChatListComponent: React.FC<ChatListProps> = ({
       realtimeChatMap.set(key, c);
     });
     
-    // 过滤掉已删除的会话，然后合并
-    const filteredMyChats = myChats.filter(c => {
-      const key = getChannelKey(c.channelId, c.channelType);
-      return !deletedChatKeysRef.current.has(key);
-    });
-    
     // 合并 API 会话，如果 realtimeChats 中有更新且更新时间更晚则使用更新后的数据
-    const mergedFromApi = filteredMyChats.map(apiChat => {
+    const mergedFromApi = myChats.map(apiChat => {
       const key = getChannelKey(apiChat.channelId, apiChat.channelType);
       const realtimeChat = realtimeChatMap.get(key);
       if (realtimeChat) {
@@ -433,13 +408,11 @@ const ChatListComponent: React.FC<ChatListProps> = ({
     });
     
     // 获取 API 返回的会话 keys
-    const apiChatKeys = new Set(filteredMyChats.map(c => getChannelKey(c.channelId, c.channelType)));
+    const apiChatKeys = new Set(myChats.map(c => getChannelKey(c.channelId, c.channelType)));
     
-    // 过滤出不在 API 结果中的实时会话（新消息创建的，且有实际内容，且未被删除）
+    // 过滤出不在 API 结果中的实时会话（新消息创建的，且有实际内容）
     const newRealtimeChats = realtimeChats.filter(
-      c => !apiChatKeys.has(getChannelKey(c.channelId, c.channelType)) && 
-           c.lastMessage && 
-           !deletedChatKeysRef.current.has(getChannelKey(c.channelId, c.channelType))
+      c => !apiChatKeys.has(getChannelKey(c.channelId, c.channelType)) && c.lastMessage
     );
     
     // 合并并排序

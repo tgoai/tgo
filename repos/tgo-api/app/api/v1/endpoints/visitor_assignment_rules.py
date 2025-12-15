@@ -70,12 +70,12 @@ async def get_visitor_assignment_rule(
         prompt=None,
         effective_prompt=DEFAULT_ASSIGNMENT_PROMPT,
         llm_assignment_enabled=False,  # Default to disabled
-        timezone="Asia/Shanghai",
-        service_weekdays=None,
-        service_start_time=None,
-        service_end_time=None,
-        max_concurrent_chats=10,
-        auto_close_hours=48,
+        timezone=settings.ASSIGNMENT_RULE_DEFAULT_TIMEZONE,
+        service_weekdays=settings.ASSIGNMENT_RULE_DEFAULT_WEEKDAYS,
+        service_start_time=settings.ASSIGNMENT_RULE_DEFAULT_START_TIME,
+        service_end_time=settings.ASSIGNMENT_RULE_DEFAULT_END_TIME,
+        max_concurrent_chats=settings.ASSIGNMENT_RULE_DEFAULT_MAX_CONCURRENT_CHATS,
+        auto_close_hours=settings.ASSIGNMENT_RULE_DEFAULT_AUTO_CLOSE_HOURS,
         created_at=now,
         updated_at=now,
     )

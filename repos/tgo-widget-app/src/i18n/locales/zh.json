@@ -1,0 +1,45 @@
+{
+  "common": {
+    "retry": "重试",
+    "cancel": "取消",
+    "delete": "删除",
+    "loading": "加载中…",
+    "message": "消息"
+  },
+  "header": {
+    "switchToLight": "切换到亮色模式",
+    "switchToDark": "切换到黑暗模式",
+    "collapse": "收起窗口",
+    "expand": "展开窗口"
+  },
+  "messageInput": {
+    "placeholder": "提出问题...",
+    "send": "发送",
+    "interrupt": "中断",
+    "attach": "添加附件",
+    "emoji": "表情",
+    "fileTooLarge": "文件过大（>{{size}}MB）：{{name}}"
+  },
+  "messageList": {
+    "loadingHistory": "加载中…",
+    "loadHistoryFailed": "加载历史消息失败",
+    "noMoreMessages": "没有更多消息",
+    "sending": "发送中…",
+    "uploading": "上传中…"
+  },
+  "errors": {
+    "authFail": "认证失败，无法发送消息",
+    "subscriberNotExist": "非订阅者，无法发送消息",
+    "notAllowSend": "无权限发送消息",
+    "notInWhitelist": "当前不在白名单，无法发送",
+    "rateLimit": "发送过于频繁，请稍后再试",
+    "banned": "已被禁言，无法发送消息",
+    "channelNotExist": "会话不存在或已失效",
+    "disbanded": "会话已解散",
+    "systemError": "系统错误，请稍后重试",
+    "networkError": "网络异常或超时，请检查网络后重试"
+  },
+  "file": {
+    "download": "下载"
+  }
+}

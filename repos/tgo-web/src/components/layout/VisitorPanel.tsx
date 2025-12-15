@@ -826,7 +826,12 @@ const VisitorPanel: React.FC<VisitorPanelProps> = ({ activeChat }) => {
         </div>
 
         {/* System Info Section */}
-        <SystemInfoSection systemInfo={systemInfo} />
+        <SystemInfoSection
+          systemInfo={systemInfo}
+          language={(channelInfo?.extra as ChannelVisitorExtra | undefined)?.language}
+          timezone={(channelInfo?.extra as ChannelVisitorExtra | undefined)?.timezone}
+          ipAddress={(channelInfo?.extra as ChannelVisitorExtra | undefined)?.ip_address}
+        />
 
         {/* Recent Activity Section */}
         <RecentActivitySection activities={recentActivities} />

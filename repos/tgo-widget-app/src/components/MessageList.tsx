@@ -7,6 +7,7 @@ import { useChatStore } from '../store'
 import { AlertCircle, RotateCw, Trash2 } from 'lucide-react'
 import { ReasonCode } from 'easyjssdk'
 import { Bubble, Cursor, AILoadingDots, TextMessage, ImageMessage, FileMessage, MixedMessage, MixedImages, SystemMessage } from './messages'
+import { useTranslation } from 'react-i18next'
 
 
 
@@ -32,6 +33,7 @@ const TopNotice = styled.li`
 
 
 export default function MessageList({ messages }: { messages: ChatMessage[] }){
+  const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
   const items = useMemo(()=> messages.map(m => ({...m, key: m.id})), [messages])
 
@@ -42,19 +44,19 @@ export default function MessageList({ messages }: { messages: ChatMessage[] }){
 
   const reasonText = (code: ReasonCode) => {
     switch(code){
-      case ReasonCode.AuthFail: return '认证失败，无法发送消息'
-      case ReasonCode.SubscriberNotExist: return '非订阅者，无法发送消息'
-      case ReasonCode.NotAllowSend: return '无权限发送消息'
-      case ReasonCode.NotInWhitelist: return '当前不在白名单，无法发送'
-      case ReasonCode.RateLimit: return '发送过于频繁，请稍后再试'
+      case ReasonCode.AuthFail: return t('errors.authFail')
+      case ReasonCode.SubscriberNotExist: return t('errors.subscriberNotExist')
+      case ReasonCode.NotAllowSend: return t('errors.notAllowSend')
+      case ReasonCode.NotInWhitelist: return t('errors.notInWhitelist')
+      case ReasonCode.RateLimit: return t('errors.rateLimit')
       case ReasonCode.Ban:
-      case ReasonCode.SendBan: return '已被禁言，无法发送消息'
+      case ReasonCode.SendBan: return t('errors.banned')
       case ReasonCode.ChannelNotExist:
-      case ReasonCode.ChannelIDError: return '会话不存在或已失效'
-      case ReasonCode.Disband: return '会话已解散'
-      case ReasonCode.SystemError: return '系统错误，请稍后重试'
+      case ReasonCode.ChannelIDError: return t('errors.channelNotExist')
+      case ReasonCode.Disband: return t('errors.disbanded')
+      case ReasonCode.SystemError: return t('errors.systemError')
       case ReasonCode.Unknown:
-      default: return '网络异常或超时，请检查网络后重试'
+      default: return t('errors.networkError')
     }
   }
   const canRetry = (code: ReasonCode) => ![
@@ -108,14 +110,14 @@ export default function MessageList({ messages }: { messages: ChatMessage[] }){
     <Main ref={ref} role="log" aria-live="polite">
       <List>
         {/* top status row */}
-        {historyLoading && <TopNotice>加载中…</TopNotice>}
+        {historyLoading && <TopNotice>{t('messageList.loadingHistory')}</TopNotice>}
         {!historyLoading && historyError && (
           <TopNotice style={{color:'#ef4444'}}>
-            加载历史消息失败
-            <button onClick={()=>loadMore()} style={{marginLeft:8, border:0, background:'transparent', color:'#ef4444', textDecoration:'underline', cursor:'pointer'}}>重试</button>
+            {t('messageList.loadHistoryFailed')}
+            <button onClick={()=>loadMore()} style={{marginLeft:8, border:0, background:'transparent', color:'#ef4444', textDecoration:'underline', cursor:'pointer'}}>{t('common.retry')}</button>
           </TopNotice>
         )}
-        {!historyLoading && !historyError && !historyHasMore && <TopNotice>没有更多消息</TopNotice>}
+        {!historyLoading && !historyError && !historyHasMore && <TopNotice>{t('messageList.noMoreMessages')}</TopNotice>}
         {items.map(m => {
           // Check if this is a system message (type 1000-2000)
           const isSystemMsg = isSystemMessageType(m.payload.type)
@@ -153,6 +155,13 @@ export default function MessageList({ messages }: { messages: ChatMessage[] }){
                 </div>
               ) : payload.type === 2 ? (
                 <ImageMessage url={payload.url} w={payload.width} h={payload.height} />
+              ) : m.errorMessage ? (
+                /* 有错误信息 - 在气泡内显示错误 */
+                <Bubble self={false}>
+                  <div style={{ color: 'var(--error-color, #ef4444)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <AlertCircle size={14} /> {m.errorMessage}
+                  </div>
+                </Bubble>
               ) : m.streamData && m.streamData.length ? (
                 /* Streaming content - show with blinking cursor */
                 <Bubble self={false}>
@@ -181,13 +190,13 @@ export default function MessageList({ messages }: { messages: ChatMessage[] }){
               <Meta style={{ textAlign: 'right' }}>{formatMessageTime(m.time)}</Meta>
             )}
             {m.role==='user' && m.status === 'sending' && (
-              <Status self kind="sending">发送中…</Status>
+              <Status self kind="sending">{t('messageList.sending')}</Status>
             )}
             {m.role==='user' && m.status === 'uploading' && (
               <Status self kind="sending">
-                上传中… {typeof m.uploadProgress === 'number' ? `${m.uploadProgress}%` : ''}
+                {t('messageList.uploading')} {typeof m.uploadProgress === 'number' ? `${m.uploadProgress}%` : ''}
                 <span>·</span>
-                <LinkBtn onClick={()=>cancelUpload(m.id)} aria-label="取消">取消</LinkBtn>
+                <LinkBtn onClick={()=>cancelUpload(m.id)} aria-label={t('common.cancel')}>{t('common.cancel')}</LinkBtn>
               </Status>
             )}
             {m.role==='user' && typeof m.reasonCode === 'number' && m.reasonCode !== ReasonCode.Success && (
@@ -195,19 +204,19 @@ export default function MessageList({ messages }: { messages: ChatMessage[] }){
                 <AlertCircle size={14} /> {reasonText(m.reasonCode as ReasonCode)}
                 {canRetry(m.reasonCode as ReasonCode) && (
                   <>
-                    <LinkBtn onClick={()=>retry(m.id)} aria-label="重试"><RotateCw size={14} /> 重试</LinkBtn>
+                    <LinkBtn onClick={()=>retry(m.id)} aria-label={t('common.retry')}><RotateCw size={14} /> {t('common.retry')}</LinkBtn>
                     <span>·</span>
                   </>
                 )}
-                <LinkBtn onClick={()=>remove(m.id)} aria-label="删除"><Trash2 size={14} /> 删除</LinkBtn>
+                <LinkBtn onClick={()=>remove(m.id)} aria-label={t('common.delete')}><Trash2 size={14} /> {t('common.delete')}</LinkBtn>
               </Status>
             )}
             {m.role==='user' && m.uploadError && (
               <Status self kind="error">
                 <AlertCircle size={14} /> {m.uploadError}
-                <LinkBtn onClick={()=>retryUpload(m.id)} aria-label="重试"><RotateCw size={14} /> 重试</LinkBtn>
+                <LinkBtn onClick={()=>retryUpload(m.id)} aria-label={t('common.retry')}><RotateCw size={14} /> {t('common.retry')}</LinkBtn>
                 <span>·</span>
-                <LinkBtn onClick={()=>remove(m.id)} aria-label="删除"><Trash2 size={14} /> 删除</LinkBtn>
+                <LinkBtn onClick={()=>remove(m.id)} aria-label={t('common.delete')}><Trash2 size={14} /> {t('common.delete')}</LinkBtn>
               </Status>
             )}
 

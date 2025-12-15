@@ -73,7 +73,7 @@ interface MessageState {
 
   // Actions - 流式消息
   appendStreamMessageContent: (clientMsgNo: string, content: string) => void;
-  markStreamMessageEnd: (clientMsgNo: string) => void;
+  markStreamMessageEnd: (clientMsgNo: string, error?: string) => void;
   cancelStreamingMessage: () => Promise<void>;
   setStreamingState: (inProgress: boolean, clientMsgNo: string | null) => void;
 
@@ -517,7 +517,7 @@ export const useMessageStore = create<MessageState>()(
         });
       },
 
-      markStreamMessageEnd: (clientMsgNo: string) => {
+      markStreamMessageEnd: (clientMsgNo: string, error?: string) => {
         const state = get();
 
         // Find the message by clientMsgNo in real-time messages first
@@ -525,7 +525,7 @@ export const useMessageStore = create<MessageState>()(
 
         // If found in real-time messages, mark as stream ended
         if (messageIndex !== -1) {
-          console.log('🤖 Message Store: Marking stream message as ended (realtime)', { clientMsgNo });
+          console.log('🤖 Message Store: Marking stream message as ended (realtime)', { clientMsgNo, error });
           set(
             (s) => {
               const updatedMessages = s.messages.map((msg, idx) => {
@@ -538,7 +538,8 @@ export const useMessageStore = create<MessageState>()(
                       is_streaming: false,
                       has_stream_data: hasContent,
                       stream_end: 1,
-                      stream_end_reason: 0,
+                      stream_end_reason: error ? 1 : 0, // 1 = error, 0 = success
+                      error: error || undefined, // Store error message if present
                     },
                   };
                 }
@@ -560,7 +561,7 @@ export const useMessageStore = create<MessageState>()(
         for (const [channelKey, messages] of Object.entries(state.historicalMessages)) {
           const idx = messages.findIndex((msg) => msg.client_msg_no === clientMsgNo);
           if (idx !== -1) {
-            console.log('🤖 Message Store: Marking stream message as ended (historical)', { clientMsgNo, channelKey });
+            console.log('🤖 Message Store: Marking stream message as ended (historical)', { clientMsgNo, channelKey, error });
             set(
               (s) => {
                 const updatedHistoricalMessages = { ...s.historicalMessages };
@@ -569,7 +570,8 @@ export const useMessageStore = create<MessageState>()(
                   channelMessages[idx] = {
                     ...channelMessages[idx],
                     end: 1, // Mark as ended
-                    end_reason: 0, // Success
+                    end_reason: error ? 1 : 0, // 1 = error, 0 = success
+                    error: error || undefined, // Store error message at WuKongIMMessage level
                   };
                   updatedHistoricalMessages[channelKey] = channelMessages;
                 }

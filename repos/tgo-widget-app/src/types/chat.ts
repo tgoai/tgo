@@ -108,4 +108,6 @@ export type ChatMessage = {
   uploadError?: string
   // Final send result detail from SDK; Success/Failure codes
   reasonCode?: ReasonCode
+  // AI 处理错误信息（来自 ___TextMessageEnd 事件的 data 字段或离线消息的 error 字段）
+  errorMessage?: string
 }

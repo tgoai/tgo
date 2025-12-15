@@ -29,6 +29,7 @@ export type WuKongIMMessage = {
   payload: any
   end?: number | null
   end_reason?: string | null
+  error?: string | null  // AI 处理错误信息（与 payload 平级）
   stream_data?: string | null
   setting_flags?: {
     receipt?: boolean

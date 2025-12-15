@@ -65,7 +65,7 @@ export type ChatState = {
   markStreamingEnd: (clientMsgNo?: string) => void
   cancelStreaming: (reason?: string) => Promise<void>
   appendStreamData: (clientMsgNo: string, data: string) => void
-  finalizeStreamMessage: (clientMsgNo: string) => void
+  finalizeStreamMessage: (clientMsgNo: string, errorMessage?: string) => void
   ensureWelcomeMessage: (text: string) => void
 }
 
@@ -113,6 +113,8 @@ const uploadControllers = new Map<string, AbortController>()
 function mapHistoryToChatMessage(m: WuKongIMMessage, myUid?: string): ChatMessage {
   const isStreamEnded = m?.setting_flags?.stream === true && m?.end === 1 && typeof m?.stream_data === 'string' && m.stream_data.length > 0
   const payload: MessagePayload = isStreamEnded ? { type: 1, content: m.stream_data as string } : toPayloadFromAny(m?.payload)
+  // 检查消息的 error 字段（与 payload 平级）
+  const errorMessage = m?.error ? String(m.error) : undefined
   return {
     id: m.message_id_str ?? m.client_msg_no ?? `h-${m.message_seq}`,
     role: m.from_uid && myUid && m.from_uid === myUid ? 'user' : 'agent',
@@ -123,6 +125,7 @@ function mapHistoryToChatMessage(m: WuKongIMMessage, myUid?: string): ChatMessag
     fromUid: m.from_uid ? String(m.from_uid) : undefined,
     channelId: m.channel_id ? String(m.channel_id) : undefined,
     channelType: typeof m.channel_type === 'number' ? m.channel_type : undefined,
+    errorMessage,
   }
 }
 
@@ -185,10 +188,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       let cached = loadCachedVisitor(cfg.apiBase, platformApiKey)
       if (!cached) {
         const sys = collectVisitorSystemInfo()
+        // 获取访客时区
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null
         const res = await registerVisitor({
           apiBase: cfg.apiBase,
           platformApiKey,
-          extra: sys ? { system_info: sys } : undefined,
+          extra: {
+            ...(sys ? { system_info: sys } : {}),
+            timezone,
+          },
         })
         saveCachedVisitor(cfg.apiBase, platformApiKey, res)
         cached = loadCachedVisitor(cfg.apiBase, platformApiKey)!
@@ -276,8 +284,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           if (ev.type === '___TextMessageEnd') {
             const id = ev?.id ? String(ev.id) : ''
             if (!id) return
-            console.log('[Chat] Stream ended for message:', id)
-            get().finalizeStreamMessage(id)
+            // 如果 data 字段有值，则认为是错误信息
+            const errorMessage = ev?.data ? String(ev.data) : undefined
+            console.log('[Chat] Stream ended for message:', id, errorMessage ? `error: ${errorMessage}` : '')
+            get().finalizeStreamMessage(id, errorMessage)
             try { get().markStreamingEnd() } catch {}
             return
           }
@@ -302,11 +312,64 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const clientMsgNo = (typeof crypto !== 'undefined' && (crypto as any)?.randomUUID) ? (crypto as any).randomUUID() : `cmn-${Date.now()}-${Math.random().toString(36).slice(2,8)}`
     const id = 'u-' + Date.now()
     const you: ChatMessage = { id, role: 'user', payload: { type: 1, content: v }, time: new Date(), status: 'sending', clientMsgNo }
+
     // 1. 先渲染消息到消息列表（发送中状态）
     set(state => ({ messages: [...state.messages, you] }))
+
     try {
-      // If IM is not ready yet, wait briefly
       const st = get()
+      const apiBase = st.apiBase
+      const platformApiKey = resolveApiKey() || ''
+      const myUid = st.myUid
+      const channelId = st.channelId
+      const channelType = st.channelType
+
+      if (!apiBase || !platformApiKey || !myUid) {
+        throw new Error('Cannot send message: missing apiBase, apiKey, or myUid')
+      }
+
+      // If a previous stream is ongoing, auto-cancel it before sending a new one
+      if (st.isStreaming) { try { await get().cancelStreaming('auto_cancel_on_new_send') } catch {} }
+
+      // 2. 调用 /v1/chat/completion 接口（stream=false）
+      const url = `${apiBase.replace(/\/$/, '')}/v1/chat/completion`
+      const payload: Record<string, any> = {
+        api_key: platformApiKey,
+        message: v,
+        from_uid: myUid,
+        wukongim_only: true,
+        stream: false,
+      }
+      if (channelId) payload.channel_id = channelId
+      if (channelType != null) payload.channel_type = channelType
+
+      console.log('[Chat] Calling /v1/chat/completion:', { url, payload: { ...payload, api_key: '***' } })
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      // 解析响应 JSON
+      const resJson = await res.json().catch(() => ({}))
+      console.log('[Chat] /v1/chat/completion response:', resJson)
+
+      // 检查 event_type 是否为 error
+      if (resJson.event_type === 'error') {
+        const errMsg = resJson.message || resJson.detail || 'Unknown error'
+        throw new Error(errMsg)
+      }
+
+      if (!res.ok) {
+        const errMsg = resJson.message || resJson.detail || `${res.status} ${res.statusText}`
+        throw new Error(`/v1/chat/completion failed: ${errMsg}`)
+      }
+
+      console.log('[Chat] /v1/chat/completion success')
+
+      // 3. 接口调用成功后，再通过 websocket 发送
+      // 确保 IM 已就绪
       if (!IMService.isReady) {
         if (!st.initializing && st.apiBase) {
           console.log('[Chat] IM not ready, attempting to initialize...')
@@ -315,71 +378,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const start = Date.now()
         const timeout = 10000
         while (!IMService.isReady && (Date.now() - start) < timeout) {
-          await new Promise(res => setTimeout(res, 120))
+          await new Promise(r => setTimeout(r, 120))
         }
         if (!IMService.isReady) {
-          const currentState = get()
-          if (currentState.error) {
-            throw new Error(`Cannot send message: IM initialization failed - ${currentState.error}`)
-          }
           throw new Error('Cannot send message: IM service is not ready after waiting.')
         }
       }
 
-      // If a previous stream is ongoing, auto-cancel it before sending a new one
-      const st2 = get()
-      if (st2.isStreaming) { try { await get().cancelStreaming('auto_cancel_on_new_send') } catch {} }
-
-      // 2. 调用 websocket 发送
       const result = await IMService.sendText(v, { clientMsgNo })
       console.log('[Chat] WebSocket send result:', result)
 
-      // 3. 如果 websocket 发送成功，则调用 /v1/chat/completion 接口
-      if (result.reasonCode === ReasonCode.Success) {
-        set(state => ({
-          messages: state.messages.map(m => m.id === id ? { ...m, status: undefined, reasonCode: result.reasonCode } : m)
-        }))
-
-        const stAfter = get()
-        const apiBase = stAfter.apiBase
-        const platformApiKey = resolveApiKey() || ''
-        const myUid = stAfter.myUid
-        const channelId = stAfter.channelId
-        const channelType = stAfter.channelType
-
-        if (apiBase && platformApiKey && myUid) {
-          const url = `${apiBase.replace(/\/$/, '')}/v1/chat/completion`
-          const payload: Record<string, any> = {
-            api_key: platformApiKey,
-            message: v,
-            from_uid: myUid,
-            wukongim_only: true,
-          }
-          if (channelId) payload.channel_id = channelId
-          if (channelType != null) payload.channel_type = channelType
-
-          console.log('[Chat] Calling /v1/chat/completion:', { url, payload: { ...payload, api_key: '***' } })
-
-          fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          }).then(res => {
-            if (!res.ok) {
-              res.text().then(t => console.warn('[Chat] /v1/chat/completion failed:', res.status, t)).catch(() => {})
-            } else {
-              console.log('[Chat] /v1/chat/completion success')
-            }
-          }).catch(err => {
-            console.warn('[Chat] /v1/chat/completion error:', err)
-          })
-        }
-      } else {
-        // WebSocket 发送失败
-        set(state => ({
-          messages: state.messages.map(m => m.id === id ? { ...m, status: undefined, reasonCode: result.reasonCode } : m)
-        }))
-      }
+      set(state => ({
+        messages: state.messages.map(m => m.id === id ? { ...m, status: undefined, reasonCode: result.reasonCode } : m)
+      }))
     } catch (e) {
       console.error('[Chat] Send failed:', e)
       try { get().markStreamingEnd() } catch {}
@@ -719,16 +730,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!st.isStreaming) { try { get().markStreamingStart(clientMsgNo) } catch {} }
   },
 
-  finalizeStreamMessage: (clientMsgNo: string) => {
+  finalizeStreamMessage: (clientMsgNo: string, errorMessage?: string) => {
     if (!clientMsgNo) return
     set(state => {
       const messages = state.messages.map(m => {
-        if (m.clientMsgNo && m.clientMsgNo === clientMsgNo && m.streamData) {
+        if (m.clientMsgNo && m.clientMsgNo === clientMsgNo) {
           // Move streamData into payload.content and clear streamData to stop blinking cursor
+          // 如果有错误信息，设置 errorMessage 字段
           return {
             ...m,
-            payload: { type: 1, content: m.streamData } as MessagePayload,
+            payload: m.streamData ? { type: 1, content: m.streamData } as MessagePayload : m.payload,
             streamData: undefined,
+            errorMessage: errorMessage || undefined,
           }
         }
         return m

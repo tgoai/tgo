@@ -873,6 +873,27 @@ show_install_complete_message() {
   echo ""
   echo "Documentation: https://docs.tgo.ai"
   echo ""
+
+  # Real client IP notice (for visitor registration / analytics)
+  # In some Docker setups, the source IP can be replaced by Docker gateway when userland-proxy is enabled.
+  # This makes backend endpoints (e.g. /v1/visitors/register) only see 172.x/10.x/192.168.x instead of real client IP.
+  local userland_proxy=""
+  userland_proxy=$(docker info 2>/dev/null | grep -iE "^\s*Userland Proxy:\s*" | head -n 1 | awk -F: '{print $2}' | xargs || true)
+  if [ -n "$userland_proxy" ]; then
+    if [ "$userland_proxy" = "true" ]; then
+      echo "========================================="
+      echo "  ⚠ Real Client IP Notice"
+      echo "========================================="
+      echo ""
+      echo "[WARN] Docker 'userland-proxy' is ENABLED on this host."
+      echo "       In this mode, backend may NOT be able to obtain the real browser IP"
+      echo "       (it may see Docker gateway IP like 172.18.0.1 instead)."
+      echo ""
+      echo "Fix (recommended): disable userland-proxy in Docker daemon config and restart Docker."
+      echo "See: docs/GET_REAL_IP.md"
+      echo ""
+    fi
+  fi
 }
 
 wait_for_postgres() {

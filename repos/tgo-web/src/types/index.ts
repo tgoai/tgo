@@ -737,6 +737,7 @@ export interface Message {
     is_streaming?: boolean; // Flag to indicate the message is still receiving stream data
     stream_started?: boolean; // Indicates whether the first stream chunk has been applied
     last_stream_update?: number; // Timestamp for the latest stream content update
+    error?: string; // Error message from stream end event or API response
     [key: string]: any;
   };
 }
@@ -858,6 +859,9 @@ export interface ChannelVisitorExtra {
   recent_activities?: VisitorActivity[];
   system_info?: SystemInfo;
   service_status?: VisitorServiceStatus; // Visitor service status: new, queued, assigned_pending, active, closed
+  language?: string; // Visitor's browser language (e.g., 'zh-CN', 'en-US')
+  timezone?: string; // Visitor's timezone (e.g., 'Asia/Shanghai', 'America/New_York')
+  ip_address?: string; // Visitor's IP address
 }
 
 export type ChannelExtra = ChannelVisitorExtra | ChannelStaffExtra | null;
@@ -1116,6 +1120,7 @@ export interface WuKongIMMessage {
   end?: number | null; // Stream end flag (0=not ended, 1=ended)
   end_reason?: number | null; // Stream end reason code
   stream_data?: string | null; // Decoded stream data (base64 decoded) - prioritized over payload content
+  error?: string | null; // Error message from stream end event or API response
 }
 
 export interface WuKongIMConversation {

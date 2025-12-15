@@ -3,6 +3,7 @@ import styled from '@emotion/styled'
 import { Maximize2, Minimize2, Sun, Moon } from 'lucide-react'
 import { usePlatformStore } from '../store'
 import { useTheme } from '../contexts/ThemeContext'
+import { useTranslation } from 'react-i18next'
 
 const Bar = styled.header`
   display:flex; align-items:center; gap:8px; height: 56px; padding: 0 16px;
@@ -27,6 +28,7 @@ const ToggleExpand = styled(IconBtn)``
 const ToggleTheme = styled(IconBtn)``
 
 export default function Header({ title, onClose }: { title: string; onClose(): void }){
+  const { t } = useTranslation()
   const isExpanded = usePlatformStore(s => s.isExpanded)
   const toggleExpanded = usePlatformStore(s => s.toggleExpanded)
   const cfg = usePlatformStore(s => s.config)
@@ -39,6 +41,10 @@ export default function Header({ title, onClose }: { title: string; onClose(): v
     } catch {}
     onClose && onClose();
   };
+
+  const themeLabel = isDark ? t('header.switchToLight') : t('header.switchToDark')
+  const expandLabel = isExpanded ? t('header.collapse') : t('header.expand')
+
   return (
     <Bar>
       <Title>
@@ -46,13 +52,13 @@ export default function Header({ title, onClose }: { title: string; onClose(): v
         {title}
       </Title>
       <ToggleTheme
-        aria-label={isDark ? '切换到亮色模式' : '切换到黑暗模式'}
-        title={isDark ? '切换到亮色模式' : '切换到黑暗模式'}
+        aria-label={themeLabel}
+        title={themeLabel}
         onClick={toggleMode}
       >
         {isDark ? <Sun size={16} /> : <Moon size={16} />}
       </ToggleTheme>
-      <ToggleExpand aria-label={isExpanded ? '收起窗口' : '展开窗口'} title={isExpanded ? '收起窗口' : '展开窗口'} onClick={toggleExpanded}>
+      <ToggleExpand aria-label={expandLabel} title={expandLabel} onClick={toggleExpanded}>
         {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
       </ToggleExpand>
       <IconBtn aria-label="Close" onClick={requestClose}>✕</IconBtn>

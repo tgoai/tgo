@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 import styled from '@emotion/styled'
 import { Paperclip, Smile, Mic, Send as SendIcon, Square as StopIcon } from 'lucide-react'
 import { useChatStore } from '../store'
+import { useTranslation } from 'react-i18next'
 
 
 const Bar = styled.footer`
@@ -58,6 +59,7 @@ const EmojiButton = styled.button`
 `;
 
 export default function MessageInput({ onSend }: { onSend(text: string): void }){
+  const { t } = useTranslation()
   const ref = useRef<HTMLInputElement>(null)
   const [hasText, setHasText] = useState(false)
   const [emojiOpen, setEmojiOpen] = useState(false)
@@ -143,7 +145,7 @@ export default function MessageInput({ onSend }: { onSend(text: string): void })
     const MAX = 25 * 1024 * 1024
     const tooLarge = Array.from(files).find(f => f.size > MAX)
     if (tooLarge) {
-      alert(`文件过大（>${(MAX/1024/1024)|0}MB）：${tooLarge.name}`)
+      alert(t('messageInput.fileTooLarge', { size: (MAX/1024/1024)|0, name: tooLarge.name }))
       e.target.value = ''
       return
     }
@@ -162,7 +164,7 @@ export default function MessageInput({ onSend }: { onSend(text: string): void })
     <Bar>
       <Card>
         <Top>
-          <Input ref={ref} placeholder="提出问题..." onFocus={updateCaret} onClick={updateCaret} onKeyUp={updateCaret}
+          <Input ref={ref} placeholder={t('messageInput.placeholder')} onFocus={updateCaret} onClick={updateCaret} onKeyUp={updateCaret}
                  onChange={()=>{ updateHasText(); updateCaret(); }}
                  onCompositionStart={handleCompositionStart}
                  onCompositionEnd={handleCompositionEnd}
@@ -174,14 +176,14 @@ export default function MessageInput({ onSend }: { onSend(text: string): void })
             <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={handleFilesSelected}
                     accept={['image/*','application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/zip','application/x-zip-compressed','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation','text/plain','text/markdown'].join(',')}
             />
-            <IconBtn aria-label="Attach" onClick={handlePickFiles}><Paperclip size={18} /></IconBtn>
-            <IconBtn ref={emojiBtnRef} active={emojiOpen} aria-label="Emoji" onClick={()=>setEmojiOpen(v=>!v)}><Smile size={18} /></IconBtn>
+            <IconBtn aria-label={t('messageInput.attach')} onClick={handlePickFiles}><Paperclip size={18} /></IconBtn>
+            <IconBtn ref={emojiBtnRef} active={emojiOpen} aria-label={t('messageInput.emoji')} onClick={()=>setEmojiOpen(v=>!v)}><Smile size={18} /></IconBtn>
             {/* <IconBtn aria-label="Voice"><Mic size={18} /></IconBtn> */}
           </Icons>
           {isStreaming ? (
-            <Interrupt onClick={()=>{ if(!streamCanceling) void cancelStreaming('user_click') }} aria-label="中断" disabled={streamCanceling}><StopIcon size={18} /></Interrupt>
+            <Interrupt onClick={()=>{ if(!streamCanceling) void cancelStreaming('user_click') }} aria-label={t('messageInput.interrupt')} disabled={streamCanceling}><StopIcon size={18} /></Interrupt>
           ) : (
-            <Send onClick={fire} aria-label="发送" active={hasText}><SendIcon size={18} /></Send>
+            <Send onClick={fire} aria-label={t('messageInput.send')} active={hasText}><SendIcon size={18} /></Send>
           )}
         </Actions>
         {emojiOpen && (

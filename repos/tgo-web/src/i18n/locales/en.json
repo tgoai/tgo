@@ -1202,7 +1202,17 @@
       "loadMoreFailed": "Failed to load more messages",
       "retry": "Retry",
       "yesterday": "Yesterday",
-      "daysAgo": "{{days}} days ago"
+      "daysAgo": "{{days}} days ago",
+      "loadingNewer": "Loading...",
+      "weekday": {
+        "sunday": "Sunday",
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday"
+      }
     },
     "list": {
       "searchPlaceholder": "Search",
@@ -1366,6 +1376,9 @@
           "sourcePage": "Source Page",
           "browser": "Browser",
           "os": "Operating System",
+          "language": "Language",
+          "timezone": "Timezone",
+          "ipAddress": "IP Address",
           "firstSeen": "First Seen"
         },
         "empty": "No system information"

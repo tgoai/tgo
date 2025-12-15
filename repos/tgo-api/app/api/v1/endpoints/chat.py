@@ -29,8 +29,10 @@ from app.models import (
     ChannelMember,
     ChatFile,
     Platform,
+    SessionStatus,
     Staff,
     Visitor,
+    VisitorSession,
 )
 from app.schemas import ChatFileUploadResponse, StaffSendPlatformMessageRequest
 from app.schemas.chat import (
@@ -63,30 +65,59 @@ router = APIRouter()
 # ============================================================================
 
 class ChatCompletionRequest(BaseModel):
-    """Request payload for streaming chat completion.
-
-    Notes:
-    - api_key refers to the Platform API key used by the client integration
-    - from_uid identifies the end-user on the client platform
-    - message is the chat input to be completed by AI
-    - timeout_seconds bounds the SSE stream duration
-    - wukongim_only: if True, only send to WuKongIM without returning stream to client
-    """
-    api_key: str
-    message: str
-    from_uid: str
-    extra: Optional[Dict[str, Any]] = None
-    timeout_seconds: Optional[int] = 120
-    channel_id: Optional[str] = None
-    channel_type: Optional[int] = None
+    """流式聊天请求参数。"""
+    
+    api_key: str = Field(
+        ...,
+        description="平台 API Key，用于验证请求来源",
+        examples=["pk_live_xxxxxxxxxxxx"]
+    )
+    message: str = Field(
+        ...,
+        description="用户发送的消息内容",
+        examples=["你好，请问有什么可以帮助您的？"]
+    )
+    from_uid: str = Field(
+        ...,
+        description="平台用户唯一标识，用于识别访客身份",
+        examples=["user_12345", "wx_openid_xxx"]
+    )
+    extra: Optional[Dict[str, Any]] = Field(
+        None,
+        description="额外数据，会随消息一起转发到 WuKongIM",
+        examples=[{"source": "web", "page": "/product/123"}]
+    )
+    timeout_seconds: Optional[int] = Field(
+        120,
+        ge=10,
+        le=300,
+        description="SSE 流超时时间（秒），默认120秒，范围10-300"
+    )
+    channel_id: Optional[str] = Field(
+        None,
+        description="自定义频道ID，不填则自动生成（格式: {visitor_id}-vtr 的编码形式）"
+    )
+    channel_type: Optional[int] = Field(
+        None,
+        description="频道类型，默认251（客服频道）"
+    )
     system_message: Optional[str] = Field(
-        None, description="System message/prompt to guide the AI agent"
+        None,
+        description="AI系统提示词，用于指导AI的回复风格和行为",
+        examples=["你是一个专业的客服助手，请用简洁友好的语气回复用户问题。"]
     )
     expected_output: Optional[str] = Field(
-        None, description="Expected output format or description for the AI agent"
+        None,
+        description="期望的输出格式描述，帮助AI生成符合要求的响应",
+        examples=["请用JSON格式回复，包含answer和confidence字段"]
     )
     wukongim_only: bool = Field(
-        False, description="If True, only send to WuKongIM without returning stream response to client"
+        False,
+        description="是否仅发送到WuKongIM而不返回流响应给客户端。设为true时，接口会立即返回accepted事件，AI处理在后台进行"
+    )
+    stream: Optional[bool] = Field(
+        True,
+        description="是否使用流式响应。true（默认）返回SSE流，false返回完整JSON响应"
     )
 
 
@@ -202,7 +233,7 @@ async def _forward_ai_event_to_wukongim(
     """Forward AI event to WuKongIM.
     
     Args:
-        event_type: The AI event type (team_run_started, team_run_content, workflow_completed)
+        event_type: The AI event type (team_run_started, team_run_content, workflow_completed, workflow_failed)
         data: The event data
         channel_id: WuKongIM channel ID
         channel_type: WuKongIM channel type
@@ -244,6 +275,17 @@ async def _forward_ai_event_to_wukongim(
                 channel_type=channel_type,
                 data="",
                 event_type="___TextMessageEnd",
+                client_msg_no=client_msg_no,
+                from_uid=from_uid,
+            )
+        elif event_type == "workflow_failed":
+            # Send error message to WuKongIM
+            error_message = data.get("error_message") or "AI processing failed"
+            await wukongim_client.send_event(
+                channel_id=channel_id,
+                channel_type=channel_type,
+                event_type="___TextMessageEnd",
+                data=str(error_message),
                 client_msg_no=client_msg_no,
                 from_uid=from_uid,
             )
@@ -300,7 +342,7 @@ async def _process_ai_stream_to_wukongim(
                 from_uid=from_uid,
             )
 
-            if event_type == "workflow_completed":
+            if event_type in ("workflow_completed", "workflow_failed"):
                 break
     except Exception as e:
         logger.error(f"AI processing error: {e}")
@@ -447,14 +489,208 @@ def _authenticate_staff_or_platform(
 # API Endpoints
 # ============================================================================
 
-@router.post("/completion", summary="Stream chat completion responses", tags=["Chat"])
-async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_db)) -> StreamingResponse:
-    """Streaming chat completion endpoint.
+@router.post(
+    "/completion",
+    summary="流式聊天完成接口",
+    tags=["Chat"],
+    description="""
+## 概述
+访客聊天接口，支持 Server-Sent Events (SSE) 流式响应和非流式 JSON 响应。
 
-    - Auth: Platform API key in request payload (api_key)
-    - Behavior: Publishes message to Kafka and streams AI events over SSE
-    - Output: Server-Sent Events (SSE) with tokens and a final complete event
-    """
+## 认证方式
+通过请求体中的 `api_key` 字段传递平台 API Key。
+
+## 请求参数
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| api_key | string | ✅ | 平台 API Key |
+| message | string | ✅ | 用户消息内容 |
+| from_uid | string | ✅ | 平台用户唯一标识 |
+| extra | object | ❌ | 额外数据（会随消息转发） |
+| timeout_seconds | int | ❌ | 超时时间（默认120秒） |
+| channel_id | string | ❌ | 自定义频道ID |
+| channel_type | int | ❌ | 频道类型（默认251=客服） |
+| system_message | string | ❌ | AI系统提示词 |
+| expected_output | string | ❌ | 期望的输出格式描述 |
+| wukongim_only | bool | ❌ | 是否仅发送到WuKongIM不返回流（默认false） |
+| stream | bool | ❌ | 是否使用流式响应（默认true）。false返回完整JSON |
+
+## 响应模式
+
+### 1. 流式响应（stream=true，默认）
+返回 `text/event-stream` 格式的 SSE 流。
+
+### 2. 非流式响应（stream=false）
+返回 JSON 格式的完整响应：
+```json
+{
+  "success": true,
+  "message": "AI回复的完整内容...",
+  "visitor_id": "访客UUID"
+}
+```
+
+## SSE 响应事件类型（仅 stream=true 时）
+
+### 成功事件
+| event_type | 说明 | data 结构 |
+|------------|------|-----------|
+| `team_run_started` | AI开始处理 | `{}` |
+| `team_run_content` | AI输出内容块 | `{"content": "文本块"}` |
+| `workflow_completed` | AI处理完成 | `{}` |
+| `accepted` | 请求已接受（wukongim_only=true时） | `{"message": "Request accepted..."}` |
+
+### 错误/状态事件
+| event_type | 说明 | data 结构 |
+|------------|------|-----------|
+| `error` | 发生错误 | `{"message": "错误信息", "visitor_id": "..."}` |
+| `queued` | 访客已加入等待队列（无可用客服） | `{"message": "...", "visitor_id": "...", "queue_position": 1}` |
+| `ai_disabled` | AI已禁用 | `{"message": "AI responses are disabled..."}` |
+| `workflow_failed` | AI工作流执行失败 | `{"message": "错误详情"}` |
+
+## 错误场景
+
+### 1. 无效的 API Key
+返回 HTTP 401:
+```json
+{"detail": "Invalid platform API key"}
+```
+
+### 2. 平台未关联项目
+返回 HTTP 400:
+```json
+{"detail": "Platform not associated with any project"}
+```
+
+### 3. 客服分配失败
+
+**stream=true（SSE）:**
+```
+data: {"event_type": "error", "data": {"success": false, "event_type": "error", "message": "...", "visitor_id": "..."}}
+```
+
+**stream=false（JSON）:**
+```json
+{"success": false, "event_type": "error", "message": "Transfer failed: ...", "visitor_id": "..."}
+```
+
+### 4. 无可用客服（已加入队列）
+
+**stream=true（SSE）:**
+```
+data: {"event_type": "queued", "data": {"success": false, "message": "...", "visitor_id": "...", "queue_position": 1}}
+```
+
+**stream=false（JSON）:**
+```json
+{"success": false, "event_type": "queued", "message": "Added to waiting queue at position 1", "visitor_id": "...", "queue_position": 1}
+```
+
+### 5. 无分配客服
+
+**stream=true（SSE）:**
+```
+data: {"event_type": "error", "data": {"message": "No staff assigned to this visitor", "visitor_id": "..."}}
+```
+
+**stream=false（HTTP 503）:**
+```json
+{"detail": {"success": false, "event_type": "error", "message": "No staff assigned to this visitor", "visitor_id": "..."}}
+```
+
+### 6. AI已禁用
+
+**stream=true（SSE）:**
+```
+data: {"event_type": "ai_disabled", "data": {"message": "AI responses are disabled..."}}
+```
+
+**stream=false（HTTP 403）:**
+```json
+{"detail": {"success": false, "event_type": "ai_disabled", "message": "AI responses are disabled..."}}
+```
+
+### 7. AI服务错误
+
+**stream=true（SSE）:**
+```
+data: {"event_type": "error", "data": {"message": "AI service error: ..."}}
+```
+
+**stream=false（HTTP 500）:**
+```json
+{"detail": "AI service error: ..."}
+```
+
+## SSE 响应格式示例
+```
+data: {"event_type": "team_run_started", "data": {}}
+
+data: {"event_type": "team_run_content", "data": {"content": "你好"}}
+
+data: {"event_type": "team_run_content", "data": {"content": "，有什么"}}
+
+data: {"event_type": "team_run_content", "data": {"content": "可以帮助您的？"}}
+
+data: {"event_type": "workflow_completed", "data": {}}
+```
+
+## 前端使用示例
+```javascript
+const eventSource = new EventSource('/api/v1/chat/completion', {
+  method: 'POST',
+  body: JSON.stringify({
+    api_key: 'your-api-key',
+    message: '你好',
+    from_uid: 'user123'
+  })
+});
+
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  switch (data.event_type) {
+    case 'team_run_content':
+      // 追加内容到界面
+      appendText(data.data.content);
+      break;
+    case 'workflow_completed':
+      // 完成处理
+      eventSource.close();
+      break;
+    case 'error':
+    case 'queued':
+      // 处理错误或排队状态
+      handleError(data.data);
+      eventSource.close();
+      break;
+  }
+};
+```
+""",
+    responses={
+        200: {
+            "description": "成功响应（流式或JSON）",
+            "content": {
+                "text/event-stream": {
+                    "example": 'data: {"event_type": "team_run_content", "data": {"content": "你好"}}\n\n'
+                },
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "message": "你好，有什么可以帮助您的？",
+                        "visitor_id": "550e8400-e29b-41d4-a716-446655440000"
+                    }
+                }
+            }
+        },
+        401: {"description": "无效的 API Key"},
+        400: {"description": "平台未关联项目"},
+        500: {"description": "AI服务错误（stream=false时）"},
+        503: {"description": "无可用客服"},
+    }
+)
+async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_db)) -> StreamingResponse:
+    """流式聊天完成接口 - 详细说明请查看接口描述。"""
     # 1) Validate Platform API key and get project
     platform, project = _validate_platform_and_project(req.api_key, db)
 
@@ -477,6 +713,7 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
     session_id = f"{channel_id_enc}@{channel_type}"
 
     # 3.5) If visitor is unassigned, try to assign staff
+    assigned_staff_id = None
     if visitor.is_unassigned:
         transfer_result = await transfer_to_staff(
             db=db,
@@ -488,17 +725,36 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
             ai_disabled=visitor.ai_disabled,
         )
         
-        # Only return error response if transfer failed
+        # Return error response if transfer failed
         if not transfer_result.success:
+            error_data = {
+                "success": False,
+                "event_type": "error",
+                "message": transfer_result.message,
+                "visitor_id": str(visitor.id),
+            }
+            if req.stream is False:
+                return error_data
             async def transfer_error_gen():
-                yield _sse_format({
-                    "event_type": "error",
-                    "data": {
-                        "message": transfer_result.message,
-                        "visitor_id": str(visitor.id),
-                    },
-                })
+                yield _sse_format({"event_type": "error", "data": error_data})
             return StreamingResponse(transfer_error_gen(), media_type="text/event-stream")
+        
+        # Check if staff was assigned
+        if not transfer_result.assigned_staff_id:
+            queued_data = {
+                "success": False,
+                "event_type": "queued",
+                "message": transfer_result.message,
+                "visitor_id": str(visitor.id),
+                "queue_position": transfer_result.queue_position,
+            }
+            if req.stream is False:
+                return queued_data
+            async def no_staff_gen():
+                yield _sse_format({"event_type": "queued", "data": queued_data})
+            return StreamingResponse(no_staff_gen(), media_type="text/event-stream")
+        
+        assigned_staff_id = transfer_result.assigned_staff_id
         
         # Notify visitor profile updated on successful transfer
         await wukongim_client.send_visitor_profile_updated(
@@ -506,21 +762,51 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
             channel_id=channel_id_enc,
             channel_type=channel_type,
         )
-        # Continue to AI processing regardless of assignment result
 
-    # 4) Prepare visitor UID for WuKongIM forwarding
-    visitor_uid = f"{visitor.id}-vtr"
+    # 4) Prepare from_uid for WuKongIM forwarding (must have assigned staff)
+    if assigned_staff_id:
+        wukongim_from_uid = f"{assigned_staff_id}-staff"
+    else:
+        # Check if visitor has an open session with assigned staff
+        open_session = db.query(VisitorSession).filter(
+            VisitorSession.visitor_id == visitor.id,
+            VisitorSession.status == SessionStatus.OPEN.value,
+            VisitorSession.staff_id.isnot(None),
+        ).first()
+        
+        if open_session and open_session.staff_id:
+            wukongim_from_uid = f"{open_session.staff_id}-staff"
+        else:
+            # No staff assigned - return error
+            error_data = {
+                "success": False,
+                "event_type": "error",
+                "message": "No staff assigned to this visitor",
+                "visitor_id": str(visitor.id),
+            }
+            if req.stream is False:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=error_data
+                )
+            async def no_staff_error_gen():
+                yield _sse_format({"event_type": "error", "data": error_data})
+            return StreamingResponse(no_staff_error_gen(), media_type="text/event-stream")
 
     # 5) Check AI disabled status
     ai_disabled = _check_ai_disabled(platform, visitor)
 
     # 6) If AI is disabled, return appropriate response
     if ai_disabled:
+        error_data = {
+            "success": False,
+            "event_type": "ai_disabled",
+            "message": "AI responses are disabled for this visitor/platform",
+        }
+        if req.stream is False:
+            return error_data
         async def disabled_gen():
-            yield _sse_format({
-                "event_type": "ai_disabled",
-                "data": {"message": "AI responses are disabled for this visitor/platform"},
-            })
+            yield _sse_format({"event_type": "ai_disabled", "data": error_data})
         return StreamingResponse(disabled_gen(), media_type="text/event-stream")
 
     # 7) AI is enabled: directly call AI service and stream response
@@ -540,19 +826,87 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
             channel_id=channel_id_enc,
             channel_type=channel_type,
             client_msg_no=response_client_msg_no,
-            from_uid=visitor_uid,
+            from_uid=wukongim_from_uid,
             system_message=req.system_message,
             expected_output=req.expected_output,
         ))
         
+        accepted_data = {
+            "success": True,
+            "event_type": "accepted",
+            "message": "Request accepted, processing in background",
+            "visitor_id": str(visitor.id),
+        }
+        if req.stream is False:
+            return accepted_data
         async def accepted_gen():
-            yield _sse_format({
-                "event_type": "accepted",
-                "data": {"message": "Request accepted, processing in background"},
-            })
+            yield _sse_format({"event_type": "accepted", "data": accepted_data})
         return StreamingResponse(accepted_gen(), media_type="text/event-stream")
 
-    # 9) Normal mode: stream response to client
+    # 9) Check stream mode
+    if req.stream is False:
+        # Non-streaming mode: collect all content and return JSON
+        completion_text = ""
+        try:
+            async for _, event_payload in ai_client.run_supervisor_agent_stream(
+                message=req.message,
+                project_id=str(project.id),
+                team_id=team_id,
+                session_id=session_id,
+                user_id=req.from_uid,
+                enable_memory=True,
+                system_message=req.system_message,
+                expected_output=req.expected_output,
+            ):
+                if not isinstance(event_payload, dict):
+                    continue
+
+                event_type = event_payload.get("event_type", "team_run_content")
+                data = event_payload.get("data") or {}
+
+                # Forward AI events to WuKongIM
+                chunk_text = await _forward_ai_event_to_wukongim(
+                    event_type=event_type,
+                    data=data,
+                    channel_id=channel_id_enc,
+                    channel_type=channel_type,
+                    client_msg_no=response_client_msg_no,
+                    from_uid=wukongim_from_uid,
+                )
+                
+                if chunk_text:
+                    completion_text += chunk_text
+
+                if event_type == "workflow_completed":
+                    break
+                
+                if event_type == "workflow_failed":
+                    error_message = data.get("error") or data.get("message") or "AI processing failed"
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail={
+                            "success": False,
+                            "event_type": "workflow_failed",
+                            "message": error_message,
+                            "visitor_id": str(visitor.id),
+                        }
+                    )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"AI service error: {str(e)}"
+            )
+        
+        return {
+            "success": True,
+            "message": completion_text,
+            "visitor_id": str(visitor.id),
+        }
+
+    # 10) Streaming mode: stream response to client
     async def ai_event_generator() -> Any:
         try:
             async for _, event_payload in ai_client.run_supervisor_agent_stream(
@@ -579,12 +933,20 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
                     channel_id=channel_id_enc,
                     channel_type=channel_type,
                     client_msg_no=response_client_msg_no,
-                    from_uid=visitor_uid,
+                    from_uid=wukongim_from_uid,
                 )
 
                 yield _sse_format(event_payload)
 
                 if event_type == "workflow_completed":
+                    break
+                
+                if event_type == "workflow_failed":
+                    error_message = data.get("error") or data.get("message") or "AI processing failed"
+                    yield _sse_format({
+                        "event_type": "workflow_failed",
+                        "data": {"message": error_message},
+                    })
                     break
 
         except asyncio.CancelledError:
@@ -1000,6 +1362,7 @@ async def chat_completion_openai_compatible(
     session_id = f"{channel_id_enc}@{channel_type}"
 
     # 5) If visitor is unassigned, try to assign staff
+    assigned_staff_id = None
     if visitor.is_unassigned:
         transfer_result = await transfer_to_staff(
             db=db,
@@ -1017,6 +1380,15 @@ async def chat_completion_openai_compatible(
                 detail=f"Transfer failed: {transfer_result.message}"
             )
         
+        # Check if staff was assigned
+        if not transfer_result.assigned_staff_id:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"No staff available. {transfer_result.message}"
+            )
+        
+        assigned_staff_id = transfer_result.assigned_staff_id
+        
         # Notify visitor profile updated on successful transfer
         await wukongim_client.send_visitor_profile_updated(
             visitor_id=str(visitor.id),
@@ -1024,8 +1396,25 @@ async def chat_completion_openai_compatible(
             channel_type=channel_type,
         )
 
-    # 6) Prepare visitor UID for WuKongIM forwarding
-    visitor_uid = f"{visitor.id}-vtr"
+    # 6) Prepare from_uid for WuKongIM forwarding (must have assigned staff)
+    if assigned_staff_id:
+        wukongim_from_uid = f"{assigned_staff_id}-staff"
+    else:
+        # Check if visitor has an open session with assigned staff
+        open_session = db.query(VisitorSession).filter(
+            VisitorSession.visitor_id == visitor.id,
+            VisitorSession.status == SessionStatus.OPEN.value,
+            VisitorSession.staff_id.isnot(None),
+        ).first()
+        
+        if open_session and open_session.staff_id:
+            wukongim_from_uid = f"{open_session.staff_id}-staff"
+        else:
+            # No staff assigned - return error
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No staff assigned to this visitor"
+            )
 
     # 7) Check AI disabled status
     ai_disabled = _check_ai_disabled(platform, visitor)
@@ -1072,7 +1461,7 @@ async def chat_completion_openai_compatible(
                         channel_id=channel_id_enc,
                         channel_type=channel_type,
                         client_msg_no=response_client_msg_no,
-                        from_uid=visitor_uid,
+                        from_uid=wukongim_from_uid,
                     )
 
                     if event_type == "team_run_content" and chunk_text:
@@ -1144,7 +1533,7 @@ async def chat_completion_openai_compatible(
                 channel_id=channel_id_enc,
                 channel_type=channel_type,
                 client_msg_no=response_client_msg_no,
-                from_uid=visitor_uid,
+                from_uid=wukongim_from_uid,
             )
             
             if chunk_text:

@@ -161,6 +161,50 @@ class Visitor(Base):
         comment="Whether AI responses are disabled for this visitor"
     )
     
+    # Locale and network info
+    timezone: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Visitor timezone (e.g., 'Asia/Shanghai', 'America/New_York')"
+    )
+    language: Mapped[Optional[str]] = mapped_column(
+        String(10),
+        nullable=True,
+        comment="Visitor preferred language code (e.g., 'en', 'zh-CN')"
+    )
+    ip_address: Mapped[Optional[str]] = mapped_column(
+        String(45),
+        nullable=True,
+        comment="Visitor IP address (supports both IPv4 and IPv6)"
+    )
+    
+    # Geolocation (derived from IP address)
+    geo_country: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Country name derived from IP address"
+    )
+    geo_country_code: Mapped[Optional[str]] = mapped_column(
+        String(2),
+        nullable=True,
+        comment="ISO 3166-1 alpha-2 country code (e.g., 'US', 'CN')"
+    )
+    geo_region: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Region/state/province name"
+    )
+    geo_city: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="City name"
+    )
+    geo_isp: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Internet Service Provider (available with ip2region)"
+    )
+    
     # Service status
     service_status: Mapped[str] = mapped_column(
         String(20),

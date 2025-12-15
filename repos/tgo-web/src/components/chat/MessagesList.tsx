@@ -442,44 +442,90 @@ const MessagesListComponent: React.FC<MessagesListProps> = ({
         ) : totalMessageCount > 0 ? (
           /* Combined Messages: Historical + Real-time */
           <>
-            {/* Date Separator - show if we have any messages */}
-            {historicalMessages.length > 0 && (
-              <div className="text-center text-xs text-gray-400 dark:text-gray-500">
-                {(() => {
-                  const timestamp = historicalMessages[0].timestamp;
-                  const date = new Date(timestamp * 1000);
-                  const now = new Date();
-                  const diffMs = now.getTime() - date.getTime();
-                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                  
-                  const timeString = date.toLocaleTimeString('zh-CN', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  });
-                  
-                  if (diffDays === 0) {
-                    return timeString;
-                  } else if (diffDays === 1) {
-                    return `${t('chat.history.yesterday', '昨天')} ${timeString}`;
-                  } else if (diffDays < 7) {
-                    return `${t('chat.history.daysAgo', '{{days}}天前', { days: diffDays })} ${timeString}`;
-                  } else {
-                    return `${date.toLocaleDateString('zh-CN')} ${timeString}`;
-                  }
-                })()} 
-              </div>
-            )}
-
-            {/* Render Combined Messages - Optimized with memoized array */}
-            {combinedMessages.map(({ key, message }) => (
-              <div key={key} data-message-seq={message.messageSeq ?? undefined}>
-                <ChatMessage
-                  message={message}
-                  onSuggestionClick={onSuggestionClick}
-                  onSendMessage={onSendMessage}
-                />
-              </div>
-            ))}
+            {/* Render Combined Messages with Time Separators (like WeChat) */}
+            {combinedMessages.map(({ key, message }, index) => {
+              // 获取当前消息的时间戳（秒）
+              const currentTimestamp = message.timestamp 
+                ? (typeof message.timestamp === 'string' ? new Date(message.timestamp).getTime() / 1000 : message.timestamp)
+                : 0;
+              
+              let showTimeSeparator = false;
+              let timeSeparatorText = '';
+              
+              if (index === 0) {
+                // 第一条消息总是显示时间
+                showTimeSeparator = true;
+              } else {
+                // 获取上一条消息的时间戳
+                const prevMessage = combinedMessages[index - 1].message;
+                const prevTimestamp = prevMessage.timestamp
+                  ? (typeof prevMessage.timestamp === 'string' ? new Date(prevMessage.timestamp).getTime() / 1000 : prevMessage.timestamp)
+                  : 0;
+                
+                // 如果时间差超过5分钟（300秒），显示时间分隔符
+                const TIME_GAP_THRESHOLD = 300; // 5 minutes in seconds
+                if (currentTimestamp - prevTimestamp >= TIME_GAP_THRESHOLD) {
+                  showTimeSeparator = true;
+                }
+              }
+              
+              // 格式化时间分隔符文本
+              if (showTimeSeparator && currentTimestamp > 0) {
+                const date = new Date(currentTimestamp * 1000);
+                const now = new Date();
+                
+                // 计算日期差（使用日期比较而不是毫秒差，更准确）
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                const diffDays = Math.floor((today.getTime() - msgDate.getTime()) / (1000 * 60 * 60 * 24));
+                
+                const timeString = date.toLocaleTimeString('zh-CN', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+                
+                if (diffDays === 0) {
+                  // 今天：只显示时间
+                  timeSeparatorText = timeString;
+                } else if (diffDays === 1) {
+                  // 昨天
+                  timeSeparatorText = `${t('chat.history.yesterday', '昨天')} ${timeString}`;
+                } else if (diffDays < 7) {
+                  // 一周内：显示星期几
+                  const weekdays = [
+                    t('chat.history.weekday.sunday', '星期日'),
+                    t('chat.history.weekday.monday', '星期一'),
+                    t('chat.history.weekday.tuesday', '星期二'),
+                    t('chat.history.weekday.wednesday', '星期三'),
+                    t('chat.history.weekday.thursday', '星期四'),
+                    t('chat.history.weekday.friday', '星期五'),
+                    t('chat.history.weekday.saturday', '星期六'),
+                  ];
+                  const weekday = weekdays[date.getDay()];
+                  timeSeparatorText = `${weekday} ${timeString}`;
+                } else {
+                  // 更早：显示完整日期
+                  timeSeparatorText = `${date.toLocaleDateString('zh-CN')} ${timeString}`;
+                }
+              }
+              
+              return (
+                <React.Fragment key={key}>
+                  {showTimeSeparator && timeSeparatorText && (
+                    <div className="text-center text-xs text-gray-400 dark:text-gray-500 py-2">
+                      {timeSeparatorText}
+                    </div>
+                  )}
+                  <div data-message-seq={message.messageSeq ?? undefined}>
+                    <ChatMessage
+                      message={message}
+                      onSuggestionClick={onSuggestionClick}
+                      onSendMessage={onSendMessage}
+                    />
+                  </div>
+                </React.Fragment>
+              );
+            })}
 
             {isLoadingMoreNewer ? (
               <div className="text-center py-2 text-gray-400 dark:text-gray-500 text-xs">{t('chat.history.loadingNewer', '加载中...')}</div>

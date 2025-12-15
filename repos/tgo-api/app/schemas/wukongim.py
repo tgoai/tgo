@@ -93,6 +93,7 @@ class WuKongIMMessage(BaseSchema):
     payload: Dict[str, Any] = Field(..., description="Decoded JSON message content")
     end: Optional[int] = Field(None, description="Stream end flag (0=not ended, 1=ended)")
     end_reason: Optional[int] = Field(None, description="Stream end reason code")
+    error: Optional[str] = Field(None, description="Error message")
     stream_data: Optional[str] = Field(None, description="Decoded stream data (base64 decoded)")
 
     @computed_field  # type: ignore[misc]
@@ -239,7 +240,6 @@ class WuKongIMMessageSendResponse(BaseSchema):
     """Schema for message send response."""
     
     message_id: int = Field(..., description="Global unique message ID")
-    message_seq: int = Field(..., description="Message sequence number in channel")
     client_msg_no: str = Field(..., description="Client message number (UUID)")
 
 

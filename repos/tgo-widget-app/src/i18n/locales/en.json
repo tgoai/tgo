@@ -1,0 +1,45 @@
+{
+  "common": {
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "loading": "Loading...",
+    "message": "Message"
+  },
+  "header": {
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode",
+    "collapse": "Collapse window",
+    "expand": "Expand window"
+  },
+  "messageInput": {
+    "placeholder": "Ask a question...",
+    "send": "Send",
+    "interrupt": "Stop",
+    "attach": "Attach file",
+    "emoji": "Emoji",
+    "fileTooLarge": "File too large (>{{size}}MB): {{name}}"
+  },
+  "messageList": {
+    "loadingHistory": "Loading...",
+    "loadHistoryFailed": "Failed to load message history",
+    "noMoreMessages": "No more messages",
+    "sending": "Sending...",
+    "uploading": "Uploading..."
+  },
+  "errors": {
+    "authFail": "Authentication failed, cannot send message",
+    "subscriberNotExist": "Not a subscriber, cannot send message",
+    "notAllowSend": "No permission to send message",
+    "notInWhitelist": "Not in whitelist, cannot send",
+    "rateLimit": "Sending too frequently, please try again later",
+    "banned": "You are banned from sending messages",
+    "channelNotExist": "Session does not exist or has expired",
+    "disbanded": "Session has been disbanded",
+    "systemError": "System error, please try again later",
+    "networkError": "Network error or timeout, please check your connection"
+  },
+  "file": {
+    "download": "Download"
+  }
+}

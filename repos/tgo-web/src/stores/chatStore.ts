@@ -88,7 +88,7 @@ interface ChatState {
   setHistoryError: (error: string | null) => void;
   getChannelMessages: (channelId: string, channelType: number) => WuKongIMMessage[];
   appendStreamMessageContent: (clientMsgNo: string, content: string) => void;
-  markStreamMessageEnd: (clientMsgNo: string) => void;
+  markStreamMessageEnd: (clientMsgNo: string, error?: string) => void;
   cancelStreamingMessage: () => Promise<void>;
   setTargetMessageLocation: (loc: { channelId: string; channelType: number; messageSeq: number } | null) => void;
 
@@ -315,8 +315,8 @@ export const useChatStore = create<ChatState>()(
               historicalMessages: msgState.historicalMessages,
             }, false, 'appendStreamMessageContent');
           },
-          markStreamMessageEnd: (clientMsgNo) => {
-            useMessageStore.getState().markStreamMessageEnd(clientMsgNo);
+          markStreamMessageEnd: (clientMsgNo, error) => {
+            useMessageStore.getState().markStreamMessageEnd(clientMsgNo, error);
             const msgState = useMessageStore.getState();
             set({
               messages: msgState.messages,

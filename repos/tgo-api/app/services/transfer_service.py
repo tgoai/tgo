@@ -89,6 +89,7 @@ async def transfer_to_staff(
     auto_commit: bool = True,
     ai_disabled: Optional[bool] = None,
     add_to_queue_if_no_staff: bool = True,
+    send_notification: bool = True,
 ) -> TransferResult:
     """
     Transfer a visitor to staff service.
@@ -116,6 +117,7 @@ async def transfer_to_staff(
         auto_commit: Whether to auto-commit changes (default True)
         ai_disabled: Whether to disable AI responses (None=keep current, True=disable, False=enable)
         add_to_queue_if_no_staff: Whether to add to waiting queue if no staff available (default True)
+        send_notification: Whether to send staff assigned system message (default True)
         
     Returns:
         TransferResult with success status and related objects
@@ -262,6 +264,7 @@ async def transfer_to_staff(
                 visitor_id=visitor_id,
                 staff_id=assigned_staff_id,
                 ai_disabled=visitor.ai_disabled or False,
+                send_notification=send_notification,
             )
         
         # 11. Commit changes (if auto_commit enabled)
@@ -559,6 +562,7 @@ async def _add_staff_to_channel(
     visitor_id: UUID,
     staff_id: UUID,
     ai_disabled: bool = False,
+    send_notification: bool = True,
 ) -> None:
     """
     Add staff to visitor's channel (both DB and WuKongIM) and send notification.
@@ -570,6 +574,7 @@ async def _add_staff_to_channel(
         visitor_id: Visitor ID
         staff_id: Staff ID to add
         ai_disabled: Whether AI is disabled (only send message when True)
+        send_notification: Whether to send staff assigned system message
     """
     visitor_channel_id = build_visitor_channel_id(visitor_id)
     staff_uid = f"{staff_id}-staff"
@@ -640,8 +645,8 @@ async def _add_staff_to_channel(
         extra={"visitor_id": str(visitor_id), "staff_id": str(staff_id)},
     )
     
-    # Send staff assigned system message only when AI is disabled
-    if ai_disabled:
+    # Send staff assigned system message only when AI is disabled and notification is enabled
+    if ai_disabled and send_notification:
         assigned_staff = db.query(Staff).filter(Staff.id == staff_id).first()
         staff_display_name = assigned_staff.name or assigned_staff.username if assigned_staff else str(staff_id)
         

@@ -73,15 +73,24 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSuggestionClick, o
   const uploadError = meta.upload_status === 'error';
   const hasSendError = platformSendError || wsSendError || uploadError;
 
-  // Stream error: end=1 and end_reason > 0 (Timeout/Error/Cancelled/Force)
+  // Stream error: end=1 and end_reason > 0 (Timeout/Error/Cancelled/Force) OR has error message
   const streamEndReasonNum = typeof meta.stream_end_reason === 'string'
     ? parseInt(meta.stream_end_reason, 10)
     : (typeof meta.stream_end_reason === 'number' ? meta.stream_end_reason : 0);
-  const streamError = meta.stream_end === 1 && meta.stream_end_reason != null && meta.stream_end_reason !== '' && streamEndReasonNum > 0;
+  const hasStreamEndError = meta.stream_end === 1 && meta.stream_end_reason != null && meta.stream_end_reason !== '' && streamEndReasonNum > 0;
+  // Also check for error message from ___TextMessageEnd event or offline API
+  const hasErrorMessage = Boolean(meta.error && typeof meta.error === 'string' && meta.error.trim() !== '');
+  const streamError = hasStreamEndError || hasErrorMessage;
   const hasError = hasSendError || streamError;
 
-  // Get AI stream error text based on end reason
+  // Get AI stream error text based on end reason or error message
   const getStreamErrorText = (): string => {
+    // If there's a specific error message from the stream end event or API, use it
+    if (hasErrorMessage) {
+      return meta.error;
+    }
+    
+    // Otherwise, use generic error messages based on end reason
     switch (streamEndReasonNum) {
       case StreamEndReason.TIMEOUT:
         return t('chat.messages.stream.timeout', 'AI 回复超时');

@@ -244,8 +244,8 @@ class Settings(BaseSettings):
         description="Default service start time (HH:MM format)",
     )
     ASSIGNMENT_RULE_DEFAULT_END_TIME: str = Field(
-        default="24:00",
-        description="Default service end time (HH:MM format, 24:00 for end of day)",
+        default="23:59",
+        description="Default service end time (HH:MM format, 23:59 for end of day)",
     )
     ASSIGNMENT_RULE_DEFAULT_MAX_CONCURRENT_CHATS: int = Field(
         default=50,
@@ -351,7 +351,20 @@ class Settings(BaseSettings):
         description="Redis URL for caching and sessions"
     )
 
-
+    # GeoIP settings (for IP to location lookup)
+    # Supports two providers: geoip2 (MaxMind GeoLite2) and ip2region
+    GEOIP_PROVIDER: str = Field(
+        default="ip2region",
+        description="GeoIP provider: 'geoip2' (MaxMind) or 'ip2region' (lionsoul2014)"
+    )
+    GEOIP_DATABASE_PATH: Optional[str] = Field(
+        default="resources/geoip",
+        description="Path to GeoLite2-City.mmdb (geoip2) or ip2region directory/file (ip2region)"
+    )
+    GEOIP_ENABLED: bool = Field(
+        default=True,
+        description="Enable IP geolocation lookup (requires GEOIP_DATABASE_PATH)"
+    )
 
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = Field(

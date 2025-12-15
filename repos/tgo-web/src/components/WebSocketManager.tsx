@@ -111,13 +111,19 @@ export const WebSocketManager: React.FC = () => {
 
   /**
    * Handle AI stream end events
+   * @param clientMsgNo - The client message number
+   * @param error - Optional error message from the stream end event
    */
-  const handleStreamEnd = React.useCallback((clientMsgNo: string) => {
+  const handleStreamEnd = React.useCallback((clientMsgNo: string, error?: string) => {
     try {
-      markStreamMessageEnd(clientMsgNo);
-      console.log('🤖 WebSocket Manager: Stream message marked as ended');
-    } catch (error) {
-      console.error('🤖 WebSocket Manager: Error marking stream message end:', error);
+      markStreamMessageEnd(clientMsgNo, error);
+      if (error) {
+        console.log('🤖 WebSocket Manager: Stream message ended with error:', error);
+      } else {
+        console.log('🤖 WebSocket Manager: Stream message marked as ended');
+      }
+    } catch (err) {
+      console.error('🤖 WebSocket Manager: Error marking stream message end:', err);
     }
   }, [markStreamMessageEnd]);
 

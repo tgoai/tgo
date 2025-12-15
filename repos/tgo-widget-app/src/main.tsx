@@ -4,6 +4,7 @@ import { CacheProvider, Global, css } from '@emotion/react'
 import createCache from '@emotion/cache'
 import App from './App'
 import hljsThemeCss from 'highlight.js/styles/github.css?inline'
+import './i18n'
 
 // Determine the target document for rendering.
 // If we are running inside the controller iframe, render into the UI iframe's document.

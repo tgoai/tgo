@@ -90,7 +90,7 @@ export type MessageHandler = (message: Message) => void;
 export type ConnectionStatusHandler = (status: ConnectionStatus) => void;
 export type ErrorHandler = (error: any) => void;
 export type StreamMessageHandler = (clientMsgNo: string, content: string) => void;
-export type StreamEndHandler = (clientMsgNo: string) => void;
+export type StreamEndHandler = (clientMsgNo: string, error?: string) => void;
 export type VisitorPresenceEvent = { visitorId?: string; channelId: string; channelType: number; isOnline: boolean; timestamp?: string | null; eventType: string; raw?: any };
 export type VisitorPresenceHandler = (presence: VisitorPresenceEvent) => void;
 
@@ -673,8 +673,12 @@ export class WuKongIMWebSocketService {
           this.notifyQueueUpdatedHandlers({ raw: payload });
         } else if (event.type === WS_EVENT_TYPE.TEXT_MESSAGE_END) {
           // AI streaming content ended
-          console.log('🔌 Stream message ended:', { clientMsgNo: event.id });
-          this.notifyStreamEndHandlers(event.id);
+          // If event.data has a value, it's treated as an error message
+          const errorMessage = event.data && typeof event.data === 'string' && event.data.trim() !== '' 
+            ? event.data.trim() 
+            : undefined;
+          console.log('🔌 Stream message ended:', { clientMsgNo: event.id, error: errorMessage });
+          this.notifyStreamEndHandlers(event.id, errorMessage);
         } else {
           console.log('🔌 CustomEvent type not handled:', event.type);
         }
@@ -838,25 +842,28 @@ export class WuKongIMWebSocketService {
 
   /**
    * Notify all stream end handlers
+   * @param clientMsgNo - The client message number
+   * @param error - Optional error message from the stream end event
    */
-  private notifyStreamEndHandlers(clientMsgNo: string): void {
+  private notifyStreamEndHandlers(clientMsgNo: string, error?: string): void {
     console.log('🔌 Notifying stream end handlers:', {
       clientMsgNo,
+      error,
       handlerCount: this.streamEndHandlers.length
     });
 
     this.streamEndHandlers.forEach(handler => {
       try {
-        handler(clientMsgNo);
-      } catch (error) {
-        console.error('Stream end handler error:', error);
+        handler(clientMsgNo, error);
+      } catch (err) {
+        console.error('Stream end handler error:', err);
       }
     });
 
     // Broadcast a DOM event so UI components can react
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('chat:stream-end', {
-        detail: { clientMsgNo }
+        detail: { clientMsgNo, error }
       }));
     }
   }

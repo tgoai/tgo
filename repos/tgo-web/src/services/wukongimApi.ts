@@ -487,6 +487,14 @@ export class WuKongIMUtils {
     // Extract end and end_reason for error state detection
     const streamEnd = wkMessage.end;
     const streamEndReason = wkMessage.end_reason;
+    
+    // Extract error message from WuKongIMMessage.error field first, then fallback to payload.error
+    // This supports both real-time stream end events and offline API responses
+    const errorMessage = (wkMessage.error && typeof wkMessage.error === 'string' && wkMessage.error.trim() !== '')
+      ? wkMessage.error.trim()
+      : (payloadObj?.error && typeof payloadObj.error === 'string' && payloadObj.error.trim() !== '')
+        ? payloadObj.error.trim()
+        : undefined;
 
     const convertedMessage: Message = {
       id: idStr,
@@ -511,6 +519,7 @@ export class WuKongIMUtils {
         is_streaming: isStreamingInProgress, // Flag for UI to show loading cursor
         stream_end: streamEnd, // Stream end flag (0=not ended, 1=ended)
         stream_end_reason: streamEndReason, // Stream end reason code (>0 indicates error)
+        error: errorMessage, // Error message from stream end event or API response
         ...imageMeta,
         ...fileMeta,
         ...(richImagesMeta ? { images: richImagesMeta } : {}),

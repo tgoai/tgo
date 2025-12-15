@@ -147,6 +147,16 @@ class VisitorBase(BaseSchema):
         default_factory=dict,
         description="Custom attribute key/value pairs (supports nested structures)"
     )
+    timezone: Optional[str] = Field(
+        None,
+        max_length=50,
+        description="Visitor timezone (e.g., 'Asia/Shanghai', 'America/New_York')"
+    )
+    language: Optional[str] = Field(
+        None,
+        max_length=10,
+        description="Visitor preferred language code (e.g., 'en', 'zh-CN')"
+    )
 
 
 class VisitorCreate(VisitorBase):
@@ -160,6 +170,11 @@ class VisitorCreate(VisitorBase):
     platform_type: Optional[PlatformType] = Field(
         None,
         description="Platform type to use default platform (required if platform_id not provided)"
+    )
+    ip_address: Optional[str] = Field(
+        None,
+        max_length=45,
+        description="Visitor IP address (if not provided, will be extracted from request headers)"
     )
 
 
@@ -218,6 +233,21 @@ class VisitorAttributesUpdate(BaseSchema):
         None,
         description="Updated custom attribute key/value pairs"
     )
+    timezone: Optional[str] = Field(
+        None,
+        max_length=50,
+        description="Updated visitor timezone"
+    )
+    language: Optional[str] = Field(
+        None,
+        max_length=10,
+        description="Updated visitor language code"
+    )
+    ip_address: Optional[str] = Field(
+        None,
+        max_length=45,
+        description="Updated visitor IP address"
+    )
 
 
 class VisitorUpdate(VisitorAttributesUpdate):
@@ -254,6 +284,30 @@ class VisitorInDB(VisitorBase, TimestampMixin, SoftDeleteMixin):
     service_status: str = Field(
         default="new",
         description="Visitor service status: new, queued, active, closed"
+    )
+    ip_address: Optional[str] = Field(
+        None,
+        description="Visitor IP address (supports both IPv4 and IPv6)"
+    )
+    geo_country: Optional[str] = Field(
+        None,
+        description="Country name derived from IP address"
+    )
+    geo_country_code: Optional[str] = Field(
+        None,
+        description="ISO 3166-1 alpha-2 country code (e.g., 'US', 'CN')"
+    )
+    geo_region: Optional[str] = Field(
+        None,
+        description="Region/state/province name"
+    )
+    geo_city: Optional[str] = Field(
+        None,
+        description="City name"
+    )
+    geo_isp: Optional[str] = Field(
+        None,
+        description="Internet Service Provider (available with ip2region)"
     )
 
 
@@ -313,6 +367,30 @@ class VisitorBasicResponse(BaseSchema):
     service_status: str = Field(
         default="new",
         description="Visitor service status: new, queued, active, closed"
+    )
+    timezone: Optional[str] = Field(
+        None, description="Visitor timezone (e.g., 'Asia/Shanghai', 'America/New_York')"
+    )
+    language: Optional[str] = Field(
+        None, description="Visitor preferred language code (e.g., 'en', 'zh-CN')"
+    )
+    ip_address: Optional[str] = Field(
+        None, description="Visitor IP address (supports both IPv4 and IPv6)"
+    )
+    geo_country: Optional[str] = Field(
+        None, description="Country name derived from IP address"
+    )
+    geo_country_code: Optional[str] = Field(
+        None, description="ISO 3166-1 alpha-2 country code (e.g., 'US', 'CN')"
+    )
+    geo_region: Optional[str] = Field(
+        None, description="Region/state/province name"
+    )
+    geo_city: Optional[str] = Field(
+        None, description="City name"
+    )
+    geo_isp: Optional[str] = Field(
+        None, description="Internet Service Provider (available with ip2region)"
     )
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")

@@ -25,6 +25,8 @@ from app.services.wukongim_client import wukongim_client
 from app.services.visitor_notifications import notify_visitor_profile_updated
 from app.utils.intent import localize_visitor_response_intent
 from app.utils.const import CHANNEL_TYPE_CUSTOMER_SERVICE, MEMBER_TYPE_VISITOR
+from app.utils.request import get_client_ip, get_client_language
+from app.services.geoip_service import geoip_service
 from app.utils.encoding import (
     build_visitor_channel_id,
     parse_visitor_channel_id,
@@ -86,6 +88,21 @@ class VisitorRegisterRequest(BaseModel):
     system_info: Optional[VisitorSystemInfoRequest] = Field(
         None,
         description="Visitor system metadata payload (browser, OS, timestamps, etc.)",
+    )
+    timezone: Optional[str] = Field(
+        None,
+        max_length=50,
+        description="Visitor timezone (e.g., 'Asia/Shanghai', 'America/New_York')",
+    )
+    language: Optional[str] = Field(
+        None,
+        max_length=10,
+        description="Visitor preferred language code (e.g., 'en', 'zh-CN')",
+    )
+    ip_address: Optional[str] = Field(
+        None,
+        max_length=45,
+        description="Visitor IP address (if not provided, will be extracted from request headers)",
     )
 
 
@@ -377,6 +394,9 @@ async def _create_visitor_with_channel(
     source: Optional[str] = None,
     note: Optional[str] = None,
     custom_attributes: Optional[dict[str, Optional[str]]] = None,
+    timezone: Optional[str] = None,
+    language: Optional[str] = None,
+    ip_address: Optional[str] = None,
 ) -> Visitor:
     """
     Create a new visitor with WuKongIM channel setup.
@@ -399,6 +419,9 @@ async def _create_visitor_with_channel(
         source: Optional source
         note: Optional note
         custom_attributes: Optional custom attributes dict
+        timezone: Optional visitor timezone (e.g., 'Asia/Shanghai')
+        language: Optional visitor language code (e.g., 'en', 'zh-CN')
+        ip_address: Optional visitor IP address
 
     Returns:
         Created Visitor object with WuKongIM channel set up
@@ -420,6 +443,9 @@ async def _create_visitor_with_channel(
     resolved_nickname, resolved_nickname_zh = _resolve_visitor_nickname(
         nickname, nickname_zh, platform_open_id or None
     )
+    
+    # Lookup geolocation from IP address
+    geo_location = geoip_service.lookup(ip_address)
 
     # Create visitor record
     visitor = Visitor(
@@ -437,6 +463,14 @@ async def _create_visitor_with_channel(
         source=source,
         note=note,
         custom_attributes=custom_attributes or {},
+        timezone=timezone,
+        language=language,
+        ip_address=ip_address,
+        geo_country=geo_location.country,
+        geo_country_code=geo_location.country_code,
+        geo_region=geo_location.region,
+        geo_city=geo_location.city,
+        geo_isp=geo_location.isp,
     )
     db.add(visitor)
     
@@ -625,6 +659,13 @@ async def create_visitor(
             detail="Visitor already exists for this platform"
         )
 
+    # Get real IP and language (from request body or headers)
+    real_ip = get_client_ip(request, visitor_data.ip_address)
+    real_language = get_client_language(request, visitor_data.language)
+    
+    # Lookup geolocation from IP address
+    geo_location = geoip_service.lookup(real_ip)
+    
     # Create visitor
     visitor = Visitor(
         project_id=current_user.project_id,
@@ -641,6 +682,14 @@ async def create_visitor(
         source=visitor_data.source,
         note=visitor_data.note,
         custom_attributes=visitor_data.custom_attributes or {},
+        timezone=visitor_data.timezone,
+        language=real_language,
+        ip_address=real_ip,
+        geo_country=geo_location.country,
+        geo_country_code=geo_location.country_code,
+        geo_region=geo_location.region,
+        geo_city=geo_location.city,
+        geo_isp=geo_location.isp,
     )
 
     db.add(visitor)
@@ -702,6 +751,10 @@ async def register_visitor(
 
     if not visitor:
         is_new_visitor = True
+        # Get real IP and language (from request body or headers)
+        real_ip = get_client_ip(request, req.ip_address)
+        real_language = get_client_language(request, req.language)
+
         # Use _create_visitor_with_channel for complete setup
         # If normalized_open_id is None, visitor.id will be used as platform_open_id
         visitor = await _create_visitor_with_channel(
@@ -719,6 +772,9 @@ async def register_visitor(
             source=req.source,
             note=req.note,
             custom_attributes=req.custom_attributes,
+            timezone=req.timezone,
+            language=real_language,
+            ip_address=real_ip,
         )
         profile_changed = True
     else:
@@ -738,7 +794,21 @@ async def register_visitor(
         updatable_fields = [
             "name", "nickname", "nickname_zh", "avatar_url", "phone_number", "email",
             "company", "job_title", "source", "note", "custom_attributes",
+            "timezone", "language",
         ]
+        
+        # Handle IP address update (use request body or extract from headers)
+        if "ip_address" in update_data:
+            real_ip = get_client_ip(request, update_data.get("ip_address"))
+            if real_ip:
+                update_data["ip_address"] = real_ip
+                updatable_fields.append("ip_address")
+        
+        # Handle language update (use request body or extract from headers)
+        if "language" in update_data:
+            real_language = get_client_language(request, update_data.get("language"))
+            if real_language:
+                update_data["language"] = real_language
         any_updated = False
         for field in updatable_fields:
             if field in update_data and update_data[field] is not None:
