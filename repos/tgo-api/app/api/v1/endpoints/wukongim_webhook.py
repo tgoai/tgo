@@ -309,6 +309,7 @@ async def _handle_user_online_status(events_payload: Any, db: Session) -> None:
             continue
 
         is_staff = False
+        is_visitor = False
         uid_str = uid_raw
         if uid_raw.endswith(STAFF_UID_SUFFIX):
             is_staff = True

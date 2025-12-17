@@ -167,6 +167,13 @@ const ChatListComponent: React.FC<ChatListProps> = ({
 
   // 标记是否已从 localStorage 完成初始化（用 state 而非 ref，确保初始化完成后触发重新渲染）
   const [mineTagInitialized, setMineTagInitialized] = useState(false);
+  // 当标签筛选开启但频道信息（含 tags）异步回填失败时：做有限重试，避免会话误入筛选结果或无限请求
+  const [channelInfoRetryTick, setChannelInfoRetryTick] = useState(0);
+  const channelInfoRetryCountRef = useRef<Record<string, number>>({});
+  const channelInfoPendingRef = useRef<Set<string>>(new Set());
+  // 标签筛选开启时，如果某会话的频道信息最终获取失败：允许“兜底显示”在列表里，避免造成“会话/消息丢了”的假象
+  // 一旦后续成功拿到 tags，会自动移除兜底标记并回归正常筛选逻辑
+  const [tagFilterBypassKeys, setTagFilterBypassKeys] = useState<Record<string, true>>({});
 
   // Local state for tabs (used when not controlled by parent)
   const [internalActiveTab, setInternalActiveTab] = useState<ChatTabType>('mine');
@@ -269,6 +276,7 @@ const ChatListComponent: React.FC<ChatListProps> = ({
   // 加载可选访客标签（用于“我的”标签筛选）
   useEffect(() => {
     let mounted = true;
+    if (!isTagFilterOpen) return; // 只在面板打开时请求
     (async () => {
       setIsLoadingTags(true);
       try {
@@ -305,7 +313,7 @@ const ChatListComponent: React.FC<ChatListProps> = ({
     return () => {
       mounted = false;
     };
-  }, [mineTagIds]);
+  }, [isTagFilterOpen]);
 
   // 从本地恢复“我的”筛选标签（按用户）
   useEffect(() => {
@@ -677,6 +685,37 @@ const ChatListComponent: React.FC<ChatListProps> = ({
   // 优先使用 realtimeChats 中的更新数据（包含最新的 lastMessage 和 unreadCount）
   // 但只在 realtimeChats 的数据比 API 的更新时才使用
   const mergedMyChats = useMemo(() => {
+    const selectedTagIds = (mineTagIds ?? []).filter(Boolean);
+    const selectedTagSet = new Set(selectedTagIds);
+    const hasTagFilter = selectedTagSet.size > 0;
+
+    const shouldBypassFilter = (chat: Chat): boolean => {
+      if (!hasTagFilter) return false;
+      if (!chat.channelId || chat.channelType == null) return false;
+      const key = getChannelKey(chat.channelId, chat.channelType);
+      return tagFilterBypassKeys[key] === true;
+    };
+
+    const extractChannelTagIds = (chat: Chat): string[] => {
+      const extra: any = (chat.channelInfo as any)?.extra;
+      const tags: any[] = Array.isArray(extra?.tags) ? extra.tags : [];
+      const ids = tags
+        .map((t) => (t?.id ?? t?.tag_id ?? t?.tagId ?? t?.value ?? null))
+        .filter((x) => typeof x === 'string' && x.trim().length > 0)
+        .map((x) => String(x));
+      return ids;
+    };
+
+    const matchTagFilter = (chat: Chat): boolean => {
+      if (!hasTagFilter) return true;
+      // 若该会话已被标记为“频道信息获取失败”，兜底展示（避免造成会话/消息丢失假象）
+      if (shouldBypassFilter(chat)) return true;
+      // 标签来自频道信息（异步）；未拿到标签前先不展示，避免把不匹配的访客混入筛选结果
+      const ids = extractChannelTagIds(chat);
+      if (ids.length === 0) return false;
+      return ids.some((id) => selectedTagSet.has(id));
+    };
+
     // 建立 realtimeChats 的 key -> chat 映射，用于快速查找
     const realtimeChatMap = new Map<string, Chat>();
     realtimeChats.forEach(c => {
@@ -712,12 +751,114 @@ const ChatListComponent: React.FC<ChatListProps> = ({
     
     // 过滤出不在 API 结果中的实时会话（新消息创建的，且有实际内容）
     const newRealtimeChats = realtimeChats.filter(
-      c => !apiChatKeys.has(getChannelKey(c.channelId, c.channelType)) && c.lastMessage
+      c =>
+        !apiChatKeys.has(getChannelKey(c.channelId, c.channelType)) &&
+        c.lastMessage &&
+        matchTagFilter(c)
     );
     
     // 合并并排序
     return sortChatsByTimestamp([...mergedFromApi, ...newRealtimeChats]);
-  }, [myChats, realtimeChats]);
+  }, [myChats, realtimeChats, mineTagIds, tagFilterBypassKeys]);
+
+  // 当开启标签筛选时，实时新会话若缺少 channelInfo.extra.tags，会被隐藏；
+  // 这里主动触发“刷新频道信息”来尽快拿到 tags（有限重试，避免无限请求）。
+  useEffect(() => {
+    if (!mineTagInitialized) return;
+    if (activeTab !== 'mine') return;
+    if (!mineTagIds || mineTagIds.length === 0) return;
+
+    const apiChatKeys = new Set(myChats.map((c) => getChannelKey(c.channelId, c.channelType)));
+
+    const getChannelTagState = (channelId: string, channelType: number) => {
+      const channelStore = useChannelStore.getState();
+      const info = channelStore.getChannel(channelId, channelType);
+      const key = getChannelKey(channelId, channelType);
+      const err = (channelStore as any).errors?.[key] as string | null | undefined;
+      const extra: any = info?.extra;
+      const hasTagsField = Array.isArray(extra?.tags);
+      const tagIds: string[] = hasTagsField
+        ? (extra.tags as any[])
+            .map((t) => (t?.id ?? t?.tag_id ?? t?.tagId ?? t?.value ?? null))
+            .filter((x) => typeof x === 'string' && x.trim().length > 0)
+            .map((x) => String(x))
+        : [];
+      return { key, err, hasTagsField, tagIds };
+    };
+
+    const candidates = realtimeChats.filter((c) => {
+      if (!c.lastMessage) return false;
+      if (!c.channelId || c.channelType == null) return false;
+      const key = getChannelKey(c.channelId, c.channelType);
+      if (apiChatKeys.has(key)) return false;
+      // 已被标记兜底展示的不再重试
+      if (tagFilterBypassKeys[key] === true) return false;
+
+      // 只有在“频道信息缺失/未包含 tags 字段”或“上次请求报错”时才触发刷新
+      const state = getChannelTagState(c.channelId, c.channelType);
+      if (state.tagIds.length > 0) return false; // 已有 tags，不需要
+      if (state.err) return true; // 有错误，重试
+      if (!state.hasTagsField) return true; // 还没加载到 tags 字段，重试
+      // hasTagsField=true 且 tagIds 为空：代表成功拿到信息但就是没有标签，不应重试
+      return false;
+    });
+
+    if (candidates.length === 0) return;
+
+    // 限制并发：每轮最多触发 6 个刷新
+    const toRefresh = candidates.slice(0, 6);
+    toRefresh.forEach((c) => {
+      const key = getChannelKey(c.channelId, c.channelType);
+      if (channelInfoPendingRef.current.has(key)) return;
+      const retries = channelInfoRetryCountRef.current[key] ?? 0;
+      if (retries >= 3) return; // 最多重试 3 次
+
+      channelInfoPendingRef.current.add(key);
+      (async () => {
+        try {
+          // refreshChannel + apply 到 chats/messages（chatStore 已提供统一入口）
+          await useChatStore.getState().syncChannelInfoAcrossUI(c.channelId!, c.channelType!);
+        } catch {
+          // ignore
+        } finally {
+          channelInfoPendingRef.current.delete(key);
+
+          const latest = getChannelTagState(c.channelId!, c.channelType!);
+          const hasTagsNow = latest.tagIds.length > 0;
+          const hadError = !!latest.err;
+
+          // 若成功拿到 tags：清除兜底标记、清除重试计数
+          if (hasTagsNow) {
+            channelInfoRetryCountRef.current[key] = 0;
+            setTagFilterBypassKeys((prev) => {
+              if (!prev[key]) return prev;
+              const next = { ...prev };
+              delete next[key];
+              return next;
+            });
+            return;
+          }
+
+          // 若成功拿到信息且明确 tags 字段为空（无标签）：不兜底显示，也不重试
+          if (!hadError && latest.hasTagsField) {
+            channelInfoRetryCountRef.current[key] = 0;
+            return;
+          }
+
+          // 请求失败或仍未拿到 tags 字段：进行退避重试；超过上限则“兜底显示”
+          const nextRetry = (channelInfoRetryCountRef.current[key] ?? 0) + 1;
+          channelInfoRetryCountRef.current[key] = nextRetry;
+          if (nextRetry >= 3) {
+            // 最终失败：兜底展示，避免造成会话/消息丢失假象
+            setTagFilterBypassKeys((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+            return;
+          }
+          const delay = Math.min(8000, 800 * Math.pow(2, nextRetry - 1)); // 800ms, 1600ms
+          setTimeout(() => setChannelInfoRetryTick((t) => t + 1), delay);
+        }
+      })();
+    });
+  }, [mineTagInitialized, activeTab, mineTagIds, myChats, realtimeChats, channelInfoRetryTick, tagFilterBypassKeys]);
 
   // "已完成"会话：仅使用 API 返回结果（不合并实时会话，避免把活跃会话混入“已完成”）
   const mergedAllChats = useMemo(() => {

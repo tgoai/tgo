@@ -10,6 +10,7 @@
 
 import type { Message, Chat } from '@/types';
 import { MESSAGE_SENDER_TYPE } from '@/constants';
+import { useAuthStore } from '@/stores/authStore';
 
 /**
  * 通知偏好设置接口
@@ -205,7 +206,8 @@ class NotificationService {
    */
   private isOwnMessage(message: Message): boolean {
     // staff 类型的消息是自己发送的
-    return message.type === MESSAGE_SENDER_TYPE.STAFF;
+    const currentUid = useAuthStore.getState().user?.id + "-staff";
+    return message.fromUid === currentUid;
   }
 
   /**

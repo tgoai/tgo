@@ -18,13 +18,6 @@ from app.runtime.tools.config import ToolsRuntimeSettings
 from app.runtime.core.exceptions import InvalidConfigurationError
 from app.core.logging import get_logger
 
-TEAM_INSTRUCTIONS = """
-协作规则：
-- 团队成员主动协作，明确分工、共享实时进展。
-- 回答保持准确精炼，必要时给出引用或后续建议。
-- 若存在不确定性，说明原因并提出下一步行动。
-"""
-
 
 @dataclass
 class BuiltTeam:
@@ -116,7 +109,7 @@ class AgnoTeamBuilder:
             "name": context.team.name or "Supervisor Coordination Team",
             "role": "Coordinator",
             "description": context.team.instruction,
-            "instructions": TEAM_INSTRUCTIONS,
+            "instructions": settings.supervisor_runtime.team_instructions,
             "user_id": context.user_id,
             "session_id": context.session_id,
             "model": team_model,

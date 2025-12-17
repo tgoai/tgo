@@ -142,3 +142,12 @@ class SupervisorRuntimeSettings(BaseSettings):
 
     coordination: CoordinationSettings = Field(default_factory=CoordinationSettings)
     enable_streaming: bool = True
+    team_instructions: str = Field(
+        default=(
+            "协作规则：\n"
+            "- 团队成员主动协作，明确分工、共享实时进展。\n"
+            "- 回答保持准确精炼，必要时给出引用或后续建议。\n"
+            "- 若存在不确定性，说明原因并提出下一步行动。\n"
+        ),
+        description="Agno Team 级别的协作/行为指令（可通过 SUPERVISOR_RUNTIME__TEAM_INSTRUCTIONS 覆盖）",
+    )
