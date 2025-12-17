@@ -10,13 +10,43 @@ export interface ChatAvatarProps {
   lastSeenMinutes?: number;
   /** Optional seed for consistent color generation (e.g., channel_id, visitor_id, staff_id) */
   colorSeed?: string;
+  /** Avatar size in pixels (keeps existing size if omitted) */
+  sizePx?: number;
+  /** Wrapper class (overrides default spacing when needed) */
+  wrapperClassName?: string;
+  /** Additional class for the <img> element */
+  imageClassName?: string;
+  /** Additional class for the fallback avatar element */
+  fallbackClassName?: string;
+  /** Additional class for the letter in fallback avatar */
+  letterClassName?: string;
+  /** Optional overlay node rendered above avatar (e.g. upload icon/spinner) */
+  overlay?: React.ReactNode;
+  /** Optional click handler; when provided, avatar becomes accessible button */
+  onClick?: () => void;
+  /** Optional title (tooltip) */
+  title?: string;
 }
 
 /**
  * Chat avatar with online indicator and recent "last seen" badge.
  * Memoized to avoid unnecessary re-renders in large chat lists.
  */
-export const ChatAvatar: React.FC<ChatAvatarProps> = React.memo(({ displayName, displayAvatar, visitorStatus, lastSeenMinutes, colorSeed }) => {
+export const ChatAvatar: React.FC<ChatAvatarProps> = React.memo(({
+  displayName,
+  displayAvatar,
+  visitorStatus,
+  lastSeenMinutes,
+  colorSeed,
+  sizePx,
+  wrapperClassName,
+  imageClassName,
+  fallbackClassName,
+  letterClassName,
+  overlay,
+  onClick,
+  title,
+}) => {
   const { t } = useTranslation();
   const hasValidAvatarUrl = hasValidAvatar(displayAvatar);
 
@@ -31,18 +61,49 @@ export const ChatAvatar: React.FC<ChatAvatarProps> = React.memo(({ displayName, 
     if (defaultAvatarElement) defaultAvatarElement.style.display = 'flex';
   }, []);
 
+  const sizeStyle = useMemo<React.CSSProperties | undefined>(() => {
+    if (!sizePx) return undefined;
+    return { width: sizePx, height: sizePx };
+  }, [sizePx]);
+
+  const isClickable = typeof onClick === 'function';
+
   return (
-    <div className="relative mr-3 flex-shrink-0">
+    <div
+      className={wrapperClassName ?? 'relative mr-3 flex-shrink-0'}
+      onClick={isClickable ? onClick : undefined}
+      title={title}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={
+        isClickable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+    >
       {hasValidAvatarUrl ? (
-        <img src={displayAvatar} alt={`${displayName} Avatar`} className="w-10 h-10 rounded-md object-cover bg-gray-200" onError={handleImageError} />
+        <img
+          src={displayAvatar}
+          alt={`${displayName} Avatar`}
+          className={`rounded-md object-cover bg-gray-200 ${!sizePx ? 'w-10 h-10' : ''} ${imageClassName ?? ''}`}
+          style={sizeStyle}
+          onError={handleImageError}
+        />
       ) : null}
 
       <div
-        className={`w-10 h-10 rounded-md flex items-center justify-center text-white font-bold text-sm ${hasValidAvatarUrl ? 'hidden' : ''} ${defaultAvatar?.colorClass || 'bg-gradient-to-br from-gray-400 to-gray-500'}`}
-        style={{ display: hasValidAvatarUrl ? 'none' : 'flex' }}
+        className={`${!sizePx ? 'w-10 h-10' : ''} rounded-md flex items-center justify-center text-white font-bold ${letterClassName ?? 'text-sm'} ${hasValidAvatarUrl ? 'hidden' : ''} ${defaultAvatar?.colorClass || 'bg-gradient-to-br from-gray-400 to-gray-500'} ${fallbackClassName ?? ''}`}
+        style={{ ...(sizeStyle ?? {}), display: hasValidAvatarUrl ? 'none' : 'flex' }}
       >
-        {defaultAvatar?.letter || '?'}
+        <span className={letterClassName ?? 'text-sm'}>{defaultAvatar?.letter || '?'}</span>
       </div>
+
+      {overlay}
 
       {visitorStatus === VISITOR_STATUS.ONLINE && (
         <div 

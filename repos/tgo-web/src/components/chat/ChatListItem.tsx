@@ -70,7 +70,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = React.memo(({ chat, isA
         return { visitorStatus: 'online', lastSeenMinutes: undefined };
       } else {
         // Calculate lastSeenMinutes from last_offline_time if available
-        const minutes = parseMinutesAgo(visitorExtra.last_offline_time) ?? 0;
+        const minutes = parseMinutesAgo(visitorExtra.last_offline_time);
 
         return { visitorStatus: 'offline', lastSeenMinutes: minutes };
       }

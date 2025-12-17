@@ -1315,10 +1315,21 @@
     "list": {
       "searchPlaceholder": "Search",
       "searchAria": "Search conversations",
+      "tagFilter": {
+        "button": "Tag filter",
+        "add": "Add filter tag",
+        "edit": "Edit filter tags",
+        "remove": "Remove tag",
+        "searchPlaceholder": "Search tags",
+        "clear": "Clear",
+        "loading": "Loading tags...",
+        "empty": "No tags"
+      },
       "tabs": {
         "mine": "Mine",
         "unassigned": "Unassigned",
-        "all": "All"
+        "all": "Completed",
+        "manual": "Manual Service"
       }
     },
     "header": {

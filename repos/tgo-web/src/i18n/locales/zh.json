@@ -1215,10 +1215,21 @@
     "list": {
       "searchPlaceholder": "搜索",
       "searchAria": "搜索对话",
+      "tagFilter": {
+        "button": "标签筛选",
+        "add": "添加筛选标签",
+        "edit": "编辑筛选标签",
+        "remove": "删除标签",
+        "searchPlaceholder": "搜索标签",
+        "clear": "清空",
+        "loading": "加载标签中...",
+        "empty": "暂无可用标签"
+      },
       "tabs": {
         "mine": "我的",
         "unassigned": "未分配",
-        "all": "全部"
+        "all": "已完成",
+        "manual": "转人工"
       }
     },
     "header": {

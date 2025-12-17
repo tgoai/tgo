@@ -6,12 +6,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload, aliased
 
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.security import get_current_active_user, get_user_language, UserLanguage, require_permission
 from app.models import Staff, StaffRole, Visitor, VisitorTag, VisitorWaitingQueue, WaitingStatus, VisitorSession, SessionStatus, VisitorServiceStatus
+from app.utils.manual_service_tag import MANUAL_SERVICE_TAG_ID
 from app.schemas.base import PaginationMetadata
 from app.schemas.wukongim import (
     ChannelInfo,
@@ -40,6 +41,7 @@ async def _build_channels_for_conversations(
     project_id: UUID,
     user_language: UserLanguage = "en",
     accept_language: Optional[str] = None,
+    include_closed_and_queued: bool = False,
 ) -> List[ChannelInfo]:
     """
     Build channel information list for conversations with batch query optimization.
@@ -76,8 +78,7 @@ async def _build_channels_for_conversations(
         return []
     
     # Batch query all visitors with relations (single query for performance)
-    # Filter out visitors with CLOSED or QUEUED status
-    visitors = (
+    visitor_query = (
         db.query(Visitor)
         .options(
             selectinload(Visitor.platform),
@@ -90,13 +91,16 @@ async def _build_channels_for_conversations(
             Visitor.id.in_(visitor_ids),
             Visitor.project_id == project_id,
             Visitor.deleted_at.is_(None),
+        )
+    )
+    if not include_closed_and_queued:
+        visitor_query = visitor_query.filter(
             Visitor.service_status.notin_([
                 VisitorServiceStatus.CLOSED.value,
                 VisitorServiceStatus.QUEUED.value,
-            ]),
+            ])
         )
-        .all()
-    )
+    visitors = visitor_query.all()
     
     # Create visitor lookup map
     visitor_map: Dict[UUID, Visitor] = {v.id: v for v in visitors}
@@ -186,6 +190,20 @@ class WuKongIMConversationPaginatedResponse(BaseModel):
     pagination: PaginationMetadata = Field(..., description="Pagination metadata")
 
 
+class WuKongIMConversationWithChannelsPaginatedResponse(BaseModel):
+    """Paginated response for WuKongIM conversations with channel details."""
+
+    conversations: List[WuKongIMConversation] = Field(
+        default_factory=list,
+        description="List of conversations",
+    )
+    channels: List[ChannelInfo] = Field(
+        default_factory=list,
+        description="List of channel information for each conversation",
+    )
+    pagination: PaginationMetadata = Field(..., description="Pagination metadata")
+
+
 @router.post(
     "/my",
     response_model=WuKongIMConversationWithChannelsResponse,
@@ -195,6 +213,14 @@ class WuKongIMConversationPaginatedResponse(BaseModel):
 async def sync_my_conversations(
     http_request: Request,
     request: WuKongIMConversationSyncRequest,
+    tag_ids: Optional[List[str]] = Query(
+        default=None,
+        description="访客标签ID（Base64），支持多个 tag_id（OR 关系）。提供后仅返回匹配标签的访客会话。",
+    ),
+    manual_service_contain: bool = Query(
+        default=False,
+        description="如果为 true，则仅返回 tags 中包含“转人工(Manual Service)”标签的访客会话（可与 tag_ids 组合，AND 关系）。",
+    ),
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
     user_language: UserLanguage = Depends(get_user_language),
@@ -224,6 +250,55 @@ async def sync_my_conversations(
         )
 
         logger.info(f"Successfully synced {len(conversations)} conversations for staff {current_user.username}")
+
+        # Optional tag filtering (visitor conversations only)
+        tag_ids_resolved = [t for t in (tag_ids or []) if t]
+        tag_filter_enabled = bool(tag_ids_resolved) or manual_service_contain
+        if tag_filter_enabled:
+            visitor_id_by_channel_id: Dict[str, UUID] = {}
+            visitor_ids_in_convs: List[UUID] = []
+            for conv in conversations:
+                if conv.channel_type != CHANNEL_TYPE_CUSTOMER_SERVICE or not conv.channel_id:
+                    continue
+                try:
+                    v_id = parse_visitor_channel_id(conv.channel_id)
+                except Exception:
+                    continue
+                visitor_id_by_channel_id[conv.channel_id] = v_id
+                visitor_ids_in_convs.append(v_id)
+
+            if visitor_ids_in_convs:
+                rows = (
+                    db.query(VisitorTag.visitor_id, VisitorTag.tag_id)
+                    .filter(
+                        VisitorTag.project_id == current_user.project_id,
+                        VisitorTag.deleted_at.is_(None),
+                        VisitorTag.visitor_id.in_(visitor_ids_in_convs),
+                    )
+                    .all()
+                )
+                visitor_to_tags: Dict[UUID, set[str]] = {}
+                for v_id, t_id in rows:
+                    visitor_to_tags.setdefault(v_id, set()).add(t_id)
+
+                allowed_visitor_ids: set[UUID] = set()
+                for v_id in visitor_ids_in_convs:
+                    tags_set = visitor_to_tags.get(v_id, set())
+                    has_manual = MANUAL_SERVICE_TAG_ID in tags_set
+                    has_any = bool(tags_set.intersection(tag_ids_resolved)) if tag_ids_resolved else True
+                    if (not manual_service_contain or has_manual) and has_any:
+                        allowed_visitor_ids.add(v_id)
+
+                # When tag filter enabled, only return visitor conversations that match the tag filters
+                conversations = [
+                    conv
+                    for conv in conversations
+                    if conv.channel_type == CHANNEL_TYPE_CUSTOMER_SERVICE
+                    and conv.channel_id
+                    and visitor_id_by_channel_id.get(conv.channel_id) in allowed_visitor_ids
+                ]
+            else:
+                conversations = []
 
         # Build channels list with batch query for performance
         # This filters out visitors with CLOSED or QUEUED status
@@ -266,6 +341,10 @@ async def sync_my_conversations(
 )
 async def sync_all_conversations(
     msg_count: int = Query(default=20, ge=1, le=100, description="每个会话返回的最近消息数量"),
+    only_completed_recent: bool = Query(
+        default=False,
+        description="如果为 true，则仅返回“已完成(Closed)”的最近会话（按每个访客最近一次已关闭会话时间排序）",
+    ),
     limit: int = Query(default=20, ge=1, le=100, description="每页返回的会话数量"),
     offset: int = Query(default=0, ge=0, description="跳过的会话数量"),
     db: Session = Depends(get_db),
@@ -282,41 +361,9 @@ async def sync_all_conversations(
     # Check if current user is admin
     is_admin = current_user.role == StaffRole.ADMIN.value
     
-    # 1. Query unique visitor_ids from sessions
-    # Admin sees all sessions in the project, others see only their own
-    # Only include sessions with assigned staff (staff_id is not null)
-    base_query = db.query(VisitorSession.visitor_id).filter(
-        VisitorSession.visitor_id.isnot(None),
-        VisitorSession.staff_id.isnot(None),
-    )
-    
-    if is_admin:
-        # Admin: filter by project_id
-        base_query = base_query.filter(VisitorSession.project_id == current_user.project_id)
-    else:
-        # Non-admin: filter by staff_id
-        base_query = base_query.filter(VisitorSession.staff_id == current_user.id)
-    
-    unique_visitors_query = base_query.distinct()
-    
-    # Get total count of unique visitors
-    total_count = unique_visitors_query.count()
-    
-    if total_count == 0:
-        logger.debug(f"No sessions found for staff {current_user.username}")
-        return WuKongIMConversationPaginatedResponse(
-            conversations=[],
-            pagination=PaginationMetadata(
-                total=0,
-                limit=limit,
-                offset=offset,
-                has_next=False,
-                has_prev=False,
-            )
-        )
-    
-    # 2. Get paginated unique visitor_ids (ordered by latest session created time)
-    # Subquery to get the latest created_at for each visitor_id
+    # 1) Build a subquery of each visitor's latest session time (overall latest)
+    # Admin sees all sessions in the project, others see only their own sessions.
+    # Note: when only_completed_recent=true, we require the visitor's *latest overall* session to be CLOSED.
     subquery_base = db.query(
         VisitorSession.visitor_id,
         func.max(VisitorSession.created_at).label("latest_created_at")
@@ -331,10 +378,48 @@ async def sync_all_conversations(
         subquery_base = subquery_base.filter(VisitorSession.staff_id == current_user.id)
     
     latest_session_subquery = subquery_base.group_by(VisitorSession.visitor_id).subquery()
+
+    # 2) Join back to the latest session row so we can filter by its status
+    latest_sessions_query = (
+        db.query(
+            latest_session_subquery.c.visitor_id,
+            latest_session_subquery.c.latest_created_at,
+        )
+        .join(
+            VisitorSession,
+            (VisitorSession.visitor_id == latest_session_subquery.c.visitor_id)
+            & (VisitorSession.created_at == latest_session_subquery.c.latest_created_at)
+            & (VisitorSession.visitor_id.isnot(None))
+            & (VisitorSession.staff_id.isnot(None)),
+        )
+    )
+    if is_admin:
+        latest_sessions_query = latest_sessions_query.filter(VisitorSession.project_id == current_user.project_id)
+    else:
+        latest_sessions_query = latest_sessions_query.filter(VisitorSession.staff_id == current_user.id)
+
+    if only_completed_recent:
+        # A visitor is considered "completed" only when the visitor's latest session is CLOSED
+        latest_sessions_query = latest_sessions_query.filter(VisitorSession.status == SessionStatus.CLOSED.value)
+
+    # Total count of visitors after applying filters
+    total_count = latest_sessions_query.distinct(latest_session_subquery.c.visitor_id).count()
+    if total_count == 0:
+        logger.debug(f"No sessions found for staff {current_user.username}")
+        return WuKongIMConversationPaginatedResponse(
+            conversations=[],
+            pagination=PaginationMetadata(
+                total=0,
+                limit=limit,
+                offset=offset,
+                has_next=False,
+                has_prev=False,
+            )
+        )
     
-    # Get paginated visitor_ids ordered by latest session created time (newest first)
+    # 3) Get paginated visitor_ids ordered by latest session created time (newest first)
     paginated_visitor_ids = (
-        db.query(latest_session_subquery.c.visitor_id)
+        latest_sessions_query
         .order_by(latest_session_subquery.c.latest_created_at.desc())
         .offset(offset)
         .limit(limit)
@@ -559,6 +644,161 @@ async def sync_waiting_conversations(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch waiting visitors conversations",
+        )
+
+
+@router.get(
+    "/by-tags/recent",
+    response_model=WuKongIMConversationWithChannelsPaginatedResponse,
+    summary="按访客标签获取最近会话",
+    description="按访客标签（tag_id，支持多个）筛选访客，并返回这些访客的最近会话列表（按最新会话时间倒序），支持分页。返回结果包含 conversations + channels（channels.extra 与 /channels/info 保持一致）。",
+)
+async def sync_recent_conversations_by_visitor_tags(
+    http_request: Request,
+    tag_ids: Optional[List[str]] = Query(default=None, description="访客标签ID（Base64），支持多个 tag_id（OR 关系）"),
+    manual_service_contain: bool = Query(
+        default=False,
+        description="如果为 true，则要求访客 tags 中包含“转人工(Manual Service)”标签（可与 tag_ids 组合，AND 关系）",
+    ),
+    msg_count: int = Query(default=1, ge=1, le=100, description="每个会话返回的最近消息数量（默认 1）"),
+    limit: int = Query(default=20, ge=1, le=100, description="每页返回的会话数量"),
+    offset: int = Query(default=0, ge=0, description="跳过的会话数量"),
+    db: Session = Depends(get_db),
+    current_user: Staff = Depends(require_permission("visitors:read")),
+    user_language: UserLanguage = Depends(get_user_language),
+) -> WuKongIMConversationWithChannelsPaginatedResponse:
+    # Admin sees all sessions in project; others see only their own sessions
+    is_admin = current_user.role == StaffRole.ADMIN.value
+
+    tag_ids_resolved = [t for t in (tag_ids or []) if t]
+    if not tag_ids_resolved and not manual_service_contain:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="tag_ids is required")
+
+    # Subquery: latest session time per visitor that matches filters
+    vt_filter = aliased(VisitorTag)
+    vt_manual = aliased(VisitorTag)
+
+    subquery_base = (
+        db.query(
+            VisitorSession.visitor_id,
+            func.max(VisitorSession.created_at).label("latest_created_at"),
+        )
+        .filter(
+            VisitorSession.project_id == current_user.project_id,
+            VisitorSession.visitor_id.isnot(None),
+            VisitorSession.staff_id.isnot(None),
+        )
+    )
+
+    # tag_ids filter (OR)
+    if tag_ids_resolved:
+        subquery_base = subquery_base.join(
+            vt_filter,
+            (vt_filter.visitor_id == VisitorSession.visitor_id)
+            & (vt_filter.project_id == current_user.project_id)
+            & (vt_filter.deleted_at.is_(None))
+            & (vt_filter.tag_id.in_(tag_ids_resolved)),
+        )
+
+    # manual service must be contained (AND)
+    if manual_service_contain:
+        subquery_base = subquery_base.join(
+            vt_manual,
+            (vt_manual.visitor_id == VisitorSession.visitor_id)
+            & (vt_manual.project_id == current_user.project_id)
+            & (vt_manual.deleted_at.is_(None))
+            & (vt_manual.tag_id == MANUAL_SERVICE_TAG_ID),
+        )
+
+    if not is_admin:
+        subquery_base = subquery_base.filter(VisitorSession.staff_id == current_user.id)
+
+    latest_session_subquery = subquery_base.group_by(VisitorSession.visitor_id).subquery()
+
+    total_count = db.query(latest_session_subquery.c.visitor_id).count()
+    if total_count == 0:
+        return WuKongIMConversationWithChannelsPaginatedResponse(
+            conversations=[],
+            channels=[],
+            pagination=PaginationMetadata(
+                total=0,
+                limit=limit,
+                offset=offset,
+                has_next=False,
+                has_prev=False,
+            ),
+        )
+
+    paginated_visitor_ids = (
+        db.query(latest_session_subquery.c.visitor_id)
+        .order_by(latest_session_subquery.c.latest_created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    visitor_ids = [row[0] for row in paginated_visitor_ids]
+    if not visitor_ids:
+        return WuKongIMConversationWithChannelsPaginatedResponse(
+            conversations=[],
+            channels=[],
+            pagination=PaginationMetadata(
+                total=total_count,
+                limit=limit,
+                offset=offset,
+                has_next=False,
+                has_prev=offset > 0,
+            ),
+        )
+
+    # Build channel list for WuKongIM
+    channels_req: List[dict] = [
+        {"channel_id": build_visitor_channel_id(visitor_id), "channel_type": CHANNEL_TYPE_CUSTOMER_SERVICE}
+        for visitor_id in visitor_ids
+    ]
+
+    staff_uid = f"{current_user.id}-staff"
+    try:
+        raw_conversations = await wukongim_client.sync_conversations_by_channels(
+            uid=staff_uid,
+            channels=channels_req,
+            msg_count=msg_count,
+        )
+        conversations = [conv.model_copy(update={"unread": 0}) for conv in raw_conversations]
+
+        # Build channels list (include CLOSED/QUEUED visitors as well, keep consistent with /channels/info)
+        channel_infos = await _build_channels_for_conversations(
+            db=db,
+            conversations=conversations,
+            project_id=current_user.project_id,
+            user_language=user_language,
+            accept_language=http_request.headers.get("Accept-Language"),
+            include_closed_and_queued=True,
+        )
+
+        valid_channel_ids = {ch.channel_id for ch in channel_infos}
+        filtered_conversations = [
+            conv for conv in conversations if (conv.channel_type != CHANNEL_TYPE_CUSTOMER_SERVICE) or (conv.channel_id in valid_channel_ids)
+        ]
+
+        has_next = (offset + limit) < total_count
+        has_prev = offset > 0
+
+        return WuKongIMConversationWithChannelsPaginatedResponse(
+            conversations=filtered_conversations,
+            channels=channel_infos,
+            pagination=PaginationMetadata(
+                total=total_count,
+                limit=limit,
+                offset=offset,
+                has_next=has_next,
+                has_prev=has_prev,
+            ),
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch conversations by tags: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch conversations by tags",
         )
 
 

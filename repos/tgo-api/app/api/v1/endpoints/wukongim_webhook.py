@@ -29,6 +29,7 @@ ai_client = AIServiceClient()
 wukong_client = WuKongIMClient()
 
 STAFF_UID_SUFFIX = "-staff"
+VISITOR_UID_SUFFIX = "-vtr"
 STAFF_API_CACHE_TTL = 300.0
 STAFF_API_CACHE_MAX = 1024
 STREAM_EVENT_FALLBACK = "ai.stream"
@@ -312,6 +313,9 @@ async def _handle_user_online_status(events_payload: Any, db: Session) -> None:
         if uid_raw.endswith(STAFF_UID_SUFFIX):
             is_staff = True
             uid_str = uid_raw[:-len(STAFF_UID_SUFFIX)]
+        if uid_str.endswith(VISITOR_UID_SUFFIX):
+            is_visitor = True
+            uid_str = uid_str[:-len(VISITOR_UID_SUFFIX)]
 
         try:
             uid = UUID(uid_str)
@@ -342,7 +346,7 @@ async def _handle_user_online_status(events_payload: Any, db: Session) -> None:
                 staff.status = desired_status
                 dirty = True
                 staff_updates += 1
-        else:
+        elif is_visitor:
             visitor = (
                 db.query(Visitor)
                 .filter(Visitor.id == uid, Visitor.deleted_at.is_(None))

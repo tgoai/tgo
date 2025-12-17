@@ -50,7 +50,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = React.memo(({ activeChat, onEndCha
   const { name: channelName, extra } = useChannelDisplay({
     channelId: activeChat.channelId,
     channelType: activeChat.channelType,
-    skipFetch: isAIChat, // AI 会话不需要获取频道信息
+    skipFetch: false, 
   });
   
   // 获取访客信息
@@ -66,11 +66,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = React.memo(({ activeChat, onEndCha
   const showEndChatButton = !isAIChat && visitorId && serviceStatus === 'active' && isMyVisitor;
   
   // 获取显示名称
-  const displayName = isAgentChat 
-    ? t('chat.header.agentFallback', 'AI员工')
-    : isTeamChat
-      ? t('chat.header.teamFallback', 'AI员工团队')
-      : channelName;
+  const displayName = channelName || '';
 
   // 结束聊天处理
   const handleEndChat = useCallback(async () => {

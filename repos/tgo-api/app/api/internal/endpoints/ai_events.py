@@ -37,6 +37,11 @@ from app.services.visitor_notifications import notify_visitor_profile_updated
 from app.services.transfer_service import transfer_to_staff
 from app.utils.intent import localize_intent
 from app.models.tag import TagCategory
+from app.utils.manual_service_tag import (
+    MANUAL_SERVICE_TAG_ID,
+    MANUAL_SERVICE_TAG_NAME,
+    MANUAL_SERVICE_TAG_NAME_ZH,
+)
 
 logger = logging.getLogger("internal.ai_events")
 
@@ -45,8 +50,6 @@ MANUAL_SERVICE_EVENT = "manual_service.request"
 VISITOR_INFO_EVENT = "visitor_info.update"
 VISITOR_SENTIMENT_EVENT = "visitor_sentiment.update"
 VISITOR_TAG_EVENT = "visitor_tag.add"
-MANUAL_SERVICE_TAG_NAME = "Manual Service"
-MANUAL_SERVICE_TAG_NAME_ZH = "转人工"
 
 # Visitor field mapping for info updates
 VISITOR_FIELD_MAP = {
@@ -68,7 +71,7 @@ router = APIRouter()
 
 def _ensure_manual_service_tag(db: Session, project_id, visitor: Visitor) -> None:
     """Ensure the visitor carries the manual service escalation tag."""
-    tag_id = Tag.generate_id(MANUAL_SERVICE_TAG_NAME, TagCategory.VISITOR)
+    tag_id = MANUAL_SERVICE_TAG_ID
     tag = (
         db.query(Tag)
         .filter(Tag.id == tag_id, Tag.project_id == project_id)
@@ -79,6 +82,7 @@ def _ensure_manual_service_tag(db: Session, project_id, visitor: Visitor) -> Non
         tag = Tag(
             name=MANUAL_SERVICE_TAG_NAME,
             category=TagCategory.VISITOR,
+            color="#3B82F6",
             project_id=project_id,
             name_zh=MANUAL_SERVICE_TAG_NAME_ZH,
             description="Flag visitors who requested human assistance",

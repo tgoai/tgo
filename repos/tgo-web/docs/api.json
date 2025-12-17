@@ -9803,30 +9803,6 @@
         }
       }
     },
-    "/v1/diagnostics/kafka-consumers": {
-      "get": {
-        "tags": [
-          "Diagnostics"
-        ],
-        "summary": "Kafka Consumer Status",
-        "description": "Get status of all Kafka consumer tasks for debugging.",
-        "operationId": "kafka_consumer_status_v1_diagnostics_kafka_consumers_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Kafka Consumer Status V1 Diagnostics Kafka Consumers Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/email/test-connection": {
       "post": {
         "tags": [
@@ -9880,8 +9856,8 @@
           "Chat",
           "Chat"
         ],
-        "summary": "Stream chat completion responses",
-        "description": "Streaming chat completion endpoint.\n\n- Auth: Platform API key in request payload (api_key)\n- Behavior: Publishes message to Kafka and streams AI events over SSE\n- Output: Server-Sent Events (SSE) with tokens and a final complete event",
+        "summary": "流式聊天完成接口",
+        "description": "## 概述\n访客聊天接口，支持 Server-Sent Events (SSE) 流式响应和非流式 JSON 响应。\n\n## 认证方式\n通过请求体中的 `api_key` 字段传递平台 API Key。\n\n## 请求参数\n| 参数 | 类型 | 必填 | 说明 |\n|------|------|------|------|\n| api_key | string | ✅ | 平台 API Key |\n| message | string | ✅ | 用户消息内容 |\n| from_uid | string | ✅ | 平台用户唯一标识 |\n| extra | object | ❌ | 额外数据（会随消息转发） |\n| timeout_seconds | int | ❌ | 超时时间（默认120秒） |\n| channel_id | string | ❌ | 自定义频道ID |\n| channel_type | int | ❌ | 频道类型（默认251=客服） |\n| system_message | string | ❌ | AI系统提示词 |\n| expected_output | string | ❌ | 期望的输出格式描述 |\n| wukongim_only | bool | ❌ | 是否仅发送到WuKongIM不返回流（默认false） |\n| stream | bool | ❌ | 是否使用流式响应（默认true）。false返回完整JSON |\n\n## 响应模式\n\n### 1. 流式响应（stream=true，默认）\n返回 `text/event-stream` 格式的 SSE 流。\n\n### 2. 非流式响应（stream=false）\n返回 JSON 格式的完整响应：\n```json\n{\n  \"success\": true,\n  \"message\": \"AI回复的完整内容...\",\n  \"visitor_id\": \"访客UUID\"\n}\n```\n\n## SSE 响应事件类型（仅 stream=true 时）\n\n### 成功事件\n| event_type | 说明 | data 结构 |\n|------------|------|-----------|\n| `team_run_started` | AI开始处理 | `{}` |\n| `team_run_content` | AI输出内容块 | `{\"content\": \"文本块\"}` |\n| `workflow_completed` | AI处理完成 | `{}` |\n| `accepted` | 请求已接受（wukongim_only=true时） | `{\"message\": \"Request accepted...\"}` |\n\n### 错误/状态事件\n| event_type | 说明 | data 结构 |\n|------------|------|-----------|\n| `error` | 发生错误 | `{\"message\": \"错误信息\", \"visitor_id\": \"...\"}` |\n| `queued` | 访客已加入等待队列（无可用客服） | `{\"message\": \"...\", \"visitor_id\": \"...\", \"queue_position\": 1}` |\n| `ai_disabled` | AI已禁用 | `{\"message\": \"AI responses are disabled...\"}` |\n| `workflow_failed` | AI工作流执行失败 | `{\"message\": \"错误详情\"}` |\n\n## 错误场景\n\n### 1. 无效的 API Key\n返回 HTTP 401:\n```json\n{\"detail\": \"Invalid platform API key\"}\n```\n\n### 2. 平台未关联项目\n返回 HTTP 400:\n```json\n{\"detail\": \"Platform not associated with any project\"}\n```\n\n### 3. 客服分配失败\n\n**stream=true（SSE）:**\n```\ndata: {\"event_type\": \"error\", \"data\": {\"success\": false, \"event_type\": \"error\", \"message\": \"...\", \"visitor_id\": \"...\"}}\n```\n\n**stream=false（JSON）:**\n```json\n{\"success\": false, \"event_type\": \"error\", \"message\": \"Transfer failed: ...\", \"visitor_id\": \"...\"}\n```\n\n### 4. 无可用客服（已加入队列）\n\n**stream=true（SSE）:**\n```\ndata: {\"event_type\": \"queued\", \"data\": {\"success\": false, \"message\": \"...\", \"visitor_id\": \"...\", \"queue_position\": 1}}\n```\n\n**stream=false（JSON）:**\n```json\n{\"success\": false, \"event_type\": \"queued\", \"message\": \"Added to waiting queue at position 1\", \"visitor_id\": \"...\", \"queue_position\": 1}\n```\n\n### 5. 无分配客服\n\n**stream=true（SSE）:**\n```\ndata: {\"event_type\": \"error\", \"data\": {\"message\": \"No staff assigned to this visitor\", \"visitor_id\": \"...\"}}\n```\n\n**stream=false（HTTP 503）:**\n```json\n{\"detail\": {\"success\": false, \"event_type\": \"error\", \"message\": \"No staff assigned to this visitor\", \"visitor_id\": \"...\"}}\n```\n\n### 6. AI已禁用\n\n**stream=true（SSE）:**\n```\ndata: {\"event_type\": \"ai_disabled\", \"data\": {\"message\": \"AI responses are disabled...\"}}\n```\n\n**stream=false（HTTP 403）:**\n```json\n{\"detail\": {\"success\": false, \"event_type\": \"ai_disabled\", \"message\": \"AI responses are disabled...\"}}\n```\n\n### 7. AI服务错误\n\n**stream=true（SSE）:**\n```\ndata: {\"event_type\": \"error\", \"data\": {\"message\": \"AI service error: ...\"}}\n```\n\n**stream=false（HTTP 500）:**\n```json\n{\"detail\": \"AI service error: ...\"}\n```\n\n## SSE 响应格式示例\n```\ndata: {\"event_type\": \"team_run_started\", \"data\": {}}\n\ndata: {\"event_type\": \"team_run_content\", \"data\": {\"content\": \"你好\"}}\n\ndata: {\"event_type\": \"team_run_content\", \"data\": {\"content\": \"，有什么\"}}\n\ndata: {\"event_type\": \"team_run_content\", \"data\": {\"content\": \"可以帮助您的？\"}}\n\ndata: {\"event_type\": \"workflow_completed\", \"data\": {}}\n```\n\n## 前端使用示例\n```javascript\nconst eventSource = new EventSource('/api/v1/chat/completion', {\n  method: 'POST',\n  body: JSON.stringify({\n    api_key: 'your-api-key',\n    message: '你好',\n    from_uid: 'user123'\n  })\n});\n\neventSource.onmessage = (event) =\u003E {\n  const data = JSON.parse(event.data);\n  switch (data.event_type) {\n    case 'team_run_content':\n      // 追加内容到界面\n      appendText(data.data.content);\n      break;\n    case 'workflow_completed':\n      // 完成处理\n      eventSource.close();\n      break;\n    case 'error':\n    case 'queued':\n      // 处理错误或排队状态\n      handleError(data.data);\n      eventSource.close();\n      break;\n  }\n};\n```",
         "operationId": "chat_completion_v1_chat_completion_post",
         "requestBody": {
           "content": {
@@ -9895,14 +9871,34 @@
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "成功响应（流式或JSON）",
             "content": {
               "application/json": {
                 "schema": {
 
+                },
+                "example": {
+                  "success": true,
+                  "message": "你好，有什么可以帮助您的？",
+                  "visitor_id": "550e8400-e29b-41d4-a716-446655440000"
                 }
+              },
+              "text/event-stream": {
+                "example": "data: {\"event_type\": \"team_run_content\", \"data\": {\"content\": \"你好\"}}\n\n"
               }
             }
+          },
+          "401": {
+            "description": "无效的 API Key"
+          },
+          "400": {
+            "description": "平台未关联项目"
+          },
+          "500": {
+            "description": "AI服务错误（stream=false时）"
+          },
+          "503": {
+            "description": "无可用客服"
           },
           "422": {
             "description": "Validation Error",
@@ -10174,7 +10170,7 @@
           "Chat"
         ],
         "summary": "Staff chat with AI team or agent",
-        "description": "Staff-to-team/agent chat endpoint.\n\n    This endpoint allows authenticated staff members to chat with AI teams or agents.\n    The AI response is delivered via WuKongIM to the client.\n\n    **Authentication**: JWT token required (staff authentication).\n\n    **Request**: Either `team_id` or `agent_id` must be provided (exactly one).\n\n    **Channel Format**:\n    - If `team_id` is provided: channel_id = `{team_id}-team`\n    - If `agent_id` is provided: channel_id = `{agent_id}-agent`\n\n    **Response Delivery**: AI response is sent via WuKongIM, not returned in this endpoint.\n    This endpoint only returns success/failure status after publishing to Kafka.",
+        "description": "Staff-to-team/agent chat endpoint.\n\n    This endpoint allows authenticated staff members to chat with AI teams or agents.\n    The AI response is delivered via WuKongIM to the client.\n\n    **Authentication**: JWT token required (staff authentication).\n\n    **Request**: Either `team_id` or `agent_id` must be provided (exactly one).\n\n    **Channel Format**:\n    - If `team_id` is provided: channel_id = `{team_id}-team`\n    - If `agent_id` is provided: channel_id = `{agent_id}-agent`\n\n    **Response Delivery**: AI response is sent via WuKongIM, not returned in this endpoint.\n    This endpoint returns success/failure status after initiating AI processing.",
         "operationId": "staff_team_chat_v1_chat_team_post",
         "requestBody": {
           "content": {
@@ -10426,6 +10422,39 @@
         ],
         "parameters": [
           {
+            "name": "tag_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "访客标签ID（Base64），支持多个 tag_id（OR 关系）。提供后仅返回匹配标签的访客会话。",
+              "title": "Tag Ids"
+            },
+            "description": "访客标签ID（Base64），支持多个 tag_id（OR 关系）。提供后仅返回匹配标签的访客会话。"
+          },
+          {
+            "name": "manual_service_contain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "如果为 true，则仅返回 tags 中包含“转人工(Manual Service)”标签的访客会话（可与 tag_ids 组合，AND 关系）。",
+              "default": false,
+              "title": "Manual Service Contain"
+            },
+            "description": "如果为 true，则仅返回 tags 中包含“转人工(Manual Service)”标签的访客会话（可与 tag_ids 组合，AND 关系）。"
+          },
+          {
             "name": "x-user-language",
             "in": "header",
             "required": false,
@@ -10503,6 +10532,18 @@
               "title": "Msg Count"
             },
             "description": "每个会话返回的最近消息数量"
+          },
+          {
+            "name": "only_completed_recent",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "如果为 true，则仅返回“已完成(Closed)”的最近会话（按每个访客最近一次已关闭会话时间排序）",
+              "default": false,
+              "title": "Only Completed Recent"
+            },
+            "description": "如果为 true，则仅返回“已完成(Closed)”的最近会话（按每个访客最近一次已关闭会话时间排序）"
           },
           {
             "name": "limit",
@@ -10619,6 +10660,135 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WuKongIMConversationPaginatedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/by-tags/recent": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "按访客标签获取最近会话",
+        "description": "按访客标签（tag_id，支持多个）筛选访客，并返回这些访客的最近会话列表（按最新会话时间倒序），支持分页。返回结果包含 conversations + channels（channels.extra 与 /channels/info 保持一致）。",
+        "operationId": "sync_recent_conversations_by_visitor_tags_v1_conversations_by_tags_recent_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tag_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "访客标签ID（Base64），支持多个 tag_id（OR 关系）",
+              "title": "Tag Ids"
+            },
+            "description": "访客标签ID（Base64），支持多个 tag_id（OR 关系）"
+          },
+          {
+            "name": "manual_service_contain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "如果为 true，则要求访客 tags 中包含“转人工(Manual Service)”标签（可与 tag_ids 组合，AND 关系）",
+              "default": false,
+              "title": "Manual Service Contain"
+            },
+            "description": "如果为 true，则要求访客 tags 中包含“转人工(Manual Service)”标签（可与 tag_ids 组合，AND 关系）"
+          },
+          {
+            "name": "msg_count",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "每个会话返回的最近消息数量（默认 1）",
+              "default": 1,
+              "title": "Msg Count"
+            },
+            "description": "每个会话返回的最近消息数量（默认 1）"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "每页返回的会话数量",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "每页返回的会话数量"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "跳过的会话数量",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "跳过的会话数量"
+          },
+          {
+            "name": "x-user-language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Language"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WuKongIMConversationWithChannelsPaginatedResponse"
                 }
               }
             }
@@ -13405,15 +13575,28 @@
         "properties": {
           "api_key": {
             "type": "string",
-            "title": "Api Key"
+            "title": "Api Key",
+            "description": "平台 API Key，用于验证请求来源",
+            "examples": [
+              "pk_live_xxxxxxxxxxxx"
+            ]
           },
           "message": {
             "type": "string",
-            "title": "Message"
+            "title": "Message",
+            "description": "用户发送的消息内容",
+            "examples": [
+              "你好，请问有什么可以帮助您的？"
+            ]
           },
           "from_uid": {
             "type": "string",
-            "title": "From Uid"
+            "title": "From Uid",
+            "description": "平台用户唯一标识，用于识别访客身份",
+            "examples": [
+              "user_12345",
+              "wx_openid_xxx"
+            ]
           },
           "extra": {
             "anyOf": [
@@ -13425,18 +13608,35 @@
                 "type": "null"
               }
             ],
-            "title": "Extra"
+            "title": "Extra",
+            "description": "额外数据，会随消息一起转发到 WuKongIM",
+            "examples": [
+              {
+                "page": "/product/123",
+                "source": "web"
+              }
+            ]
+          },
+          "forward_user_message_to_wukongim": {
+            "type": "boolean",
+            "title": "Forward User Message To Wukongim",
+            "description": "是否将用户消息同时转发一份到 WuKongIM（默认开启）",
+            "default": true,
+            "examples": [true]
           },
           "timeout_seconds": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 300,
+                "minimum": 10
               },
               {
                 "type": "null"
               }
             ],
             "title": "Timeout Seconds",
+            "description": "SSE 流超时时间（秒），默认120秒，范围10-300",
             "default": 120
           },
           "channel_id": {
@@ -13448,7 +13648,8 @@
                 "type": "null"
               }
             ],
-            "title": "Channel Id"
+            "title": "Channel Id",
+            "description": "自定义频道ID，不填则自动生成（格式: {visitor_id}-vtr 的编码形式）"
           },
           "channel_type": {
             "anyOf": [
@@ -13459,7 +13660,8 @@
                 "type": "null"
               }
             ],
-            "title": "Channel Type"
+            "title": "Channel Type",
+            "description": "频道类型，默认251（客服频道）"
           },
           "system_message": {
             "anyOf": [
@@ -13471,7 +13673,10 @@
               }
             ],
             "title": "System Message",
-            "description": "System message/prompt to guide the AI agent"
+            "description": "AI系统提示词，用于指导AI的回复风格和行为",
+            "examples": [
+              "你是一个专业的客服助手，请用简洁友好的语气回复用户问题。"
+            ]
           },
           "expected_output": {
             "anyOf": [
@@ -13483,13 +13688,29 @@
               }
             ],
             "title": "Expected Output",
-            "description": "Expected output format or description for the AI agent"
+            "description": "期望的输出格式描述，帮助AI生成符合要求的响应",
+            "examples": [
+              "请用JSON格式回复，包含answer和confidence字段"
+            ]
           },
           "wukongim_only": {
             "type": "boolean",
             "title": "Wukongim Only",
-            "description": "If True, only send to WuKongIM without returning stream response to client",
+            "description": "是否仅发送到WuKongIM而不返回流响应给客户端。设为true时，接口会立即返回accepted事件，AI处理在后台进行",
             "default": false
+          },
+          "stream": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream",
+            "description": "是否使用流式响应。true（默认）返回SSE流，false返回完整JSON响应",
+            "default": true
           }
         },
         "type": "object",
@@ -13499,7 +13720,7 @@
           "from_uid"
         ],
         "title": "ChatCompletionRequest",
-        "description": "Request payload for streaming chat completion.\n\nNotes:\n- api_key refers to the Platform API key used by the client integration\n- from_uid identifies the end-user on the client platform\n- message is the chat input to be completed by AI\n- timeout_seconds bounds the SSE stream duration\n- wukongim_only: if True, only send to WuKongIM without returning stream to client"
+        "description": "流式聊天请求参数。"
       },
       "ChatFileUploadResponse": {
         "properties": {
@@ -20899,6 +21120,45 @@
             ],
             "title": "Custom Attributes",
             "description": "Updated custom attribute key/value pairs"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone",
+            "description": "Updated visitor timezone"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language",
+            "description": "Updated visitor language code"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 45
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address",
+            "description": "Updated visitor IP address"
           }
         },
         "type": "object",
@@ -21064,6 +21324,102 @@
             "title": "Service Status",
             "description": "Visitor service status: new, queued, active, closed",
             "default": "new"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone",
+            "description": "Visitor timezone (e.g., 'Asia/Shanghai', 'America/New_York')"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language",
+            "description": "Visitor preferred language code (e.g., 'en', 'zh-CN')"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address",
+            "description": "Visitor IP address (supports both IPv4 and IPv6)"
+          },
+          "geo_country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Country",
+            "description": "Country name derived from IP address"
+          },
+          "geo_country_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Country Code",
+            "description": "ISO 3166-1 alpha-2 country code (e.g., 'US', 'CN')"
+          },
+          "geo_region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Region",
+            "description": "Region/state/province name"
+          },
+          "geo_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo City",
+            "description": "City name"
+          },
+          "geo_isp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Isp",
+            "description": "Internet Service Provider (available with ip2region)"
           },
           "created_at": {
             "type": "string",
@@ -21292,6 +21648,32 @@
             "title": "Custom Attributes",
             "description": "Custom attribute key/value pairs (supports nested structures)"
           },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone",
+            "description": "Visitor timezone (e.g., 'Asia/Shanghai', 'America/New_York')"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language",
+            "description": "Visitor preferred language code (e.g., 'en', 'zh-CN')"
+          },
           "platform_id": {
             "anyOf": [
               {
@@ -21315,6 +21697,19 @@
               }
             ],
             "description": "Platform type to use default platform (required if platform_id not provided)"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 45
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address",
+            "description": "Visitor IP address (if not provided, will be extracted from request headers)"
           }
         },
         "type": "object",
@@ -21587,6 +21982,45 @@
               }
             ],
             "description": "Visitor system metadata payload (browser, OS, timestamps, etc.)"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone",
+            "description": "Visitor timezone (e.g., 'Asia/Shanghai', 'America/New_York')"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language",
+            "description": "Visitor preferred language code (e.g., 'en', 'zh-CN')"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 45
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address",
+            "description": "Visitor IP address (if not provided, will be extracted from request headers)"
           }
         },
         "type": "object",
@@ -21764,6 +22198,32 @@
             "title": "Custom Attributes",
             "description": "Custom attribute key/value pairs (supports nested structures)"
           },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone",
+            "description": "Visitor timezone (e.g., 'Asia/Shanghai', 'America/New_York')"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language",
+            "description": "Visitor preferred language code (e.g., 'en', 'zh-CN')"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -21817,6 +22277,78 @@
             "title": "Service Status",
             "description": "Visitor service status: new, queued, active, closed",
             "default": "new"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address",
+            "description": "Visitor IP address (supports both IPv4 and IPv6)"
+          },
+          "geo_country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Country",
+            "description": "Country name derived from IP address"
+          },
+          "geo_country_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Country Code",
+            "description": "ISO 3166-1 alpha-2 country code (e.g., 'US', 'CN')"
+          },
+          "geo_region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Region",
+            "description": "Region/state/province name"
+          },
+          "geo_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo City",
+            "description": "City name"
+          },
+          "geo_isp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Isp",
+            "description": "Internet Service Provider (available with ip2region)"
           },
           "platform_type": {
             "anyOf": [
@@ -22114,6 +22646,32 @@
             "title": "Custom Attributes",
             "description": "Custom attribute key/value pairs (supports nested structures)"
           },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone",
+            "description": "Visitor timezone (e.g., 'Asia/Shanghai', 'America/New_York')"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language",
+            "description": "Visitor preferred language code (e.g., 'en', 'zh-CN')"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -22167,6 +22725,78 @@
             "title": "Service Status",
             "description": "Visitor service status: new, queued, active, closed",
             "default": "new"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address",
+            "description": "Visitor IP address (supports both IPv4 and IPv6)"
+          },
+          "geo_country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Country",
+            "description": "Country name derived from IP address"
+          },
+          "geo_country_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Country Code",
+            "description": "ISO 3166-1 alpha-2 country code (e.g., 'US', 'CN')"
+          },
+          "geo_region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Region",
+            "description": "Region/state/province name"
+          },
+          "geo_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo City",
+            "description": "City name"
+          },
+          "geo_isp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Isp",
+            "description": "Internet Service Provider (available with ip2region)"
           },
           "platform_type": {
             "anyOf": [
@@ -22786,6 +23416,45 @@
             ],
             "title": "Custom Attributes",
             "description": "Updated custom attribute key/value pairs"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone",
+            "description": "Updated visitor timezone"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language",
+            "description": "Updated visitor language code"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 45
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address",
+            "description": "Updated visitor IP address"
           },
           "is_online": {
             "anyOf": [
@@ -23620,6 +24289,36 @@
         "title": "WuKongIMConversationSyncRequest",
         "description": "Schema for conversation synchronization request."
       },
+      "WuKongIMConversationWithChannelsPaginatedResponse": {
+        "properties": {
+          "conversations": {
+            "items": {
+              "$ref": "#/components/schemas/WuKongIMConversation"
+            },
+            "type": "array",
+            "title": "Conversations",
+            "description": "List of conversations"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelInfo"
+            },
+            "type": "array",
+            "title": "Channels",
+            "description": "List of channel information for each conversation"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata",
+            "description": "Pagination metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pagination"
+        ],
+        "title": "WuKongIMConversationWithChannelsPaginatedResponse",
+        "description": "Paginated response for WuKongIM conversations with channel details."
+      },
       "WuKongIMConversationWithChannelsResponse": {
         "properties": {
           "conversations": {
@@ -23799,6 +24498,18 @@
             ],
             "title": "End Reason",
             "description": "Stream end reason code"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Error message"
           },
           "stream_data": {
             "anyOf": [

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,11 +7,11 @@ import { MessagePayloadType, PlatformType, isSystemMessageType } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
 import { StreamEndReason } from '@/stores/chatStore';
 import { useChannelDisplay } from '@/hooks/useChannelDisplay';
-import { generateDefaultAvatar } from '@/utils/avatarUtils';
 import { getPlatformIconComponent, getPlatformLabel, toPlatformType, getPlatformColor } from '@/utils/platformUtils';
 
 import AIInfoCard from './AIInfoCard';
 import ReplySuggestions from './ReplySuggestions';
+import { ChatAvatar } from './ChatAvatar';
 
 import TextMessage from './messages/TextMessage';
 import ImageMessage from './messages/ImageMessage';
@@ -140,14 +140,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSuggestionClick, o
   
   // For avatar color consistency with chat list, use message.channelId for non-own messages (visitors)
   // This ensures visitor avatar color matches the conversation list item
-  const colorSeedChannelId = isOwnMessage ? senderChannelId : (message.channelId || senderChannelId);
+  const colorSeedChannelId = isOwnMessage ? senderChannelId : (senderChannelId || message.channelId );
 
   // Use unified hook for sender display info
   // Priority: message.fromInfo > channelStore cache > fallback
   const {
     name: channelName,
     avatar: channelAvatar,
-    hasValidAvatar: hasAvatar,
     extra: channelExtra,
   } = useChannelDisplay({
     channelId: senderChannelId,
@@ -157,14 +156,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSuggestionClick, o
     skipFetch: false,
   });
   
-  // Generate default avatar manually:
-  // - Letter: from sender's name (channelName)
-  // - Color: from colorSeedChannelId (for visitor messages, use conversation channelId for consistency with chat list)
-  const defaultAvatar = useMemo(() => {
-    if (hasAvatar) return null;
-    return generateDefaultAvatar(channelName, colorSeedChannelId);
-  }, [hasAvatar, channelName, colorSeedChannelId]);
-
   // Display info with staff fallback
   const displayName = isOwnMessage
     ? (message.fromInfo?.name || t('chat.header.staffFallback', '客服'))
@@ -212,15 +203,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSuggestionClick, o
           {displayName} {getPlatformIcon()}
         </div>
         <div className="flex items-start space-x-2">
-          <div className="w-8 h-8 flex-shrink-0 self-start">
-            {hasAvatar ? (
-              <img src={displayAvatar} alt="Visitor Avatar" className="w-full h-full rounded-md object-cover bg-gray-200 dark:bg-gray-700" />
-            ) : (
-              <div className={`w-full h-full rounded-md flex items-center justify-center text-white font-bold text-sm ${defaultAvatar?.colorClass || 'bg-gradient-to-br from-gray-400 to-gray-500'}`}>
-                {defaultAvatar?.letter || '?'}
-              </div>
-            )}
-          </div>
+          <ChatAvatar
+            displayName={displayName}
+            displayAvatar={displayAvatar}
+            colorSeed={colorSeedChannelId}
+            sizePx={32} // keep existing 8x8 size
+            wrapperClassName="relative flex-shrink-0 self-start"
+          />
           <MessageContent
             message={message}
             isStaff={false}

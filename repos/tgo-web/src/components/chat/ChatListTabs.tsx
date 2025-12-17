@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-export type ChatTabType = 'mine' | 'unassigned' | 'all';
+export type ChatTabType = 'mine' | 'unassigned' | 'all' | 'manual';
 
 interface ChatListTabsProps {
   activeTab: ChatTabType;
@@ -21,7 +21,8 @@ export const ChatListTabs: React.FC<ChatListTabsProps> = ({ activeTab, onTabChan
   const tabs: { key: ChatTabType; label: string; count?: number }[] = [
     { key: 'mine', label: t('chat.list.tabs.mine', '我的'), count: counts.mine > 0 ? counts.mine : undefined },
     { key: 'unassigned', label: t('chat.list.tabs.unassigned', '未分配'), count: counts.unassigned > 0 ? counts.unassigned : undefined },
-    { key: 'all', label: t('chat.list.tabs.all', '全部') }, // "全部" tab 不显示数量
+    { key: 'all', label: t('chat.list.tabs.all', '已完成') }, // 已完成 tab 不显示数量
+    // { key: 'manual', label: t('chat.list.tabs.manual', '转人工') }, // 转人工 tab 不显示数量
   ];
 
   const updateIndicator = useCallback(() => {
