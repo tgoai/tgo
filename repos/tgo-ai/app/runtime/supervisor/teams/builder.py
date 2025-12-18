@@ -118,7 +118,7 @@ class AgnoTeamBuilder:
             "delegate_task_to_all_members": False,
             "expected_output": context.expected_output,
             "add_datetime_to_context": True,
-            "respond_directly": True, # 直接返回成员的回答，不进行额外的汇总
+            "respond_directly": False, # 直接返回成员的回答，不进行额外的汇总
             "stream_member_events": True,
             "share_member_interactions": False,
             "show_members_responses": False,
@@ -209,24 +209,32 @@ class AgnoTeamBuilder:
 
             # Create function wrappers for UI template operations
             def ui_get_template(template_name: str) -> str:
-                """获取指定 UI 模板的详细格式说明。当需要展示订单、产品、物流等结构化数据时使用。
+                """获取指定 UI 模板的详细 schema 格式和使用示例。
+                
+                当用户请求展示结构化信息（如订单详情、产品介绍、物流状态等）时，你必须首先调用此工具来了解该模板所需的具体字段结构和数据类型。
+                调用后，你将获得一个 JSON 格式的模板说明，请严格按照该说明组织数据。
 
                 Args:
-                    template_name: 模板名称 (order/product/product_list/logistics/price_comparison)
+                    template_name: 模板名称。可选值: order, product, product_list, logistics, price_comparison
                 """
                 return get_ui_template(template_name)
 
             def ui_render(template_name: str, data: dict) -> str:
-                """渲染 UI 模板，验证数据格式并返回格式化的 Markdown。
+                """将业务数据渲染为前端可识别的 UI 组件代码块 (tgo-ui-widget)。
+
+                在获取了模板格式并准备好数据后，调用此工具生成最终的 Markdown 代码块。
+                你应当将返回的 Markdown 块直接包含在回复用户的消息中。
+
+                注意：确保 data 字段完全符合模板定义，数值型字段传数字。
 
                 Args:
                     template_name: 模板名称
-                    data: 要渲染的数据字典
+                    data: 符合模板定义的 JSON 数据对象
                 """
                 return render_ui(template_name, data)
 
             def ui_list_templates() -> str:
-                """列出所有可用的 UI 模板及其简短描述。"""
+                """列出所有可用的 UI 模板及其简短描述。当你不知道该使用哪个模板时可以调用此工具。"""
                 return list_ui_templates()
 
             self._logger.debug("UI template tools created for team")

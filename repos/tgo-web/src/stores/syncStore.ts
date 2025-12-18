@@ -81,6 +81,7 @@ export const useSyncStore = create<SyncState>()(
         }
 
         const lastMessage = latestWkMsg ? WuKongIMUtils.extractMessageContent(latestWkMsg) : '暂无消息';
+        const payloadType = latestWkMsg ? (typeof latestWkMsg.payload === 'object' ? (latestWkMsg.payload as any)?.type : undefined) : undefined;
 
         const channelId = conversation.channel_id;
         const channelType = conversation.channel_type ?? DEFAULT_CHANNEL_TYPE;
@@ -92,6 +93,7 @@ export const useSyncStore = create<SyncState>()(
           id: getChannelKey(channelId, channelType),
           platform,
           lastMessage,
+          payloadType,
           timestamp: new Date(conversation.timestamp * 1000).toISOString(),
           lastTimestampSec: conversation.timestamp,
           status: CHAT_STATUS_CONST.ACTIVE as ChatStatus,

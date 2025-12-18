@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useChannelStore } from '@/stores/channelStore';
 import { useAppSettingsStore } from '@/stores/appSettingsStore';
 import type { Chat, Message, ChannelVisitorExtra } from '@/types';
-import { PlatformType } from '@/types';
+import { PlatformType, MessagePayloadType } from '@/types';
 import { chatMessagesApiService } from '@/services/chatMessagesApi';
 import { useToast } from '@/hooks/useToast';
 import { showApiError } from '@/utils/toastHelpers';
@@ -133,7 +133,7 @@ const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ activeChat, onSendMe
       if (isWuKongIMChat && channelId && channelType) {
         const nowId = `local-${Date.now()}`;
         const payload = {
-          type: 1,
+          type: MessagePayloadType.TEXT,
           content: message.trim(),
           timestamp: Date.now(),
         };

@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next';
 import { Minus, Plus, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import type { Chat } from '@/types';
+import { MessagePayloadType, type Chat } from '@/types';
 import { useChatStore, chatSelectors, useAuthStore } from '@/stores';
 import { useSyncStore } from '@/stores/syncStore';
 import { useChannelStore } from '@/stores/channelStore';
@@ -723,7 +723,7 @@ const ChatListComponent: React.FC<ChatListProps> = ({
       realtimeChatMap.set(key, c);
     });
     
-    // 合并 API 会话，如果 realtimeChats 中有更新且更新时间更晚则使用更新后的数据
+    // 合并 API 会话，如果 realtimeChats 中有更新（时间戳更晚或内容不同）则使用更新后的数据
     const mergedFromApi = myChats.map(apiChat => {
       const key = getChannelKey(apiChat.channelId, apiChat.channelType);
       const realtimeChat = realtimeChatMap.get(key);
@@ -731,11 +731,17 @@ const ChatListComponent: React.FC<ChatListProps> = ({
         const apiTimestamp = apiChat.lastTimestampSec ?? 0;
         const realtimeTimestamp = realtimeChat.lastTimestampSec ?? 0;
         
-        // 只在 realtimeChat 的时间戳更新且有 lastMessage 时才使用它
-        if (realtimeTimestamp > apiTimestamp && realtimeChat.lastMessage) {
+        // 判定实时数据是否更新：
+        // 1. 时间戳更晚
+        // 2. 时间戳相同但内容不同（例如流式消息增量更新预览）
+        const isNewer = realtimeTimestamp > apiTimestamp;
+        const isContentUpdated = realtimeTimestamp === apiTimestamp && realtimeChat.lastMessage !== apiChat.lastMessage;
+
+        if ((isNewer || isContentUpdated) && (realtimeChat.lastMessage || realtimeChat.payloadType === MessagePayloadType.STREAM)) {
           return {
             ...apiChat,
             lastMessage: realtimeChat.lastMessage,
+            payloadType: realtimeChat.payloadType,
             timestamp: realtimeChat.timestamp,
             lastTimestampSec: realtimeChat.lastTimestampSec,
             unreadCount: realtimeChat.unreadCount,
@@ -749,11 +755,11 @@ const ChatListComponent: React.FC<ChatListProps> = ({
     // 获取 API 返回的会话 keys
     const apiChatKeys = new Set(myChats.map(c => getChannelKey(c.channelId, c.channelType)));
     
-    // 过滤出不在 API 结果中的实时会话（新消息创建的，且有实际内容）
+    // 过滤出不在 API 结果中的实时会话（新消息创建的，且有实际内容或特殊消息类型）
     const newRealtimeChats = realtimeChats.filter(
       c =>
         !apiChatKeys.has(getChannelKey(c.channelId, c.channelType)) &&
-        c.lastMessage &&
+        (c.lastMessage || c.payloadType === MessagePayloadType.STREAM) &&
         matchTagFilter(c)
     );
     
@@ -787,7 +793,7 @@ const ChatListComponent: React.FC<ChatListProps> = ({
     };
 
     const candidates = realtimeChats.filter((c) => {
-      if (!c.lastMessage) return false;
+      if (!c.lastMessage && c.payloadType !== MessagePayloadType.STREAM) return false;
       if (!c.channelId || c.channelType == null) return false;
       const key = getChannelKey(c.channelId, c.channelType);
       if (apiChatKeys.has(key)) return false;

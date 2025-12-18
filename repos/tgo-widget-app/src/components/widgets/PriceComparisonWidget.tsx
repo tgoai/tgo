@@ -28,7 +28,7 @@ const PriceComparisonWidgetComponent: React.FC<WidgetComponentProps<PriceCompari
         <table className="w-full border-collapse min-w-full">
           <thead>
             <tr>
-              {data.columns.map((col, i) => (
+              {(data.columns || []).map((col, i) => (
                 <th
                   key={i}
                   className="px-3 py-2 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
@@ -39,7 +39,7 @@ const PriceComparisonWidgetComponent: React.FC<WidgetComponentProps<PriceCompari
             </tr>
           </thead>
           <tbody>
-            {data.items.map((item, i) => (
+            {(data.items || []).map((item, i) => (
               <tr
                 key={i}
                 className={`${
@@ -48,7 +48,7 @@ const PriceComparisonWidgetComponent: React.FC<WidgetComponentProps<PriceCompari
                     : ''
                 }`}
               >
-                {data.columns.map((col, j) => (
+                {(data.columns || []).map((col, j) => (
                   <td
                     key={j}
                     className={`px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 ${

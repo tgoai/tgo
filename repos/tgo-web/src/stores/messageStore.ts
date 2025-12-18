@@ -49,6 +49,11 @@ interface MessageState {
   // 流式消息
   isStreamingInProgress: boolean;
   streamingClientMsgNo: string | null;
+  /**
+   * 追踪所有正在进行的流式消息（clientMsgNo -> 频道信息与实时内容）
+   * 即使该消息不在当前 active 消息列表中（例如在侧边栏其他会话中产生），也能同步更新会话预览。
+   */
+  activeStreamingChannels: Record<string, { channelId: string; channelType: number; content: string }>;
 
   // 目标消息定位（从搜索跳转）
   targetMessageLocation: { channelId: string; channelType: number; messageSeq: number } | null;
@@ -74,8 +79,9 @@ interface MessageState {
   // Actions - 流式消息
   appendStreamMessageContent: (clientMsgNo: string, content: string) => void;
   markStreamMessageEnd: (clientMsgNo: string, error?: string) => void;
-  cancelStreamingMessage: () => Promise<void>;
+  cancelStreamingMessage: (clientMsgNo?: string) => Promise<void>;
   setStreamingState: (inProgress: boolean, clientMsgNo: string | null) => void;
+  registerStreamingChannel: (clientMsgNo: string, channelId: string, channelType: number) => void;
 
   // Actions - 目标消息
   setTargetMessageLocation: (loc: { channelId: string; channelType: number; messageSeq: number } | null) => void;
@@ -107,6 +113,7 @@ export const useMessageStore = create<MessageState>()(
       nextNewerSeq: {},
       isStreamingInProgress: false,
       streamingClientMsgNo: null,
+      activeStreamingChannels: {},
       targetMessageLocation: null,
 
       // Real-time message actions
@@ -388,10 +395,33 @@ export const useMessageStore = create<MessageState>()(
       appendStreamMessageContent: (clientMsgNo: string, content: string) => {
         const state = get();
 
-        // Find the message by clientMsgNo in real-time messages first
+        // 1. 更新追踪列表（activeStreamingChannels）并触发预览更新
+        // 这一步非常重要，因为它保证了即使会话不在当前激活的消息列表中，侧边栏也能更新预览。
+        const tracked = state.activeStreamingChannels[clientMsgNo];
+        let newTrackedContent = content;
+        if (tracked) {
+          newTrackedContent = tracked.content + content;
+          set(
+            (s) => ({
+              activeStreamingChannels: {
+                ...s.activeStreamingChannels,
+                [clientMsgNo]: { ...tracked, content: newTrackedContent },
+              },
+            }),
+            false,
+            'appendStreamMessageContent:tracked'
+          );
+
+          // 触发跨 Store 的会话列表预览更新
+          const onUpdate = get().onConversationPreviewUpdate;
+          if (onUpdate) {
+            onUpdate(tracked.channelId, tracked.channelType, newTrackedContent);
+          }
+        }
+
+        // 2. 尝试在当前 active 消息列表中查找并更新
         const messageIndex = state.messages.findIndex((msg) => msg.clientMsgNo === clientMsgNo);
 
-        // If not found in real-time messages, check historical messages
         if (messageIndex === -1) {
           // Search in historicalMessages (WuKongIMMessage format)
           let foundInHistory = false;
@@ -414,14 +444,6 @@ export const useMessageStore = create<MessageState>()(
             const oldStreamData = historyMessage.stream_data || '';
             const newStreamData = oldStreamData + content;
 
-            console.log('🤖 Message Store: Updating historical message stream_data', {
-              clientMsgNo,
-              channelKey: historyChannelKey,
-              oldLength: oldStreamData.length,
-              appendedLength: content.length,
-              newLength: newStreamData.length,
-            });
-
             set(
               (s) => {
                 const updatedHistoricalMessages = { ...s.historicalMessages };
@@ -439,25 +461,16 @@ export const useMessageStore = create<MessageState>()(
               false,
               'appendStreamMessageContent:historical'
             );
-
-            // Notify conversation store to update preview (if callback is set)
-            const onUpdate = get().onConversationPreviewUpdate;
-            if (onUpdate && newStreamData.length > 0) {
-              // Parse channelKey to get channelId and channelType
-              const parts = historyChannelKey.split(':');
-              if (parts.length === 2) {
-                onUpdate(parts[0], parseInt(parts[1], 10), newStreamData);
-              }
-            }
             return;
           }
 
-          // Message not found in either location
-          console.warn('🤖 Message Store: Message not found for stream update', {
-            clientMsgNo,
-            realtimeMessagesCount: state.messages.length,
-            historicalChannels: Object.keys(state.historicalMessages).length,
-          });
+          // 如果还没被追踪，警告但继续
+          if (!tracked) {
+            console.warn('🤖 Message Store: STREAM CHUNK IGNORED (message not found or tracked)', {
+              clientMsgNo,
+              contentLength: content.length,
+            });
+          }
           return;
         }
 
@@ -469,15 +482,6 @@ export const useMessageStore = create<MessageState>()(
 
         const baseContent = isFirstChunk ? '' : oldContent;
         const newContent = baseContent + content;
-
-        console.log('🤖 Message Store: Updating message content', {
-          messageId: message.id,
-          clientMsgNo,
-          isFirstChunk,
-          oldContentLength: oldContent.length,
-          appendedLength: content.length,
-          newContentLength: newContent.length,
-        });
 
         // Update the message with appended content
         set(
@@ -502,23 +506,16 @@ export const useMessageStore = create<MessageState>()(
             return { messages: updatedMessages };
           },
           false,
-          'appendStreamMessageContent'
+          'appendStreamMessageContent:realtime'
         );
-
-        // Notify conversation store to update preview (if callback is set)
-        const onUpdate = get().onConversationPreviewUpdate;
-        if (onUpdate && message.channelId && newContent.length > 0) {
-          onUpdate(message.channelId, message.channelType ?? 1, newContent);
-        }
-
-        console.log('🤖 Message Store: Stream message content appended successfully', {
-          messageId: message.id,
-          finalContentLength: newContent.length,
-        });
       },
 
       markStreamMessageEnd: (clientMsgNo: string, error?: string) => {
         const state = get();
+
+        // 清理追踪列表
+        const nextActiveStreamingChannels = { ...state.activeStreamingChannels };
+        delete nextActiveStreamingChannels[clientMsgNo];
 
         // Find the message by clientMsgNo in real-time messages first
         const messageIndex = state.messages.findIndex((msg) => msg.clientMsgNo === clientMsgNo);
@@ -545,10 +542,16 @@ export const useMessageStore = create<MessageState>()(
                 }
                 return msg;
               });
+              const isGlobalStreaming = Object.keys(nextActiveStreamingChannels).length > 0;
+              const nextStreamingClientMsgNo = isGlobalStreaming 
+                ? (nextActiveStreamingChannels[s.streamingClientMsgNo || ''] ? s.streamingClientMsgNo : Object.keys(nextActiveStreamingChannels)[0]) 
+                : null;
+
               return {
                 messages: updatedMessages,
-                isStreamingInProgress: false,
-                streamingClientMsgNo: null,
+                isStreamingInProgress: isGlobalStreaming,
+                streamingClientMsgNo: nextStreamingClientMsgNo,
+                activeStreamingChannels: nextActiveStreamingChannels,
               };
             },
             false,
@@ -575,10 +578,16 @@ export const useMessageStore = create<MessageState>()(
                   };
                   updatedHistoricalMessages[channelKey] = channelMessages;
                 }
+                const isGlobalStreaming = Object.keys(nextActiveStreamingChannels).length > 0;
+                const nextStreamingClientMsgNo = isGlobalStreaming 
+                  ? (nextActiveStreamingChannels[s.streamingClientMsgNo || ''] ? s.streamingClientMsgNo : Object.keys(nextActiveStreamingChannels)[0]) 
+                  : null;
+
                 return {
                   historicalMessages: updatedHistoricalMessages,
-                  isStreamingInProgress: false,
-                  streamingClientMsgNo: null,
+                  isStreamingInProgress: isGlobalStreaming,
+                  streamingClientMsgNo: nextStreamingClientMsgNo,
+                  activeStreamingChannels: nextActiveStreamingChannels,
                 };
               },
               false,
@@ -590,21 +599,27 @@ export const useMessageStore = create<MessageState>()(
 
         // If message not found, still clear streaming state (safety measure)
         console.warn('🤖 Message Store: Message not found for stream end', { clientMsgNo });
+        const isGlobalStreaming = Object.keys(nextActiveStreamingChannels).length > 0;
+        const nextStreamingClientMsgNo = isGlobalStreaming 
+          ? (nextActiveStreamingChannels[state.streamingClientMsgNo || ''] ? state.streamingClientMsgNo : Object.keys(nextActiveStreamingChannels)[0]) 
+          : null;
+
         set(
           {
-            isStreamingInProgress: false,
-            streamingClientMsgNo: null,
+            isStreamingInProgress: isGlobalStreaming,
+            streamingClientMsgNo: nextStreamingClientMsgNo,
+            activeStreamingChannels: nextActiveStreamingChannels,
           },
           false,
           'markStreamMessageEnd:notFound'
         );
       },
 
-      cancelStreamingMessage: async () => {
+      cancelStreamingMessage: async (clientMsgNo) => {
         const state = get();
-        const { streamingClientMsgNo, isStreamingInProgress } = state;
+        const targetMsgNo = clientMsgNo || state.streamingClientMsgNo;
 
-        if (!isStreamingInProgress || !streamingClientMsgNo) {
+        if (!targetMsgNo) {
           console.warn('🤖 Message Store: No streaming message to cancel');
           return;
         }
@@ -612,16 +627,25 @@ export const useMessageStore = create<MessageState>()(
         try {
           const { aiRunsApiService } = await import('@/services/aiRunsApi');
           await aiRunsApiService.cancelByClientNo({
-            client_msg_no: streamingClientMsgNo,
+            client_msg_no: targetMsgNo,
             reason: 'User cancelled',
           });
-          console.log('🤖 Message Store: Stream message cancelled successfully', { clientMsgNo: streamingClientMsgNo });
+          console.log('🤖 Message Store: Stream message cancelled successfully', { clientMsgNo: targetMsgNo });
 
           // Clear streaming state
+          const nextActiveStreamingChannels = { ...state.activeStreamingChannels };
+          delete nextActiveStreamingChannels[targetMsgNo];
+          
+          const isGlobalStreaming = Object.keys(nextActiveStreamingChannels).length > 0;
+          const nextStreamingClientMsgNo = isGlobalStreaming 
+            ? (nextActiveStreamingChannels[state.streamingClientMsgNo || ''] ? state.streamingClientMsgNo : Object.keys(nextActiveStreamingChannels)[0]) 
+            : null;
+          
           set(
             {
-              isStreamingInProgress: false,
-              streamingClientMsgNo: null,
+              isStreamingInProgress: isGlobalStreaming,
+              streamingClientMsgNo: nextStreamingClientMsgNo,
+              activeStreamingChannels: nextActiveStreamingChannels,
             },
             false,
             'cancelStreamingMessage:success'
@@ -641,6 +665,19 @@ export const useMessageStore = create<MessageState>()(
           false,
           'setStreamingState'
         ),
+
+      registerStreamingChannel: (clientMsgNo: string, channelId: string, channelType: number) => {
+        set(
+          (state) => ({
+            activeStreamingChannels: {
+              ...state.activeStreamingChannels,
+              [clientMsgNo]: { channelId, channelType, content: '' },
+            },
+          }),
+          false,
+          'registerStreamingChannel'
+        );
+      },
 
       // Target message location
       setTargetMessageLocation: (loc) => set({ targetMessageLocation: loc }, false, 'setTargetMessageLocation'),
@@ -699,6 +736,7 @@ export const useMessageStore = create<MessageState>()(
             nextNewerSeq: {},
             isStreamingInProgress: false,
             streamingClientMsgNo: null,
+            activeStreamingChannels: {},
             targetMessageLocation: null,
           },
           false,

@@ -13,6 +13,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 const WidgetWrap = styled.div`
   position: absolute; inset: 0; width: 100%; height: 100%;
   display: flex; flex-direction: column; background: var(--bg-primary, #fff); border-radius: 16px; overflow: hidden;
+  overscroll-behavior: contain;
   @media (max-width: 480px){ border-radius: 0; }
 `
 

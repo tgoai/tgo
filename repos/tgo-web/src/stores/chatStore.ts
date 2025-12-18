@@ -89,7 +89,7 @@ interface ChatState {
   getChannelMessages: (channelId: string, channelType: number) => WuKongIMMessage[];
   appendStreamMessageContent: (clientMsgNo: string, content: string) => void;
   markStreamMessageEnd: (clientMsgNo: string, error?: string) => void;
-  cancelStreamingMessage: () => Promise<void>;
+  cancelStreamingMessage: (clientMsgNo?: string) => Promise<void>;
   setTargetMessageLocation: (loc: { channelId: string; channelType: number; messageSeq: number } | null) => void;
 
   // ============================================================================
@@ -325,8 +325,8 @@ export const useChatStore = create<ChatState>()(
               streamingClientMsgNo: msgState.streamingClientMsgNo,
             }, false, 'markStreamMessageEnd');
           },
-          cancelStreamingMessage: async () => {
-            await useMessageStore.getState().cancelStreamingMessage();
+          cancelStreamingMessage: async (clientMsgNo) => {
+            await useMessageStore.getState().cancelStreamingMessage(clientMsgNo);
             const msgState = useMessageStore.getState();
             set({
               isStreamingInProgress: msgState.isStreamingInProgress,
@@ -444,6 +444,7 @@ export const useChatStore = create<ChatState>()(
                   id: key,
                   platform,
                   lastMessage: message.content,
+                  payloadType: message.payloadType,
                   timestamp: isoTs,
                   lastTimestampSec: sec,
                   status: CHAT_STATUS_CONST.ACTIVE as ChatStatus,
@@ -480,16 +481,16 @@ export const useChatStore = create<ChatState>()(
               const fallbackName = message.fromInfo?.name || cachedChannel?.name || `访客${String(channelId).slice(-4)}`;
               const fallbackAvatar = message.fromInfo?.avatar || message.avatar || cachedChannel?.avatar || '';
 
-              channelStore.seedChannel(channelId, 1, {
+              channelStore.seedChannel(channelId, DEFAULT_CHANNEL_TYPE, {
                 name: fallbackName,
                 avatar: fallbackAvatar,
               });
 
               channelStore
-                .ensureChannel({ channel_id: channelId, channel_type: 1 })
+                .ensureChannel({ channel_id: channelId, channel_type: DEFAULT_CHANNEL_TYPE })
                 .then((info) => {
                   if (!info) return;
-                  get().applyChannelInfo(channelId, 1, info);
+                  get().applyChannelInfo(channelId, DEFAULT_CHANNEL_TYPE, info);
                 })
                 .catch((error) => {
                   console.warn('频道信息获取失败（实时消息）:', error);
@@ -501,8 +502,9 @@ export const useChatStore = create<ChatState>()(
               message.payloadType === MessagePayloadType.STREAM || (message.payload as any)?.type === MessagePayloadType.STREAM;
 
             if (isStreamStart && clientMsgNo) {
-              console.log('📨 Chat Store: Stream message started (type=100)', { clientMsgNo });
+              console.log('📨 Chat Store: Stream message started', { clientMsgNo, channelId, channelType });
               msgStore.setStreamingState(true, clientMsgNo);
+              msgStore.registerStreamingChannel(clientMsgNo, channelId, channelType);
             }
 
             // 检查是否是需要刷新频道信息的系统消息（1000-已分配到客服，1001-会话关闭）
@@ -639,3 +641,18 @@ export const chatSelectors = {
   isLoading: (state: ChatState) => state.isLoading || state.isSending || false,
   isSyncing: (state: ChatState) => state.isSyncing ?? false,
 };
+
+/**
+ * Initialize cross-store communication
+ * Link messageStore's streaming updates to conversationStore's preview
+ */
+useMessageStore.setState({
+  onConversationPreviewUpdate: (channelId, channelType, content) => {
+    useConversationStore.getState().updateConversationPreview(channelId, channelType, content);
+    
+    // Also sync the aggregated chatStore state
+    useChatStore.setState({
+      chats: useConversationStore.getState().chats
+    }, false, 'sync:onConversationPreviewUpdate');
+  }
+});

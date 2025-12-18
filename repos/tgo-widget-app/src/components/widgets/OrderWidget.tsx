@@ -50,7 +50,7 @@ const OrderWidgetComponent: React.FC<WidgetComponentProps<OrderWidgetData>> = ({
 
       {/* 商品列表 */}
       <div className="border-t border-b border-gray-100 dark:border-gray-700 py-3 my-3 space-y-3">
-        {data.items.map((item, index) => (
+        {(data.items || []).map((item, index) => (
           <div key={index} className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               {item.image && (

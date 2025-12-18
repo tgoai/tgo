@@ -35,7 +35,7 @@ const ProductListWidgetComponent: React.FC<WidgetComponentProps<ProductListWidge
 
       {/* 产品网格 */}
       <div className="grid grid-cols-2 gap-3">
-        {data.products.map((product, index) => (
+        {(data.products || []).map((product, index) => (
           <div
             key={index}
             className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer bg-gray-50 dark:bg-gray-700/50"

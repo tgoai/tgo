@@ -24,6 +24,8 @@ const logisticsStatusConfig: Record<LogisticsStatus, { bgColor: string }> = {
  * 物流 Widget 组件
  */
 const LogisticsWidgetComponent: React.FC<WidgetComponentProps<LogisticsWidgetData>> = ({ data, onAction, onSendMessage }) => {
+  if (!data) return null;
+
   return (
     <WidgetCard>
       {/* 头部 */}
@@ -74,36 +76,38 @@ const LogisticsWidgetComponent: React.FC<WidgetComponentProps<LogisticsWidgetDat
       )}
 
       {/* 时间线 */}
-      <div className="space-y-0">
-        {data.timeline.map((event, index) => {
-          const eventStatusStyle = event.status
-            ? logisticsStatusConfig[event.status]
-            : (index === 0 ? { bgColor: 'bg-blue-500' } : { bgColor: 'bg-gray-300 dark:bg-gray-600' });
+      {data.timeline && data.timeline.length > 0 && (
+        <div className="space-y-0">
+          {data.timeline.map((event, index) => {
+            const eventStatusStyle = event.status
+              ? logisticsStatusConfig[event.status]
+              : (index === 0 ? { bgColor: 'bg-blue-500' } : { bgColor: 'bg-gray-300 dark:bg-gray-600' });
 
-          return (
-            <div key={index} className="flex gap-3">
-              <div className="flex flex-col items-center">
-                <div className={`w-3 h-3 rounded-full ${eventStatusStyle.bgColor} ring-4 ring-white dark:ring-gray-800`} />
-                {index < data.timeline.length - 1 && (
-                  <div className="w-0.5 flex-1 bg-gray-200 dark:bg-gray-700 my-1 min-h-[24px]" />
-                )}
-              </div>
-              <div className="flex-1 pb-4">
-                <p className="text-xs text-gray-500 dark:text-gray-400">{event.time}</p>
-                <p className={`text-sm ${index === 0 ? 'font-medium text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
-                  {event.description}
-                </p>
-                {event.location && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
-                    <MapPin className="w-3 h-3" />
-                    {event.location}
+            return (
+              <div key={index} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <div className={`w-3 h-3 rounded-full ${eventStatusStyle.bgColor} ring-4 ring-white dark:ring-gray-800`} />
+                  {index < data.timeline.length - 1 && (
+                    <div className="w-0.5 flex-1 bg-gray-200 dark:bg-gray-700 my-1 min-h-[24px]" />
+                  )}
+                </div>
+                <div className="flex-1 pb-4">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{event.time}</p>
+                  <p className={`text-sm ${index === 0 ? 'font-medium text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {event.description}
                   </p>
-                )}
+                  {event.location && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3" />
+                      {event.location}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* 操作按钮 */}
       <ActionButtons actions={data.actions} onAction={onAction} onSendMessage={onSendMessage} />

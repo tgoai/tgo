@@ -6,7 +6,7 @@ These endpoints are designed for inter-service communication within the internal
 
 from fastapi import APIRouter
 
-from app.api.internal.endpoints import ai_events
+from app.api.internal.endpoints import ai_events, visitors
 
 internal_router = APIRouter()
 
@@ -15,5 +15,11 @@ internal_router.include_router(
     ai_events.router,
     prefix="/ai/events",
     tags=["Internal AI Events"]
+)
+
+internal_router.include_router(
+    visitors.router,
+    prefix="/visitors",
+    tags=["Internal Visitors"]
 )
 

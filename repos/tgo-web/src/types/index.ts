@@ -592,6 +592,7 @@ export interface Chat {
   metadata?: {
     [key: string]: any;
   };
+  payloadType?: number;
 }
 
 export type ChatStatus = 'active' | 'waiting' | 'closed' | 'transferred';
@@ -862,6 +863,7 @@ export interface ChannelVisitorExtra {
   language?: string; // Visitor's browser language (e.g., 'zh-CN', 'en-US')
   timezone?: string; // Visitor's timezone (e.g., 'Asia/Shanghai', 'America/New_York')
   ip_address?: string; // Visitor's IP address
+  display_location?: string; // Display location (e.g., "中国 广东省 深圳市 电信")
 }
 
 export type ChannelExtra = ChannelVisitorExtra | ChannelStaffExtra | null;

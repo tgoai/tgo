@@ -833,6 +833,7 @@ const VisitorPanel: React.FC<VisitorPanelProps> = ({ activeChat }) => {
           language={(channelInfo?.extra as ChannelVisitorExtra | undefined)?.language}
           timezone={(channelInfo?.extra as ChannelVisitorExtra | undefined)?.timezone}
           ipAddress={(channelInfo?.extra as ChannelVisitorExtra | undefined)?.ip_address}
+          displayLocation={(channelInfo?.extra as ChannelVisitorExtra | undefined)?.display_location}
         />
 
         {/* Recent Activity Section */}

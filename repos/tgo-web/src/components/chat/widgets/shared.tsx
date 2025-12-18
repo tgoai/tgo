@@ -207,7 +207,10 @@ export const Divider: React.FC<{ className?: string }> = ({ className = '' }) =>
 /**
  * 格式化价格
  */
-export function formatPrice(price: number, currency: string = '¥'): string {
-  return `${currency}${price.toFixed(2)}`;
+export function formatPrice(price: number | undefined | null, currency: string = '¥'): string {
+  if (price === undefined || price === null || isNaN(Number(price))) {
+    return `${currency}0.00`;
+  }
+  return `${currency}${Number(price).toFixed(2)}`;
 }
 

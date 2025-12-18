@@ -1399,6 +1399,7 @@
           "language": "语言",
           "timezone": "时区",
           "ipAddress": "IP 地址",
+          "location": "位置",
           "firstSeen": "首次访问"
         },
         "empty": "暂无系统信息"

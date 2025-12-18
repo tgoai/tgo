@@ -1,14 +1,15 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useTranslation } from 'react-i18next';
 
 
-import { useChatStore, chatSelectors } from '@/stores';
+import { useChatStore, chatSelectors, useMessageStore } from '@/stores';
 import { useChannelStore } from '@/stores/channelStore';
 import { useAuthStore } from '@/stores/authStore';
 import type { ChannelVisitorExtra, Message } from '@/types';
 import { MessagePayloadType, PlatformType } from '@/types';
+import { DEFAULT_CHANNEL_TYPE } from '@/constants';
 import { visitorApiService } from '@/services/visitorApi';
 import { conversationsApi } from '@/services/conversationsApi';
 import { useToast } from '@/hooks/useToast';
@@ -147,7 +148,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
   // Subscribe to activeChat to focus when switching conversations
   const activeChat = useChatStore(chatSelectors.activeChat);
-  const isStreamingInProgress = useChatStore(state => state.isStreamingInProgress);
+  const channelId = activeChat?.channelId;
+  const channelType = activeChat?.channelType;
+
+  // 判定当前会话是否正在流式响应
+  const activeStreamingChannels = useMessageStore(state => state.activeStreamingChannels);
+  const isStreamingInProgress = useMemo(() => {
+    if (!channelId || channelType == null) return false;
+    return Object.values(activeStreamingChannels).some(
+      c => c.channelId === channelId && c.channelType === channelType
+    );
+  }, [activeStreamingChannels, channelId, channelType]);
 
   // Detect user's platform for keyboard shortcut hints
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -205,8 +216,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
   // Effect-based focus recovery - runs after every render
   // AI toggle integration
-  const channelId = activeChat?.channelId;
-  const channelType = activeChat?.channelType;
   
   // 判断是否是 agent 会话（channelId 以 -agent 结尾）或 team 会话（channelId 以 -team 结尾）
   const isAgentChat = channelId?.endsWith('-agent') ?? false;
@@ -248,7 +257,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const ensureChannel = useChannelStore(state => state.ensureChannel);
   useEffect(() => {
     if (assignedStaffChannelId && !assignedStaffChannelInfo) {
-      ensureChannel({ channel_id: assignedStaffChannelId, channel_type: 1 });
+      ensureChannel({ channel_id: assignedStaffChannelId, channel_type: DEFAULT_CHANNEL_TYPE });
     }
   }, [assignedStaffChannelId, assignedStaffChannelInfo, ensureChannel]);
 
@@ -554,14 +563,20 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const handleCancelStream = useCallback(async (): Promise<void> => {
     if (!isStreamingInProgress) return;
     
+    // 找到当前会话对应的流式消息 ID
+    const entry = Object.entries(activeStreamingChannels).find(
+      ([_, c]) => c.channelId === channelId && c.channelType === channelType
+    );
+    const targetClientMsgNo = entry ? entry[0] : undefined;
+
     try {
-      await cancelStreamingMessage();
+      await cancelStreamingMessage(targetClientMsgNo);
       showSuccess(showToast, t('chat.input.streaming.cancelledTitle', '已暂停'), t('chat.input.streaming.cancelledMessage', '流消息已暂停'));
     } catch (error) {
       console.error('Failed to cancel stream message:', error);
       showApiError(showToast, error);
     }
-  }, [isStreamingInProgress, cancelStreamingMessage, showToast, t]);
+  }, [isStreamingInProgress, activeStreamingChannels, channelId, channelType, cancelStreamingMessage, showToast, t]);
 
   const handleSend = async (): Promise<void> => {
     if (isManualDisabled) return;
@@ -815,7 +830,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         });
 
         const payload = {
-          type: 2,
+          type: MessagePayloadType.IMAGE,
           content: '[图片]',
           url: toAbsoluteApiUrl(res.file_url),
           width,
@@ -1153,7 +1168,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
     const imagesPayload = items.map((it, i) => ({ url: finalUrls[i] as string, width: it.width, height: it.height }));
     const payload = {
-      type: 12,
+      type: MessagePayloadType.RICH_TEXT,
       content: message.trim(),
       images: imagesPayload,
       timestamp: Date.now(),

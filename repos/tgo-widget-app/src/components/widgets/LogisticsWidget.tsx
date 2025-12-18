@@ -80,7 +80,7 @@ const LogisticsWidgetComponent: React.FC<WidgetComponentProps<LogisticsWidgetDat
 
       {/* 时间线 */}
       <div className="space-y-0">
-        {data.timeline.map((event, index) => {
+        {(data.timeline || []).map((event, index) => {
           const eventStatusStyle = event.status
             ? logisticsStatusConfig[event.status]
             : (index === 0 ? { bgColor: 'bg-blue-500' } : { bgColor: 'bg-gray-300 dark:bg-gray-600' });
@@ -89,7 +89,7 @@ const LogisticsWidgetComponent: React.FC<WidgetComponentProps<LogisticsWidgetDat
             <div key={index} className="flex gap-3">
               <div className="flex flex-col items-center">
                 <div className={`w-3 h-3 rounded-full ${eventStatusStyle.bgColor} ring-4 ring-white dark:ring-gray-800`} />
-                {index < data.timeline.length - 1 && (
+                {index < (data.timeline || []).length - 1 && (
                   <div className="w-0.5 flex-1 bg-gray-200 dark:bg-gray-700 my-1 min-h-[24px]" />
                 )}
               </div>

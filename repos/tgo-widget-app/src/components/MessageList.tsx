@@ -11,7 +11,10 @@ import { useTranslation } from 'react-i18next'
 
 
 
-const Main = styled.main`flex:1; min-height:0; overflow:auto; padding: 12px 12px 8px; background: var(--bg-primary, #fff);`
+const Main = styled.main`
+  flex:1; min-height:0; overflow:auto; padding: 12px 12px 8px; background: var(--bg-primary, #fff);
+  overscroll-behavior: contain;
+`
 const List = styled.ul`list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px;`
 const Row = styled.div<{self:boolean}>`
   display:flex; ${p => p.self ? 'justify-content:flex-end;' : 'justify-content:flex-start;'}

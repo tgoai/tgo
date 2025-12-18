@@ -7,7 +7,6 @@ from functools import wraps
 from typing import Any, Optional
 
 import aiohttp
-import re
 
 from agno.tools import Function
 from mcp import ClientSession, McpError, Tool
@@ -28,27 +27,19 @@ async def create_rag_tool(rag_url: str, collection_id: str, project_id: Optional
         async with session.get(collection_endpoint, params=params) as response:
             response.raise_for_status()
             collection_data = await response.json()
-    raw_name = collection_data.get("display_name") or f"collection_{collection_id}"
+    display_name = collection_data.get("display_name") or f"collection_{collection_id}"
     description = collection_data.get("description")
     tool_description = (
-        "Search documents within the configured collection for results"
+        f"Search documents within the '{display_name}' collection for results"
         " semantically similar to the query."
     )
     if description:
         tool_description = f"{tool_description} Collection description: {description}"
 
     # Build provider-safe tool name: letters, digits, _, ., -
-    safe_base = re.sub(r"[^a-zA-Z0-9_.-]", "_", raw_name).strip("._-")
-    if not safe_base:
-        safe_base = f"collection_{collection_id}"
+    # We no longer use display_name in the tool name to avoid special character issues.
     short_id = (collection_id.replace("-", "")[:8]) if collection_id else "unknown"
-    prefix = "rag_search_"
-    suffix = f"_{short_id}"
-    available = 64 - len(prefix) - len(suffix)
-    if available < 0:
-        available = 0
-    safe_trunc = safe_base[:available]
-    tool_name = f"{prefix}{safe_trunc}{suffix}".lower()
+    tool_name = f"rag_search_{short_id}".lower()
     async def search_collection(query: str) -> str:
         search_endpoint = f"{url}/v1/collections/{collection_id}/documents/search"
         payload = {"query": query, "limit": 10}

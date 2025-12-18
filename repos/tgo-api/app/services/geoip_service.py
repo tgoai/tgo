@@ -60,8 +60,8 @@ class GeoIPService:
     def __init__(self):
         self._geoip2_reader: Optional["geoip2.database.Reader"] = None
         # ip2region uses separate databases for IPv4 and IPv6
-        self._ip2region_searcher_v4: Optional[object] = None
-        self._ip2region_searcher_v6: Optional[object] = None
+        self._ip2region_searcher_v4: Optional[xdb_searcher.Searcher] = None
+        self._ip2region_searcher_v6: Optional[xdb_searcher.Searcher] = None
         self._initialized = False
         self._init_error: Optional[str] = None
         self._provider: Optional[str] = None
@@ -158,8 +158,7 @@ class GeoIPService:
         try:
             # Load entire xdb into memory for best performance and thread-safety
             # Note: load_content_from_file is in util module, not searcher
-            c_buffer = xdb_util.load_content_from_file(db_path)
-            searcher = xdb_searcher.new_with_buffer(version, c_buffer)
+            searcher = xdb_searcher.new_with_file_only(xdb_util.Version(version), db_path)
             
             if version == xdb_util.IPv4:
                 self._ip2region_searcher_v4 = searcher
@@ -242,16 +241,30 @@ class GeoIPService:
             if not result:
                 return GeoLocation()
             
-            # ip2region format: 国家|区域|省份|城市|ISP
-            # Example: 中国|0|上海|上海市|电信
+            # ip2region format can vary:
+            # - Standard: 国家|区域|省份|城市|ISP (5 parts)
+            # - Simplified: 国家|省份|城市|ISP (4 parts)
+            # Example (5 parts): 中国|0|广东省|深圳市|电信
+            # Example (4 parts): 中国|广东省|深圳市|电信
             parts = result.split("|")
             
-            # Parse parts, treating "0" as empty
-            country = parts[0] if len(parts) > 0 and parts[0] != "0" else None
-            # parts[1] is usually "0" (reserved/area)
-            region = parts[2] if len(parts) > 2 and parts[2] != "0" else None
-            city = parts[3] if len(parts) > 3 and parts[3] != "0" else None
-            isp = parts[4] if len(parts) > 4 and parts[4] != "0" else None
+            if len(parts) == 5:
+                country = parts[0] if parts[0] != "0" else None
+                # parts[1] is usually "0" (reserved/area), skipping it as requested
+                region = parts[2] if parts[2] != "0" else None
+                city = parts[3] if parts[3] != "0" else None
+                isp = parts[4] if parts[4] != "0" else None
+            elif len(parts) == 4:
+                country = parts[0] if parts[0] != "0" else None
+                region = parts[1] if parts[1] != "0" else None
+                city = parts[2] if parts[2] != "0" else None
+                isp = parts[3] if parts[3] != "0" else None
+            else:
+                # Fallback for other lengths (e.g., v1 format was 5 parts)
+                country = parts[0] if len(parts) > 0 and parts[0] != "0" else None
+                region = parts[2] if len(parts) > 2 and parts[2] != "0" else None
+                city = parts[3] if len(parts) > 3 and parts[3] != "0" else None
+                isp = parts[4] if len(parts) > 4 and parts[4] != "0" else None
             
             # Generate country code for common countries
             country_code = self._get_country_code(country)

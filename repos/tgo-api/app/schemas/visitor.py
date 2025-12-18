@@ -335,6 +335,10 @@ class VisitorResponse(VisitorInDB):
     ai_insights: Optional[VisitorAIInsightResponse] = Field(None, description="AI insight metrics")
     system_info: Optional[VisitorSystemInfoResponse] = Field(None, description="System metadata")
     recent_activities: List[VisitorActivityResponse] = Field(default_factory=list, description="Recent visitor activities")
+    display_location: Optional[str] = Field(
+        None,
+        description="Friendly display of geographic location (e.g., 'China, Guangdong, Shenzhen')"
+    )
 
     @field_validator("avatar_url", mode="after")
     @classmethod
@@ -391,6 +395,10 @@ class VisitorBasicResponse(BaseSchema):
     )
     geo_isp: Optional[str] = Field(
         None, description="Internet Service Provider (available with ip2region)"
+    )
+    display_location: Optional[str] = Field(
+        None,
+        description="Friendly display of geographic location (e.g., 'China, Guangdong, Shenzhen')"
     )
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
@@ -472,6 +480,44 @@ def resolve_display_nickname(
     return nickname or nickname_zh
 
 
+def resolve_display_location(
+    country: Optional[str],
+    region: Optional[str],
+    city: Optional[str],
+    isp: Optional[str] = None,
+    separator: str = " ",
+) -> Optional[str]:
+    """
+    Resolve user-friendly display location from geographic parts.
+    
+    Args:
+        country: Country name
+        region: Region/province name
+        city: City name
+        isp: ISP name (optional)
+        separator: String separator between parts
+        
+    Returns:
+        A concatenated string of available location parts
+    """
+    parts = []
+    if country:
+        parts.append(country)
+    if region:
+        parts.append(region)
+    if city:
+        # Avoid duplication if city name is same as region (e.g. "Shanghai Shanghai")
+        if city != region:
+            parts.append(city)
+    if isp:
+        parts.append(isp)
+    
+    if not parts:
+        return None
+        
+    return separator.join(parts)
+
+
 def resolve_visitor_display_name(
     name: Optional[str],
     nickname: Optional[str],
@@ -510,20 +556,29 @@ def set_visitor_display_nickname(
     language: str = "en",
 ) -> Union[VisitorResponse, VisitorBasicResponse]:
     """
-    Set display_nickname field on visitor response based on language.
+    Set display_nickname and display_location fields on visitor response.
 
     Args:
         response: Visitor response object
         language: User language code ('zh' or 'en')
 
     Returns:
-        The same response object with display_nickname set
+        The same response object with display fields set
     """
     response.display_nickname = resolve_display_nickname(
         response.nickname,
         response.nickname_zh,
         language,
     )
+    
+    # Set display_location using space separator as requested (or implied by "friendly")
+    response.display_location = resolve_display_location(
+        getattr(response, "geo_country", None),
+        getattr(response, "geo_region", None),
+        getattr(response, "geo_city", None),
+        getattr(response, "geo_isp", None),
+    )
+    
     return response
 
 

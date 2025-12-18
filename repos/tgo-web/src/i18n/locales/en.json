@@ -1499,6 +1499,7 @@
           "language": "Language",
           "timezone": "Timezone",
           "ipAddress": "IP Address",
+          "location": "Location",
           "firstSeen": "First Seen"
         },
         "empty": "No system information"

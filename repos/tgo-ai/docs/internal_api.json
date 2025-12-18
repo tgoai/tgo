@@ -1,0 +1,1095 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "TGO-Tech API Service - Internal Services",
+        "description": "Internal services for inter-service communication (no authentication required)",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/internal/ai/events": {
+            "post": {
+                "tags": [
+                    "Internal AI Events"
+                ],
+                "summary": "Ingest AI-generated events (Internal - No Auth)",
+                "description": "**Internal endpoint for AI Service (no authentication required).**\n\nThis endpoint is designed for inter-service communication and should only be\naccessible from the internal network. It does NOT require JWT authentication.\n\n**Security Note**: This endpoint runs on a separate port (8001) and should be\nprotected by network-level security (firewall, VPC, etc.).\n\nSupported event types:\n\n* `manual_service.request` — create a manual service request record.\n* `visitor_info.update` — update visitor profile using provided visitor data.\n* `visitor_sentiment.update` — update visitor sentiment metrics.\n* `visitor_tag.add` — add tags to a visitor.\n\n**Required Fields**:\n- `event_type`: The type of event (see above)\n- `visitor_id`: The UUID of the visitor (required - used to determine the project)\n- `payload`: Event-specific payload\n\n**Note**: The project is automatically determined from the visitor's project association.\nYou do not need to provide `project_id` in the request.\n\n**Example Request**:\n\n```json\n{\n  \"event_type\": \"manual_service.request\",\n  \"visitor_id\": \"ffffffff-gggg-hhhh-iiii-jjjjjjjjjjjj\",\n  \"payload\": {\n    \"reason\": \"User explicitly requested to talk to a human agent.\",\n    \"urgency\": \"high\",\n    \"channel\": \"phone\",\n    \"notification_type\": \"sms\",\n    \"session_id\": \"ffffffff-gggg-hhhh-iiii-jjjjjjjjjjjj-vtr@251\",\n    \"metadata\": {\n      \"conversation_id\": \"conv-12345\"\n    }\n  }\n}\n```",
+                "operationId": "ingest_ai_event_internal_internal_ai_events_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AIServiceEvent"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": true,
+                                    "type": "object",
+                                    "title": "Response Ingest Ai Event Internal Internal Ai Events Post"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/internal/visitors/{visitor_id}": {
+            "get": {
+                "tags": [
+                    "Internal Visitors"
+                ],
+                "summary": "Get enriched visitor information",
+                "description": "Retrieve comprehensive visitor data including basic info, tags, system info, and latest 10 activities.",
+                "operationId": "get_internal_visitor_info_internal_visitors__visitor_id__get",
+                "parameters": [
+                    {
+                        "name": "visitor_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid",
+                            "title": "Visitor Id"
+                        }
+                    },
+                    {
+                        "name": "project_id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid",
+                            "title": "Project Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VisitorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/": {
+            "get": {
+                "summary": "Internal Root",
+                "description": "Internal service root endpoint.",
+                "operationId": "internal_root__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Internal Root  Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "summary": "Internal Health Check",
+                "description": "Internal health check endpoint.",
+                "operationId": "internal_health_check_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Internal Health Check Health Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AIServiceEvent": {
+                "properties": {
+                    "event_type": {
+                        "type": "string",
+                        "title": "Event Type",
+                        "description": "Event type identifier (e.g., manual_service.request)"
+                    },
+                    "visitor_id": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Visitor Id",
+                        "description": "Visitor identifier related to the event (if applicable)"
+                    },
+                    "payload": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Payload",
+                        "description": "Event payload data"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "event_type"
+                ],
+                "title": "AIServiceEvent",
+                "description": "Envelope for generic AI service events."
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "PlatformType": {
+                "type": "string",
+                "enum": [
+                    "website",
+                    "wechat",
+                    "whatsapp",
+                    "telegram",
+                    "email",
+                    "sms",
+                    "facebook",
+                    "instagram",
+                    "twitter",
+                    "linkedin",
+                    "discord",
+                    "slack",
+                    "teams",
+                    "phone",
+                    "douyin",
+                    "tiktok",
+                    "custom",
+                    "wecom"
+                ],
+                "title": "PlatformType",
+                "description": "Platform type enumeration."
+            },
+            "TagCategory": {
+                "type": "string",
+                "enum": [
+                    "visitor",
+                    "knowledge"
+                ],
+                "title": "TagCategory",
+                "description": "Tag category enumeration."
+            },
+            "TagResponse": {
+                "properties": {
+                    "deleted_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Deleted At",
+                        "description": "Soft deletion timestamp"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At",
+                        "description": "Creation timestamp"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At",
+                        "description": "Last update timestamp"
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 50,
+                        "minLength": 1,
+                        "title": "Name",
+                        "description": "Tag name (English)"
+                    },
+                    "name_zh": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 50
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name Zh",
+                        "description": "Tag name in Chinese"
+                    },
+                    "category": {
+                        "$ref": "#/components/schemas/TagCategory",
+                        "description": "Tag category"
+                    },
+                    "weight": {
+                        "type": "integer",
+                        "maximum": 10.0,
+                        "minimum": 0.0,
+                        "title": "Weight",
+                        "description": "Tag importance/priority weight (0-10)",
+                        "default": 0
+                    },
+                    "color": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 20
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Color",
+                        "description": "Tag color"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Description",
+                        "description": "Tag description"
+                    },
+                    "id": {
+                        "type": "string",
+                        "title": "Id",
+                        "description": "Base64 encoded tag ID"
+                    },
+                    "project_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "title": "Project Id",
+                        "description": "Associated project ID"
+                    },
+                    "display_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Display Name",
+                        "description": "Display name based on user language (name_zh for Chinese, name for others)"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "created_at",
+                    "updated_at",
+                    "name",
+                    "category",
+                    "id",
+                    "project_id"
+                ],
+                "title": "TagResponse",
+                "description": "Schema for tag response."
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            },
+            "VisitorAIInsightResponse": {
+                "properties": {
+                    "satisfaction_score": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Satisfaction Score",
+                        "description": "Satisfaction score on a 0-5 scale (0=unknown)"
+                    },
+                    "emotion_score": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Emotion Score",
+                        "description": "Emotion score on a 0-5 scale (0=unknown)"
+                    },
+                    "intent": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Intent",
+                        "description": "Intent classification (e.g., purchase, inquiry, complaint, support)"
+                    },
+                    "insight_summary": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Insight Summary",
+                        "description": "Short insight summary"
+                    },
+                    "insight_metadata": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Insight Metadata",
+                        "description": "Additional insight metadata"
+                    },
+                    "updated_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Updated At",
+                        "description": "Last update timestamp"
+                    }
+                },
+                "type": "object",
+                "title": "VisitorAIInsightResponse",
+                "description": "AI derived insight scores for a visitor."
+            },
+            "VisitorAIProfileResponse": {
+                "properties": {
+                    "persona_tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Persona Tags",
+                        "description": "AI generated persona tags"
+                    },
+                    "summary": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Summary",
+                        "description": "Structured persona details"
+                    },
+                    "updated_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Updated At",
+                        "description": "Last update timestamp"
+                    }
+                },
+                "type": "object",
+                "title": "VisitorAIProfileResponse",
+                "description": "AI persona representation for a visitor."
+            },
+            "VisitorActivityResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "title": "Id",
+                        "description": "Activity ID"
+                    },
+                    "activity_type": {
+                        "type": "string",
+                        "title": "Activity Type",
+                        "description": "Categorised activity type"
+                    },
+                    "title": {
+                        "type": "string",
+                        "title": "Title",
+                        "description": "Activity title"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Description",
+                        "description": "Activity description"
+                    },
+                    "occurred_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Occurred At",
+                        "description": "Time when the activity occurred"
+                    },
+                    "duration_seconds": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Duration Seconds",
+                        "description": "Activity duration in seconds, when applicable"
+                    },
+                    "context": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Context",
+                        "description": "Optional context for the activity"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "activity_type",
+                    "title",
+                    "occurred_at"
+                ],
+                "title": "VisitorActivityResponse",
+                "description": "Recent activity entry for a visitor."
+            },
+            "VisitorResponse": {
+                "properties": {
+                    "deleted_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Deleted At",
+                        "description": "Soft deletion timestamp"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At",
+                        "description": "Creation timestamp"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At",
+                        "description": "Last update timestamp"
+                    },
+                    "platform_open_id": {
+                        "type": "string",
+                        "maxLength": 255,
+                        "minLength": 1,
+                        "title": "Platform Open Id",
+                        "description": "Visitor unique identifier on this platform"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 100
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name",
+                        "description": "Visitor real name"
+                    },
+                    "nickname": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 100
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Nickname",
+                        "description": "Visitor nickname on this platform (English)"
+                    },
+                    "nickname_zh": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 100
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Nickname Zh",
+                        "description": "Visitor nickname in Chinese"
+                    },
+                    "avatar_url": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Avatar Url",
+                        "description": "Visitor avatar URL on this platform"
+                    },
+                    "phone_number": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 30
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone Number",
+                        "description": "Visitor phone number on this platform"
+                    },
+                    "email": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "email"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Email",
+                        "description": "Visitor email on this platform"
+                    },
+                    "company": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Company",
+                        "description": "Visitor company or organization"
+                    },
+                    "job_title": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Job Title",
+                        "description": "Visitor job title or position"
+                    },
+                    "source": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source",
+                        "description": "Acquisition source describing how the visitor found us"
+                    },
+                    "note": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Note",
+                        "description": "Additional notes about the visitor"
+                    },
+                    "custom_attributes": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Custom Attributes",
+                        "description": "Custom attribute key/value pairs (supports nested structures)"
+                    },
+                    "timezone": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 50
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Timezone",
+                        "description": "Visitor timezone (e.g., 'Asia/Shanghai', 'America/New_York')"
+                    },
+                    "language": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 10
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Language",
+                        "description": "Visitor preferred language code (e.g., 'en', 'zh-CN')"
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "title": "Id",
+                        "description": "Visitor ID"
+                    },
+                    "project_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "title": "Project Id",
+                        "description": "Associated project ID"
+                    },
+                    "platform_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "title": "Platform Id",
+                        "description": "Associated platform ID"
+                    },
+                    "first_visit_time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "First Visit Time",
+                        "description": "When the visitor first accessed the system"
+                    },
+                    "last_visit_time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Last Visit Time",
+                        "description": "Visitor most recent activity/visit time"
+                    },
+                    "last_offline_time": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Offline Time",
+                        "description": "Most recent time visitor went offline"
+                    },
+                    "is_online": {
+                        "type": "boolean",
+                        "title": "Is Online",
+                        "description": "Whether the visitor is currently online/active"
+                    },
+                    "service_status": {
+                        "type": "string",
+                        "title": "Service Status",
+                        "description": "Visitor service status: new, queued, active, closed",
+                        "default": "new"
+                    },
+                    "ip_address": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Ip Address",
+                        "description": "Visitor IP address (supports both IPv4 and IPv6)"
+                    },
+                    "geo_country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Geo Country",
+                        "description": "Country name derived from IP address"
+                    },
+                    "geo_country_code": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Geo Country Code",
+                        "description": "ISO 3166-1 alpha-2 country code (e.g., 'US', 'CN')"
+                    },
+                    "geo_region": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Geo Region",
+                        "description": "Region/state/province name"
+                    },
+                    "geo_city": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Geo City",
+                        "description": "City name"
+                    },
+                    "geo_isp": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Geo Isp",
+                        "description": "Internet Service Provider (available with ip2region)"
+                    },
+                    "platform_type": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PlatformType"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Associated platform type (e.g., website, wechat)"
+                    },
+                    "ai_disabled": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Ai Disabled",
+                        "description": "Whether AI responses are disabled for this visitor"
+                    },
+                    "display_nickname": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Display Nickname",
+                        "description": "Display nickname based on client language (nickname_zh for zh, nickname for others)"
+                    },
+                    "assigned_staff_id": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Assigned Staff Id",
+                        "description": "Currently assigned staff ID (from active session)"
+                    },
+                    "tags": {
+                        "items": {
+                            "$ref": "#/components/schemas/TagResponse"
+                        },
+                        "type": "array",
+                        "title": "Tags",
+                        "description": "Associated visitor tags"
+                    },
+                    "ai_profile": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/VisitorAIProfileResponse"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "AI persona data"
+                    },
+                    "ai_insights": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/VisitorAIInsightResponse"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "AI insight metrics"
+                    },
+                    "system_info": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/VisitorSystemInfoResponse"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "System metadata"
+                    },
+                    "recent_activities": {
+                        "items": {
+                            "$ref": "#/components/schemas/VisitorActivityResponse"
+                        },
+                        "type": "array",
+                        "title": "Recent Activities",
+                        "description": "Recent visitor activities"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "created_at",
+                    "updated_at",
+                    "platform_open_id",
+                    "id",
+                    "project_id",
+                    "platform_id",
+                    "first_visit_time",
+                    "last_visit_time",
+                    "is_online"
+                ],
+                "title": "VisitorResponse",
+                "description": "Schema for visitor response with related entities."
+            },
+            "VisitorSystemInfoResponse": {
+                "properties": {
+                    "platform": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Platform",
+                        "description": "Acquisition platform/channel"
+                    },
+                    "source_detail": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source Detail",
+                        "description": "Additional source detail"
+                    },
+                    "browser": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Browser",
+                        "description": "Browser information"
+                    },
+                    "operating_system": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Operating System",
+                        "description": "Operating system information"
+                    },
+                    "first_seen_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "First Seen At",
+                        "description": "First recorded session timestamp"
+                    },
+                    "updated_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Updated At",
+                        "description": "Last update timestamp"
+                    }
+                },
+                "type": "object",
+                "title": "VisitorSystemInfoResponse",
+                "description": "System metadata associated with a visitor."
+            }
+        }
+    }
+}

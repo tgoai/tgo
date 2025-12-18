@@ -330,8 +330,12 @@ export class WuKongIMUtils {
     // Handle new object format
     if (typeof payload === 'object' && payload !== null) {
       // Special-case image messages (type: 2) with no textual content
-      if (payload.type === 2) {
+      if (payload.type === MessagePayloadType.IMAGE) {
         return payload.content || '[图片]';
+      }
+      // Special-case stream messages (type: 100) with no textual content
+      if (payload.type === MessagePayloadType.STREAM) {
+        return payload.content || 'AI 正在输入...';
       }
       // 处理系统消息 (type: 1000-2000) 的模板替换
       if (typeof payload.type === 'number' && isSystemMessageType(payload.type)) {
@@ -351,7 +355,10 @@ export class WuKongIMUtils {
           if (typeof parsed.type === 'number' && isSystemMessageType(parsed.type)) {
             return WuKongIMUtils.formatSystemMessageContent(parsed.content, parsed.extra);
           }
-          return parsed.content || (parsed.type === 2 ? '[图片]' : '');
+          if (parsed.type === MessagePayloadType.STREAM) {
+            return parsed.content || 'AI 正在输入...';
+          }
+          return parsed.content || (parsed.type === MessagePayloadType.IMAGE ? '[图片]' : '');
         }
         // Fallback to old parsing logic
         return parsed.content || parsed.text || (parsed.type === 2 ? '[图片]' : payload);

@@ -202,6 +202,7 @@ interface SystemInfoSectionProps {
   language?: string;
   timezone?: string;
   ipAddress?: string;
+  displayLocation?: string;
   className?: string;
 }
 
@@ -213,6 +214,7 @@ const SystemInfoSection: React.FC<SystemInfoSectionProps> = ({
   language: languageProp,
   timezone: timezoneProp,
   ipAddress: ipAddressProp,
+  displayLocation: displayLocationProp,
   className = ''
 }) => {
   const { t, i18n } = useTranslation();
@@ -251,11 +253,21 @@ const SystemInfoSection: React.FC<SystemInfoSectionProps> = ({
   const languageRaw = languageProp?.trim() || '-'; // 用于 title 显示原始代码
   const timezone = valueOrDash(timezoneProp);
   const ipAddress = valueOrDash(ipAddressProp);
+  const displayLocation = valueOrDash(displayLocationProp);
+
+  const sourceDetailRaw = systemInfo?.source_detail ?? null;
+  const sourceDetailUrl = typeof sourceDetailRaw === 'string' && isUrl(sourceDetailRaw) ? sourceDetailRaw : null;
+  const hasAnyInfo =
+    Boolean(systemInfo) ||
+    Boolean((languageProp ?? '').trim()) ||
+    Boolean((timezoneProp ?? '').trim()) ||
+    Boolean((ipAddressProp ?? '').trim()) ||
+    Boolean((displayLocationProp ?? '').trim());
 
   return (
     <div className={`pt-4 space-y-3 ${className}`}>
       <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{t('chat.visitor.sections.systemInfo', '\u7cfb\u7edf\u4fe1\u606f')}</h4>
-      {systemInfo ? (
+      {hasAnyInfo ? (
         <div className="space-y-1.5 text-[13px] leading-5">
           <div className="flex justify-between items-start">
             <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('chat.visitor.system.fields.platform', '\u5e73\u53f0')}</span>
@@ -266,15 +278,15 @@ const SystemInfoSection: React.FC<SystemInfoSectionProps> = ({
           <div className="flex justify-between items-start">
             <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('chat.visitor.system.fields.sourcePage', '\u6765\u6e90\u9875\u9762')}</span>
             <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2">
-              {isUrl(systemInfo.source_detail) ? (
+              {sourceDetailUrl ? (
                 <a
-                  href={systemInfo.source_detail as string}
+                  href={sourceDetailUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="text-blue-600 dark:text-blue-400 hover:underline underline-offset-2 break-all"
-                  title={systemInfo.source_detail as string}
+                  title={sourceDetailUrl}
                 >
-                  {systemInfo.source_detail}
+                  {sourceDetailUrl}
                 </a>
               ) : (
                 <span title={sourceDetail}>{sourceDetail}</span>
@@ -309,6 +321,12 @@ const SystemInfoSection: React.FC<SystemInfoSectionProps> = ({
             <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('chat.visitor.system.fields.ipAddress', 'IP \u5730\u5740')}</span>
             <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2" title={ipAddress}>
               {ipAddress}
+            </span>
+          </div>
+          <div className="flex justify-between items-start">
+            <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('chat.visitor.system.fields.location', '\u4f4d\u7f6e')}</span>
+            <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2" title={displayLocation}>
+              {displayLocation}
             </span>
           </div>
           <div className="flex justify-between items-start">

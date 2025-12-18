@@ -25,6 +25,7 @@ const orderStatusConfig: Record<OrderStatus, { bg: string; text: string; icon: R
  * 订单 Widget 组件
  */
 const OrderWidgetComponent: React.FC<WidgetComponentProps<OrderWidgetData>> = ({ data, onAction, onSendMessage }) => {
+  if (!data) return null;
   const statusStyle = orderStatusConfig[data.status] || orderStatusConfig.pending;
   const currency = data.currency || '¥';
 
@@ -44,36 +45,38 @@ const OrderWidgetComponent: React.FC<WidgetComponentProps<OrderWidgetData>> = ({
       />
 
       {/* 商品列表 */}
-      <div className="border-t border-b border-gray-100 dark:border-gray-700 py-3 my-3 space-y-3">
-        {data.items.map((item, index) => (
-          <div key={index} className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              {item.image && (
-                <img
-                  src={item.image.url}
-                  alt={item.image.alt || item.name}
-                  className="w-14 h-14 object-cover rounded-lg border border-gray-100 dark:border-gray-700"
-                />
-              )}
-              <div>
-                <p className="font-medium text-gray-900 dark:text-gray-100">{item.name}</p>
-                {item.attributes && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {Object.entries(item.attributes).map(([k, v]) => `${k}: ${v}`).join(' | ')}
-                  </p>
+      {data.items && data.items.length > 0 && (
+        <div className="border-t border-b border-gray-100 dark:border-gray-700 py-3 my-3 space-y-3">
+          {data.items.map((item, index) => (
+            <div key={index} className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                {item.image && (
+                  <img
+                    src={item.image.url}
+                    alt={item.image.alt || item.name}
+                    className="w-14 h-14 object-cover rounded-lg border border-gray-100 dark:border-gray-700"
+                  />
                 )}
-                {item.sku && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500">SKU: {item.sku}</p>
-                )}
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{item.name}</p>
+                  {item.attributes && Object.keys(item.attributes).length > 0 && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {Object.entries(item.attributes).map(([k, v]) => `${k}: ${v}`).join(' | ')}
+                    </p>
+                  )}
+                  {item.sku && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">SKU: {item.sku}</p>
+                  )}
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-500 dark:text-gray-400">×{item.quantity}</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">{formatPrice(item.total_price, currency)}</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500 dark:text-gray-400">×{item.quantity}</p>
-              <p className="font-medium text-gray-900 dark:text-gray-100">{formatPrice(item.total_price, currency)}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* 金额信息 */}
       <div className="space-y-2">

@@ -46,7 +46,7 @@ ReactDOM.createRoot((targetDoc.getElementById('tgo-root') || targetDoc.getElemen
     <CacheProvider value={emotionCache}>
       <Global styles={css`
         :root { --primary:#2f80ed; --bg:#ffffff; --text:#1f2937; --muted:#6b7280; }
-        html, body, #tgo-root, #root { height: 100%; }
+        html, body, #tgo-root, #root { height: 100%; overscroll-behavior: contain; }
         body { margin:0; background: var(--bg-primary, var(--bg)); color: var(--text-primary, var(--text)); font: 14px/1.4 system-ui,-apple-system, Segoe UI, Roboto, Helvetica, Arial; }
         * { box-sizing: border-box; }
       `} />

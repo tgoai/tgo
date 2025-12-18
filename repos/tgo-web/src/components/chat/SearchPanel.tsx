@@ -24,8 +24,6 @@ import { ChatAvatar } from '@/components/chat/ChatAvatar';
 import { ChatPlatformIcon } from '@/components/chat/ChatPlatformIcon';
 import { toPlatformType } from '@/utils/platformUtils';
 import { useChannelDisplay } from '@/hooks/useChannelDisplay';
-import { Bot } from 'lucide-react';
-import { TbBrain } from 'react-icons/tb';
 
 const parseMinutesAgo = (timestamp?: string): number | undefined => {
   if (!timestamp) return undefined;
@@ -58,16 +56,22 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<SearchScope>('all');
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<UnifiedSearchResponse | null>(null);
 
   const [visitorPage, setVisitorPage] = useState(1);
   const [messagePage, setMessagePage] = useState(1);
 
+  const [accumulatedVisitors, setAccumulatedVisitors] = useState<VisitorBasicResponse[]>([]);
+  const [hasMoreVisitors, setHasMoreVisitors] = useState(false);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const visitorObserverRef = useRef<IntersectionObserver | null>(null);
+  const visitorSentinelRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<any>(null);
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const tabs = useMemo(() => (
     [
@@ -83,6 +87,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
       // reset state when opening
       setError(null);
       setLoading(false);
+      setLoadingMore(false);
       // Focus input
       setTimeout(() => inputRef.current?.focus(), 0);
     } else {
@@ -90,9 +95,19 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
       setQuery('');
       setVisitorPage(1);
       setMessagePage(1);
+      setAccumulatedVisitors([]);
+      setHasMoreVisitors(false);
       setActiveTab('all');
     }
   }, [open]);
+
+  // Reset pages and accumulated data when query or tab changes
+  useEffect(() => {
+    setVisitorPage(1);
+    setMessagePage(1);
+    setAccumulatedVisitors([]);
+    setHasMoreVisitors(false);
+  }, [query, activeTab]);
 
   // Close on ESC
   useEffect(() => {
@@ -109,32 +124,78 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
     if (e.target === e.currentTarget) onClose();
   }, [onClose]);
 
-  const doSearch = useCallback(async (params: SearchRequestParams) => {
-    setLoading(true);
+  const doSearch = useCallback(async (params: SearchRequestParams, isLoadMore = false) => {
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const resp = await searchApiService.unifiedSearch(params);
       setData(resp);
+
+      if (params.scope === 'all') {
+        setAccumulatedVisitors(resp.visitors);
+        setHasMoreVisitors(resp.visitor_pagination?.has_next ?? false);
+      } else if (params.scope === 'visitors') {
+        if (params.visitor_page === 1) {
+          setAccumulatedVisitors(resp.visitors);
+        } else {
+          setAccumulatedVisitors(prev => [...prev, ...resp.visitors]);
+        }
+        setHasMoreVisitors(resp.visitor_pagination?.has_next ?? false);
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('search.errorGeneric', '\u641c\u7d22\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5');
+      const msg = err instanceof Error ? err.message : t('search.errorGeneric', '搜索失败，请稍后重试');
       setError(msg);
       showApiError(showToast, err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
+
+  // Infinite scroll for visitors
+  useEffect(() => {
+    if (activeTab !== 'visitors' || !hasMoreVisitors || loading || loadingMore) return;
+
+    const options = {
+      root: panelRef.current,
+      rootMargin: '20px',
+      threshold: 0.1
+    };
+
+    const callback: IntersectionObserverCallback = (entries) => {
+      if (entries[0].isIntersecting) {
+        setVisitorPage(p => p + 1);
+      }
+    };
+
+    const observer = new IntersectionObserver(callback, options);
+    visitorObserverRef.current = observer;
+    
+    const sentinel = visitorSentinelRef.current;
+    if (sentinel) {
+      observer.observe(sentinel);
+    }
+
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      }
+    };
+  }, [activeTab, hasMoreVisitors, loading, loadingMore]);
 
   // Debounced search on query or tab/page change
   useEffect(() => {
     if (!open) return;
     if (!query || query.trim().length === 0) {
       setData(null);
+      setAccumulatedVisitors([]);
+      setHasMoreVisitors(false);
       return;
     }
-
-    // Reset page when tab changes or query changes
-    setVisitorPage(p => (activeTab !== 'messages' ? p : 1));
-    setMessagePage(p => (activeTab !== 'visitors' ? p : 1));
 
     const params: SearchRequestParams = {
       q: query.trim(),
@@ -143,8 +204,16 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
       message_page: messagePage,
     };
 
+    const isLoadMore = activeTab === 'visitors' && visitorPage > 1;
+
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => doSearch(params), 300);
+    
+    if (isLoadMore) {
+      // No debounce for pagination clicks/infinite scroll
+      doSearch(params, true);
+    } else {
+      debounceTimerRef.current = setTimeout(() => doSearch(params), 300);
+    }
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -167,8 +236,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
     const channelType = m.channel_type ?? DEFAULT_CHANNEL_TYPE;
     const isAgentChat = channelId?.endsWith('-agent') ?? false;
     const isTeamChat = channelId?.endsWith('-team') ?? false;
-
-    const chats = useChatStore(state => state.chats);
 
     const { name, avatar, extra } = useChannelDisplay({
       channelId,
@@ -198,25 +265,13 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
       const extraObj: any = extra;
       const fromExtra: PlatformType | undefined =
         (extraObj && typeof extraObj === 'object' && 'platform_type' in extraObj) ? (extraObj.platform_type as PlatformType) : undefined;
-      if (fromExtra) return fromExtra;
-      const chat = channelId ? chats.find(c => c.channelId === channelId && c.channelType === channelType) : undefined;
-      return chat ? toPlatformType(chat.platform) : undefined;
-    }, [extra, channelId, channelType, chats]);
-
-    const rawPreview = (m.preview_text || m.stream_data || (typeof m.payload === 'object' ? (m.payload as any).content : '') || '').toString();
-    const time = m.timestamp ? new Date(m.timestamp * 1000).toLocaleString(i18n.language || undefined) : '';
-    const hasPreview = rawPreview && rawPreview.trim().length > 0;
-    const previewHtml = hasPreview ? DOMPurify.sanitize(rawPreview) : '';
+      return fromExtra ?? (m.payload?.platform_type as PlatformType) ?? toPlatformType(m.topic?.split(':')[0] || '');
+    }, [extra, m.payload, m.topic]);
 
     return (
       <button
-        className="w-full flex items-start p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600/50 text-left"
-        onClick={() => {
-          if (channelId && typeof m.message_seq === 'number') {
-            useChatStore.getState().setTargetMessageLocation({ channelId, channelType, messageSeq: m.message_seq });
-          }
-          openConversation(channelId || undefined, channelType || undefined);
-        }}
+        className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 text-left transition-colors group"
+        onClick={() => openConversation(channelId, channelType)}
       >
         <ChatAvatar
           displayName={displayName}
@@ -226,28 +281,26 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
           colorSeed={channelId}
         />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center min-w-0">
-              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate mr-1 flex items-center">
-                <span className="truncate">{displayName}</span>
-                {isAgentChat ? (
-                  <Bot className="w-3.5 h-3.5 ml-1 flex-shrink-0 text-purple-500 dark:text-purple-400" />
-                ) : isTeamChat ? (
-                  <TbBrain className="w-3.5 h-3.5 ml-1 flex-shrink-0 text-green-500 dark:text-green-400" />
-                ) : platformType ? (
-                  <ChatPlatformIcon platformType={platformType} />
-                ) : null}
-              </div>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{displayName}</span>
+              <ChatPlatformIcon platformType={platformType} />
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">{time}</div>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+              {m.timestamp ? new Date(m.timestamp * 1000).toLocaleString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              }) : ''}
+            </span>
           </div>
-          {hasPreview ? (
-            <div className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2 whitespace-pre-wrap break-words search-html mt-0.5" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-          ) : (
-            <div className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{t('search.noPreview', '（无预览内容）')}</div>
-          )}
+          <p
+            className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed search-html"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.preview_text || '') }}
+          />
         </div>
-        <Icon name="ChevronRight" size={16} className="text-gray-300 dark:text-gray-600 ml-2" />
+        <Icon name="ChevronRight" size={16} className="text-gray-300 dark:text-gray-600 ml-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
       </button>
     );
   };
@@ -295,7 +348,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
       }
 
       // 2) 不存在则新建 Chat 对象并插入到顶部
-      const fallbackName = t('visitor.fallbackName', '\u8bbf\u5ba2 {{suffix}}').replace('{{suffix}}', v.platform_open_id.slice(-4));
+      const fallbackName = t('visitor.fallbackName', '访客 {{suffix}}').replace('{{suffix}}', v.platform_open_id.slice(-4));
       const rawName = (v.name || v.nickname || fallbackName) as string;
       const plainName = (rawName || '').replace(/<[^>]*>/g, '') || fallbackName;
 
@@ -350,10 +403,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
       showApiError(showToast, e);
       onClose();
     }
-  }, [onClose, showToast]);
+  }, [onClose, showToast, t]);
 
   const renderVisitorItem = useCallback((v: VisitorBasicResponse) => {
-    const fallbackName = t('visitor.fallbackName', '\u8bbf\u5ba2 {{suffix}}').replace('{{suffix}}', v.platform_open_id.slice(-4));
+    const fallbackName = t('visitor.fallbackName', '访客 {{suffix}}').replace('{{suffix}}', v.platform_open_id.slice(-4));
     const rawName = (v.name || v.nickname || fallbackName) as string;
     const plainName = (rawName || '').replace(/<[^>]*>/g, '') || fallbackName;
     const nameHtml = DOMPurify.sanitize(rawName || '');
@@ -379,16 +432,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
         <Icon name="ChevronRight" size={16} className="text-gray-300 dark:text-gray-600" />
       </button>
     );
-  }, [openConversation]);
+  }, [t, openVisitorConversation]);
 
   const renderMessageItem = useCallback((m: MessageSearchResult) => {
     return <SearchMessageItem m={m} />;
-  }, []);
+  }, [t, openConversation]);
 
-  const visitorTotalPages = useMemo(() => {
-    const p = data?.visitor_pagination;
-    return p ? Math.max(1, Math.ceil((p.total || 0) / (p.page_size || 10))) : 1;
-  }, [data]);
   const messageTotalPages = useMemo(() => {
     const p = data?.message_pagination;
     return p ? Math.max(1, Math.ceil((p.total || 0) / (p.page_size || 20))) : 1;
@@ -407,16 +456,16 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
               ref={inputRef}
               value={query}
               onChange={handleChange}
-              placeholder={t('search.placeholder', '\u641c\u7d22\u8bbf\u5ba2\u6216\u6d88\u606f')}
+              placeholder={t('search.placeholder', '搜索访客或消息')}
               className="w-full pl-9 pr-9 py-2.5 text-sm border border-gray-200/70 rounded-full bg-gray-50/80 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/70 focus:border-blue-500"
             />
             {query && (
-              <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" onClick={handleClear} aria-label={t('common.clear', '\u6e05\u7a7a')} title={t('common.clear', '\u6e05\u7a7a')}>
+              <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" onClick={handleClear} aria-label={t('common.clear', '清空')} title={t('common.clear', '清空')}>
                 <Icon name="X" size={16} />
               </button>
             )}
           </div>
-          <button className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700" onClick={onClose} aria-label={t('common.close', '\u5173\u95ed')} title={t('common.close', '\u5173\u95ed')}>
+          <button className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700" onClick={onClose} aria-label={t('common.close', '关闭')} title={t('common.close', '关闭')}>
             <Icon name="X" size={18} />
           </button>
         </div>
@@ -439,7 +488,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
         {/* Tabs */}
         <div className="px-4 pt-2 border-b border-gray-100/80 dark:border-gray-700/80 bg-white/40 dark:bg-gray-800/40 backdrop-blur">
           <div className="flex items-center justify-between">
-            <div className="inline-flex items-center gap-1 rounded-md bg-gray-100/60 dark:bg-gray-700/60 p-1 ring-1 ring-inset ring-gray-200/60 dark:ring-gray-600/60" role="tablist" aria-label={t('search.aria.tablist', '\u641c\u7d22\u5206\u7c7b')}>
+            <div className="inline-flex items-center gap-1 rounded-md bg-gray-100/60 dark:bg-gray-700/60 p-1 ring-1 ring-inset ring-gray-200/60 dark:ring-gray-600/60" role="tablist" aria-label={t('search.aria.tablist', '搜索分类')}>
               {tabs.map(tab => {
                 const isActive = activeTab === tab.key;
                 return (
@@ -463,11 +512,11 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
         <div className="flex-1 overflow-auto px-4 py-3 bg-white/30 dark:bg-gray-800/30">
           {!query ? (
             <div className="h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
-              {t('search.emptyQueryHint', '\u8f93\u5165\u5173\u952e\u8bcd\u5f00\u59cb\u641c\u7d22')}
+              {t('search.emptyQueryHint', '输入关键词开始搜索')}
             </div>
-          ) : loading ? (
+          ) : (loading && !loadingMore) ? (
             <div className="h-full flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm">
-              <Icon name="Loader2" className="animate-spin mr-2" size={16} /> {t('search.searching', '\u6b63\u5728\u641c\u7d22...')}
+              <Icon name="Loader2" className="animate-spin mr-2" size={16} /> {t('search.searching', '正在搜索...')}
             </div>
           ) : error ? (
             <div className="h-full flex items-center justify-center text-red-500 dark:text-red-400 text-sm">
@@ -480,30 +529,22 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
                 <div>
                   <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('search.sections.visitors', '访客')}（{data.visitor_count ?? data.visitors.length}）</div>
                   {data.visitors.length === 0 ? (
-                    <div className="text-sm text-gray-400 dark:text-gray-500">{t('search.empty.visitors', '\u672a\u627e\u5230\u76f8\u5173\u8bbf\u5ba2')}</div>
+                    <div className="text-sm text-gray-400 dark:text-gray-500">{t('search.empty.visitors', '未找到相关访客')}</div>
                   ) : (
                     <div className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-700 rounded-md border border-gray-100 dark:border-gray-600">
-                      {data.visitors.map(v => (
+                      {data.visitors.slice(0, 10).map(v => (
                         <div key={v.id} className="p-1">{renderVisitorItem(v)}</div>
                       ))}
                     </div>
                   )}
-                  {data.visitor_pagination && data.visitor_pagination.total > data.visitors.length && (
-                    <div className="mt-2">
-                      <Pagination
-                        currentPage={data.visitor_pagination.page}
-                        totalPages={visitorTotalPages}
-                        onPageChange={(p) => setVisitorPage(p)}
-                      />
-                    </div>
-                  )}
+                  {/* No pagination for visitors in 'all' tab as requested */}
                 </div>
 
                 {/* Messages section */}
                 <div>
-                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('search.sections.messages', '\u6d88\u606f')}（{data.message_count ?? data.messages.length}）</div>
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('search.sections.messages', '消息')}（{data.message_count ?? data.messages.length}）</div>
                   {data.messages.length === 0 ? (
-                    <div className="text-sm text-gray-400 dark:text-gray-500">{t('search.empty.messages', '\u672a\u627e\u5230\u76f8\u5173\u6d88\u606f')}</div>
+                    <div className="text-sm text-gray-400 dark:text-gray-500">{t('search.empty.messages', '未找到相关消息')}</div>
                   ) : (
                     <div className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-700 rounded-md border border-gray-100 dark:border-gray-600">
                       {data.messages.map(m => (
@@ -524,29 +565,26 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
               </div>
             ) : activeTab === 'visitors' ? (
               <div>
-                {data.visitors.length === 0 ? (
-                  <div className="text-sm text-gray-400 dark:text-gray-500">{t('search.empty.visitors', '\u672a\u627e\u5230\u76f8\u5173\u8bbf\u5ba2')}</div>
+                {accumulatedVisitors.length === 0 ? (
+                  <div className="text-sm text-gray-400 dark:text-gray-500">{t('search.empty.visitors', '未找到相关访客')}</div>
                 ) : (
-                  <div className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-700 rounded-md border border-gray-100 dark:border-gray-600">
-                    {data.visitors.map(v => (
-                      <div key={v.id} className="p-1">{renderVisitorItem(v)}</div>
-                    ))}
-                  </div>
-                )}
-                {data.visitor_pagination && data.visitor_pagination.total > data.visitors.length && (
-                  <div className="mt-2">
-                    <Pagination
-                      currentPage={data.visitor_pagination.page}
-                      totalPages={visitorTotalPages}
-                      onPageChange={(p) => setVisitorPage(p)}
-                    />
-                  </div>
+                  <>
+                    <div className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-700 rounded-md border border-gray-100 dark:border-gray-600">
+                      {accumulatedVisitors.map(v => (
+                        <div key={v.id} className="p-1">{renderVisitorItem(v)}</div>
+                      ))}
+                    </div>
+                    {/* Infinite scroll sentinel */}
+                    <div ref={visitorSentinelRef} className="h-10 flex items-center justify-center mt-2">
+                      {loadingMore && <Icon name="Loader2" className="animate-spin text-gray-400" size={20} />}
+                    </div>
+                  </>
                 )}
               </div>
             ) : (
               <div>
                 {data.messages.length === 0 ? (
-                  <div className="text-sm text-gray-400 dark:text-gray-500">{t('search.empty.messages', '\u672a\u627e\u5230\u76f8\u5173\u6d88\u606f')}</div>
+                  <div className="text-sm text-gray-400 dark:text-gray-500">{t('search.empty.messages', '未找到相关消息')}</div>
                 ) : (
                   <div className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-700 rounded-md border border-gray-100 dark:border-gray-600">
                     {data.messages.map(m => (
@@ -584,4 +622,3 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
 };
 
 export default SearchPanel;
-

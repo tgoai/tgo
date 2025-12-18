@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import type { Chat, ChatStatus, Message, ChannelInfo } from '@/types';
+import { MessagePayloadType, type Chat, type ChatStatus, type Message, type ChannelInfo } from '@/types';
 import { WuKongIMApiService, WuKongIMUtils } from '@/services/wukongimApi';
 import { diffMinutesFromNow } from '@/utils/dateUtils';
 import { getChannelKey } from '@/utils/channelUtils';
@@ -43,6 +43,7 @@ interface ConversationState {
 
   // Actions - 会话更新
   updateConversationLastMessage: (channelId: string, channelType: number, message: Message) => void;
+  updateConversationPreview: (channelId: string, channelType: number, content: string) => void;
   moveConversationToTop: (channelId: string, channelType: number) => void;
   incrementUnreadCount: (channelId: string, channelType: number) => void;
   clearConversationUnread: (channelId: string, channelType: number) => Promise<void>;
@@ -190,9 +191,17 @@ export const useConversationStore = create<ConversationState>()(
                       ? new Date(message.timestamp).toISOString()
                       : new Date().toISOString();
                   const sec = Math.floor(new Date(isoTs).getTime() / 1000);
+
+        // For STREAM messages, use a placeholder if content is empty
+        let content = message.content;
+        if (message.payloadType === MessagePayloadType.STREAM && !content) {
+          content = 'AI 正在输入...';
+        }
+
                   return {
                     ...chat,
-                    lastMessage: message.content,
+                    lastMessage: content,
+                    payloadType: message.payloadType,
                     timestamp: isoTs,
                     lastTimestampSec: sec,
                   };
@@ -202,6 +211,28 @@ export const useConversationStore = create<ConversationState>()(
             }),
             false,
             'updateConversationLastMessage'
+          );
+        },
+
+        // Update conversation preview content without re-sorting or changing timestamps
+        // Used primarily for streaming messages
+        updateConversationPreview: (channelId: string, channelType: number, content: string) => {
+          set(
+            (state) => ({
+              chats: state.chats.map((chat) => {
+                if (chat.channelId === channelId && chat.channelType === channelType) {
+                  // Only update if content changed
+                  if (chat.lastMessage === content) return chat;
+                  return {
+                    ...chat,
+                    lastMessage: content,
+                  };
+                }
+                return chat;
+              }),
+            }),
+            false,
+            'updateConversationPreview'
           );
         },
 

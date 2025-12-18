@@ -11,6 +11,8 @@ import { WidgetCard, ActionButtons } from './shared';
  * 产品列表 Widget 组件
  */
 const ProductListWidgetComponent: React.FC<WidgetComponentProps<ProductListWidgetData>> = ({ data, onAction, onSendMessage }) => {
+  if (!data) return null;
+
   return (
     <WidgetCard>
       {/* 标题 */}
@@ -29,32 +31,34 @@ const ProductListWidgetComponent: React.FC<WidgetComponentProps<ProductListWidge
       )}
 
       {/* 产品网格 */}
-      <div className="grid grid-cols-2 gap-3">
-        {data.products.map((product, index) => (
-          <div
-            key={index}
-            className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer bg-gray-50 dark:bg-gray-700/50"
-          >
-            {product.thumbnail && (
-              <img
-                src={product.thumbnail}
-                alt={product.name}
-                className="w-full h-24 object-cover rounded mb-2"
-              />
-            )}
-            <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{product.name}</p>
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-red-500 dark:text-red-400 font-semibold">¥{product.price}</span>
-              {product.rating !== undefined && (
-                <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-0.5">
-                  <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                  {product.rating}
-                </span>
+      {data.products && data.products.length > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          {data.products.map((product, index) => (
+            <div
+              key={index}
+              className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer bg-gray-50 dark:bg-gray-700/50"
+            >
+              {product.thumbnail && (
+                <img
+                  src={product.thumbnail}
+                  alt={product.name}
+                  className="w-full h-24 object-cover rounded mb-2"
+                />
               )}
+              <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{product.name}</p>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-red-500 dark:text-red-400 font-semibold">¥{product.price}</span>
+                {product.rating !== undefined && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-0.5">
+                    <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                    {product.rating}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* 分页信息 */}
       {data.total_count !== undefined && (

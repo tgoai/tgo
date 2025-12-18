@@ -78,10 +78,10 @@ const ProductWidgetComponent: React.FC<WidgetComponentProps<ProductWidgetData>> 
         </div>
 
         {/* 评分 */}
-        {data.rating !== undefined && (
+        {data.rating !== undefined && data.rating !== null && (
           <div className="mt-2 flex items-center gap-1.5 text-sm">
             <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            <span className="font-medium text-gray-900 dark:text-gray-100">{data.rating.toFixed(1)}</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{(Number(data.rating) || 0).toFixed(1)}</span>
             {data.review_count !== undefined && (
               <span className="text-gray-400 dark:text-gray-500">({data.review_count}条评价)</span>
             )}

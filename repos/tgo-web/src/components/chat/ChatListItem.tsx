@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Chat, ChannelVisitorExtra } from '@/types';
-import { PlatformType } from '@/types';
+import { MessagePayloadType } from '@/types';
 import { DEFAULT_CHANNEL_TYPE } from '@/constants';
 import { useChannelDisplay } from '@/hooks/useChannelDisplay';
 import { toPlatformType } from '@/utils/platformUtils';
@@ -67,12 +67,8 @@ export const ChatListItem: React.FC<ChatListItemProps> = React.memo(({ chat, isA
     if (visitorExtra?.is_online !== undefined) {
       if (visitorExtra.is_online) {
         return { visitorStatus: 'online', lastSeenMinutes: undefined };
-      } else {
-        // Calculate lastSeenMinutes from last_offline_time if available
-        const minutes = parseMinutesAgo(visitorExtra.last_offline_time);
-
-        return { visitorStatus: 'offline', lastSeenMinutes: minutes };
       }
+      return { visitorStatus: 'offline', lastSeenMinutes: parseMinutesAgo(visitorExtra.last_offline_time) };
     }
     // Fallback to chat.visitorStatus
     return { visitorStatus: chat.visitorStatus, lastSeenMinutes: chat.lastSeenMinutes };
@@ -90,17 +86,16 @@ export const ChatListItem: React.FC<ChatListItemProps> = React.memo(({ chat, isA
       setFadeOut(true);
       tid = setTimeout(() => {
         setFadeOut(false);
-        prevUnreadRef.current = chat.unreadCount;
+        prevUnreadRef.current = 0;
       }, 220);
     } else {
       prevUnreadRef.current = chat.unreadCount;
     }
     return () => { if (tid) clearTimeout(tid); };
   }, [chat.unreadCount]);
-  const unreadToDisplay = chat.unreadCount > 0 ? chat.unreadCount : prevUnreadRef.current;
 
-  const extraObj: any = extra;
-  let tags = extraObj?.tags || [];
+  const unreadToDisplay = chat.unreadCount > 0 ? chat.unreadCount : prevUnreadRef.current;
+  const tags = (extra as any)?.tags || [];
   return (
     <div
       className={`
@@ -126,13 +121,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = React.memo(({ chat, isA
             ) : isTeamChat ? (
               <TbBrain className={`w-3.5 h-3.5 ml-1 flex-shrink-0 ${isActive ? 'text-blue-100' : 'text-green-500 dark:text-green-400'}`} />
             ) : (
-              <ChatPlatformIcon platformType={(() => {
-                const extraObj: any = extra;
-                const fromExtra: PlatformType | undefined = (extraObj && typeof extraObj === 'object' && 'platform_type' in extraObj)
-                  ? (extraObj.platform_type as PlatformType)
-                  : undefined;
-                return fromExtra ?? toPlatformType(chat.platform);
-              })()} />
+              <ChatPlatformIcon platformType={(extra as any)?.platform_type ?? toPlatformType(chat.platform)} />
             )}
           </h3>
           <span className={`text-xs flex-shrink-0 ml-2 ${isActive ? 'text-blue-100' : 'text-gray-400 dark:text-gray-500'}`}>
@@ -141,7 +130,11 @@ export const ChatListItem: React.FC<ChatListItemProps> = React.memo(({ chat, isA
         </div>
 
         <div className="flex justify-between items-center mt-1">
-          <p className={`text-xs truncate flex-1 ${isActive ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>{chat.lastMessage}</p>
+          <p className={`text-xs truncate flex-1 ${isActive ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>
+            {chat.payloadType === MessagePayloadType.STREAM && !chat.lastMessage 
+              ? 'AI 正在输入...' 
+              : chat.lastMessage}
+          </p>
           {(chat.unreadCount > 0 || fadeOut) && (
             <div className={`min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-medium rounded-full flex items-center justify-center px-1 flex-shrink-0 ml-2 transition-opacity duration-200 ${fadeOut && chat.unreadCount === 0 ? 'opacity-0' : 'opacity-100'}`}>
               {unreadToDisplay > 99 ? '99+' : unreadToDisplay}
