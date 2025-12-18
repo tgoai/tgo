@@ -118,7 +118,7 @@ class AgnoTeamBuilder:
             "delegate_task_to_all_members": False,
             "expected_output": context.expected_output,
             "add_datetime_to_context": True,
-            "respond_directly": False, # 直接返回成员的回答，不进行额外的汇总
+            "respond_directly": True, # 直接返回成员的回答，不进行额外的汇总
             "stream_member_events": True,
             "share_member_interactions": False,
             "show_members_responses": False,
