@@ -14,7 +14,7 @@
 
 TGO 是一個開源的 AI 智能體客服平台，致力於幫助企業「組建智能體團隊為客戶服務」。它集成了多渠道接入、智能體編排、知識庫管理（RAG）、人工坐席協作等核心功能。
 
-<img src="resources/screenshot/zh/home_dark.png" width="100%">
+<img src="resources/home.png" width="100%">
 
 ## ✨ 核心特性
 

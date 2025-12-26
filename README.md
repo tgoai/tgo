@@ -14,7 +14,7 @@
 
 TGO is an open-source AI agent customer service platform dedicated to helping enterprises "Build AI Agent Teams for Customer Service". It integrates multi-channel access, agent orchestration, knowledge base management (RAG), and human agent collaboration.
 
-<img src="resources/screenshot/en/home_dark.png" width="100%">
+<img src="resources/home_en.png" width="100%">
 
 ## ✨ Features
 
