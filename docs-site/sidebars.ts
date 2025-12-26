@@ -1,8 +1,12 @@
 import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
+// import apiSidebar from './docs/api/sidebar';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const sidebars: SidebarsConfig = {
+  // API 文档侧边栏
+  // apiSidebar,
+  
   docsSidebar: [
     {
       type: 'category',
@@ -13,6 +17,12 @@ const sidebars: SidebarsConfig = {
           type: 'doc',
           id: 'intro',
           label: '介绍',
+        },
+        {
+          type: 'doc',
+          id: 'wechat-group',
+          label: '微信群',
+          className: 'menu__link--chinese-only',
         },
         {
           type: 'doc',

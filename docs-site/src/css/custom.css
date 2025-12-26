@@ -556,3 +556,259 @@ pre code {
   color: var(--ifm-color-primary);
   border-left-color: var(--ifm-color-emphasis-300);
 }
+
+/* ------------------- OpenAPI 文档样式 ------------------- */
+
+/* API 方法徽章样式 */
+.openapi-tabs__method-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* GET 方法 - 蓝色 */
+.openapi-tabs__method-badge--get,
+.api-method-badge--get {
+  background-color: #61affe;
+  color: #ffffff;
+}
+
+/* POST 方法 - 绿色 */
+.openapi-tabs__method-badge--post,
+.api-method-badge--post {
+  background-color: #49cc90;
+  color: #ffffff;
+}
+
+/* PUT 方法 - 橙色 */
+.openapi-tabs__method-badge--put,
+.api-method-badge--put {
+  background-color: #fca130;
+  color: #ffffff;
+}
+
+/* DELETE 方法 - 红色 */
+.openapi-tabs__method-badge--delete,
+.api-method-badge--delete {
+  background-color: #f93e3e;
+  color: #ffffff;
+}
+
+/* PATCH 方法 - 青色 */
+.openapi-tabs__method-badge--patch,
+.api-method-badge--patch {
+  background-color: #50e3c2;
+  color: #1a1a1a;
+}
+
+/* API 端点路径样式 */
+.openapi-explorer__path {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 14px;
+  background-color: #f6f8fa;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #e1e4e8;
+}
+
+[data-theme='dark'] .openapi-explorer__path {
+  background-color: #21262d;
+  border-color: #30363d;
+}
+
+/* API 请求/响应面板 */
+.openapi-explorer__request-panel,
+.openapi-explorer__response-panel {
+  border-radius: 8px;
+  border: 1px solid #e1e4e8;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+[data-theme='dark'] .openapi-explorer__request-panel,
+[data-theme='dark'] .openapi-explorer__response-panel {
+  border-color: #30363d;
+}
+
+/* API 参数表格 */
+.openapi-schema__table {
+  font-size: 14px;
+}
+
+.openapi-schema__property-name {
+  font-family: var(--ifm-font-family-monospace);
+  color: #0550ae;
+  font-weight: 500;
+}
+
+[data-theme='dark'] .openapi-schema__property-name {
+  color: #79c0ff;
+}
+
+.openapi-schema__property-type {
+  color: #6e7781;
+  font-size: 13px;
+}
+
+.openapi-required-badge {
+  background-color: #fee2e2;
+  color: #dc2626;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+[data-theme='dark'] .openapi-required-badge {
+  background-color: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+/* Try it 按钮 */
+.openapi-explorer__try-btn {
+  background-color: #22c55e;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.openapi-explorer__try-btn:hover {
+  background-color: #16a34a;
+}
+
+/* API 响应状态码标签 */
+.openapi-tabs__response-code {
+  font-family: var(--ifm-font-family-monospace);
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.openapi-tabs__response-code--200,
+.openapi-tabs__response-code--201 {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+[data-theme='dark'] .openapi-tabs__response-code--200,
+[data-theme='dark'] .openapi-tabs__response-code--201 {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.openapi-tabs__response-code--400,
+.openapi-tabs__response-code--401,
+.openapi-tabs__response-code--404,
+.openapi-tabs__response-code--422 {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+[data-theme='dark'] .openapi-tabs__response-code--400,
+[data-theme='dark'] .openapi-tabs__response-code--401,
+[data-theme='dark'] .openapi-tabs__response-code--404,
+[data-theme='dark'] .openapi-tabs__response-code--422 {
+  background-color: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+/* 授权信息区域 */
+.openapi-explorer__auth-section {
+  background-color: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 1rem 0;
+}
+
+[data-theme='dark'] .openapi-explorer__auth-section {
+  background-color: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+/* Schema 展开/折叠样式 */
+.openapi-schema__container {
+  background-color: #f6f8fa;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 1rem 0;
+}
+
+[data-theme='dark'] .openapi-schema__container {
+  background-color: #161b22;
+}
+
+/* API 文档页面布局优化 */
+.theme-api-doc {
+  max-width: 100%;
+}
+
+.theme-api-doc .col--8 {
+  max-width: 100%;
+  flex: 1;
+}
+
+/* 代码示例区域 (右侧面板) */
+.openapi-demo__code-panel {
+  position: sticky;
+  top: calc(var(--ifm-navbar-height) + 1rem);
+  max-height: calc(100vh - var(--ifm-navbar-height) - 2rem);
+  overflow-y: auto;
+}
+
+/* curl 代码示例样式 */
+.openapi-demo__curl-example pre {
+  background-color: #1e293b !important;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.openapi-demo__curl-example .token.keyword {
+  color: #38bdf8;
+}
+
+.openapi-demo__curl-example .token.string {
+  color: #4ade80;
+}
+
+/* API 侧边栏样式 */
+.api-sidebar .menu__list-item {
+  font-size: 14px;
+}
+
+.api-sidebar .menu__link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.api-sidebar .api-method-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* ------------------- 中文专属菜单项 ------------------- */
+/* 默认隐藏中文专属菜单 */
+.menu__link--chinese-only {
+  display: none;
+}
+
+/* 只在中文模式下显示 */
+html[lang='zh-Hans'] .menu__link--chinese-only,
+html[lang='zh'] .menu__link--chinese-only {
+  display: flex;
+}

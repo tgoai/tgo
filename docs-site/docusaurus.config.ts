@@ -1,6 +1,7 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import type * as OpenApiPlugin from 'docusaurus-plugin-openapi-docs';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
@@ -50,6 +51,28 @@ const config: Config = {
     },
   },
 
+  plugins: [
+    [
+      'docusaurus-plugin-openapi-docs',
+      {
+        id: 'api',
+        docsPluginId: 'classic',
+        config: {
+          tgoApi: {
+            specPath: 'api-specs/openapi.yaml',
+            outputDir: 'docs/api',
+            sidebarOptions: {
+              groupPathsBy: 'tag',
+              categoryLinkSource: 'tag',
+            },
+          },
+        } satisfies OpenApiPlugin.Options,
+      },
+    ],
+  ],
+
+  themes: ['docusaurus-theme-openapi-docs'],
+
   presets: [
     [
       'classic',
@@ -61,6 +84,8 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           // 根据实际仓库调整，当前示例指向 tgo 主仓库
           editUrl: 'https://github.com/tgoai/tgo/edit/main/docs-site/',
+          // 启用 OpenAPI 文档处理
+          docItemComponent: '@theme/ApiItem',
         },
         // 目前只用文档，不启用博客
         blog: false,
@@ -90,6 +115,12 @@ const config: Config = {
           position: 'left',
           label: '文档',
         },
+        // {
+        //   type: 'docSidebar',
+        //   sidebarId: 'apiSidebar',
+        //   position: 'left',
+        //   label: 'API',
+        // },
         {
           type: 'localeDropdown',
           position: 'right',

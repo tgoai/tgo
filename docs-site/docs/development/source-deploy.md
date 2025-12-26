@@ -31,26 +31,12 @@ git clone https://gitee.com/tgoai/tgo.git
 cd tgo
 ```
 
-### 2. 初始化子模块
-
-TGO 的各服务源码以 Git 子模块形式管理在 `repos/` 目录：
-
-```bash
-git submodule update --init --recursive
-```
-
-### 3. 执行源码安装
+### 2. 执行源码安装
 
 使用 `--source` 参数进行源码部署：
 
 ```bash
 ./tgo.sh install --source
-```
-
-中国境内用户添加 `--cn` 参数使用国内镜像：
-
-```bash
-./tgo.sh install --source --cn
 ```
 
 ## 源码目录结构

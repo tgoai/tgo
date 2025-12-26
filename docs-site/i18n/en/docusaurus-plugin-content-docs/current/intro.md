@@ -6,43 +6,47 @@ sidebar_position: 1
 
 # Introduction to TGO
 
-TGO is an open-source AI agent customer service platform, dedicated to helping enterprises "build agent teams to serve customers".
+**TGO** is an open-source AI agent customer service platform. We are dedicated to helping enterprises build smarter and more efficient customer service systems through the **Multi-Agents** collaboration model.
 
-## Core Features
+Unlike traditional chatbots, TGO emphasizes collaboration between agents. You can assemble a team composed of agents with different capabilities to collaboratively handle complex customer inquiries, after-sales support, and business lead generation.
 
-- **Multi-Agent Orchestration**: Create and manage multiple AI agents to collaboratively handle customer inquiries
-- **Knowledge Base (RAG)**: Built-in RAG system supporting documents, web pages, and various knowledge sources
-- **MCP Tool Integration**: Support for Model Context Protocol to extend agent capabilities
-- **Multi-Channel Access**: Support for web embedding, API, and various access methods
-- **Human Agent Collaboration**: Seamless switching between AI agents and human agents
+## Key Highlights
+
+- 🤖 **Multi-Agent Orchestration**: Flexibly create and orchestrate multiple AI agents, allowing them to perform their respective duties and work together.
+- 📚 **Knowledge Base Enhancement (RAG)**: Built-in high-performance RAG system supporting PDF, Docx uploads, web crawling, etc., making AI understand your business.
+- 🛠️ **MCP Tool Extension**: Supports Model Context Protocol, easily connecting to external APIs, databases, and business tools.
+- 🌐 **Omnichannel Access**: One system supporting Web, API, WeChat, Lark, DingTalk, and other mainstream channels.
+- 🤝 **Human-AI Collaboration**: Agents handle repetitive inquiries and seamlessly transfer to human agents at critical moments to improve customer satisfaction.
+
+## Technical Architecture
+
+TGO adopts a modern microservices architecture to ensure system stability and scalability.
+
+![TGO Architecture](/img/architecture_en.svg)
+
+| Service | Description |
+| :--- | :--- |
+| **tgo-api** | Core business service, handling logic for accounts, conversations, permissions, etc. |
+| **tgo-ai** | Agent orchestration center, responsible for LLM calls and agent scheduling. |
+| **tgo-rag** | Knowledge base retrieval service, handling document vectorization and semantic search. |
+| **tgo-platform** | External platform integration service, responsible for connecting to DingTalk, Lark, WeChat Work, etc. |
+| **tgo-web** | Customer service management console, a modern dashboard built with React. |
+| **tgo-widget** | Lightweight visitor-side component, can be integrated into any webpage in minutes. |
+| **WuKongIM** | High-performance real-time messaging system, ensuring real-time message delivery. |
 
 ## System Requirements
 
-Deploying TGO requires the following minimum configuration:
+Before deploying TGO, please ensure your environment meets the following requirements:
 
-| Item | Minimum Requirement |
-|------|---------------------|
-| **CPU** | >= 2 Core |
-| **Memory** | >= 4 GiB |
-| **OS** | macOS / Linux / WSL2 |
-| **Docker** | Docker Engine 20.10+ |
-| **Docker Compose** | v2.0+ |
-
-## Architecture
-
-TGO uses a microservices architecture with the following core services:
-
-| Service | Description |
-|---------|-------------|
-| **tgo-api** | Backend API service for business logic |
-| **tgo-ai** | AI inference service for agent conversations |
-| **tgo-rag** | RAG service for knowledge base retrieval |
-| **tgo-platform** | Platform management service |
-| **tgo-web** | Web management console |
-| **tgo-widget** | Embeddable customer service widget |
+| Item | Minimum | Recommended |
+| :--- | :--- | :--- |
+| **CPU** | 2 Core | 4 Core+ |
+| **Memory** | 8 GiB | 16 GiB+ |
+| **OS** | Linux / macOS / WSL2 | Ubuntu 22.04 LTS |
+| **Environment** | Docker 20.10+ | Docker Compose v2.0+ |
 
 ## Next Steps
 
-- [Quick Deploy](/quick-start/deploy) - Deploy TGO on your server quickly
-- [Environment Variables](/config/env-vars) - Learn how to configure the system
-- [Source Deployment](/development/source-deploy) - Build and deploy from source
+- [🚀 Quick Start](/en/quick-start/deploy) - Complete system deployment in 5 minutes
+- [🔧 Environment Variables](/en/config/env-vars) - Deeply customize your TGO
+- [👨‍💻 Developer Guide](/en/development/source-deploy) - Learn how to perform secondary development
