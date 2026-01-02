@@ -238,6 +238,97 @@ class APIClient {
     });
   }
 
+  /**
+   * Streaming POST request using Fetch API and ReadableStream
+   * Specifically designed for text/event-stream (SSE)
+   */
+  async stream(
+    endpoint: string,
+    data: any,
+    options: {
+      onMessage: (event: string, data: any) => void;
+      onClose?: () => void;
+      onError?: (error: any) => void;
+      signal?: AbortSignal;
+    }
+  ): Promise<void> {
+    const url = `${this.baseURL}${endpoint}`;
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.token) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
+    }
+    (headers as Record<string, string>)['X-User-Language'] = getCurrentLanguage();
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+        signal: options.signal,
+      });
+
+      if (!response.ok) {
+        let errorData: any;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { error: { message: `HTTP ${response.status}: ${response.statusText}` } };
+        }
+        throw new APIError(response.status, errorData);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is null');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        // SSE parsing logic
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let currentEvent = 'message';
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) continue;
+
+          if (trimmedLine.startsWith('event:')) {
+            currentEvent = trimmedLine.replace('event:', '').trim();
+          } else if (trimmedLine.startsWith('data:')) {
+            const dataStr = trimmedLine.replace('data:', '').trim();
+            try {
+              const parsedData = JSON.parse(dataStr);
+              options.onMessage(currentEvent, parsedData);
+            } catch (e) {
+              console.error('Failed to parse SSE data:', dataStr, e);
+            }
+            // Reset event for next message if it wasn't explicitly set
+            currentEvent = 'message';
+          }
+        }
+      }
+      
+      options.onClose?.();
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        options.onClose?.();
+        return;
+      }
+      options.onError?.(error);
+      throw error;
+    }
+  }
+
   // POST request with form data
   async postForm<T>(endpoint: string, data: Record<string, string>): Promise<T> {
     const formData = new URLSearchParams();

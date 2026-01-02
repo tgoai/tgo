@@ -54,6 +54,7 @@ interface WorkflowState {
   nodeExecutionMap: Record<string, NodeExecution>;
   isDebugPanelOpen: boolean;
   debugInput: Record<string, any>;
+  executionAbortController: AbortController | null;
   
   // Actions - List
   loadWorkflows: (params?: WorkflowQueryParams) => Promise<void>;
@@ -110,7 +111,6 @@ interface WorkflowState {
   // Actions - Execution/Debug
   startExecution: (input: Record<string, any>) => Promise<void>;
   cancelExecution: () => Promise<void>;
-  pollExecutionStatus: (executionId: string) => Promise<void>;
   setDebugPanelOpen: (open: boolean) => void;
   setDebugInput: (input: Record<string, any>) => void;
   clearExecution: () => void;
@@ -151,6 +151,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         nodeExecutionMap: {},
         isDebugPanelOpen: false,
         debugInput: {},
+        executionAbortController: null,
 
       // Load workflows list
       loadWorkflows: async (params) => {
@@ -774,77 +775,128 @@ export const useWorkflowStore = create<WorkflowState>()(
 
       // Actions - Execution/Debug implementation
       startExecution: async (input) => {
-        const { currentWorkflow } = get();
+        const { currentWorkflow, executionAbortController } = get();
         if (!currentWorkflow) return;
 
+        // Abort previous execution if any
+        if (executionAbortController) {
+          executionAbortController.abort();
+        }
+
+        const abortController = new AbortController();
         set({ 
           isExecuting: true, 
           executionError: null,
           nodeExecutionMap: {},
-          currentExecution: null
+          currentExecution: null,
+          executionAbortController: abortController,
         }, false, 'startExecution:start');
 
         try {
-          const execution = await WorkflowApiService.executeWorkflow(currentWorkflow.id, input);
-          set({ currentExecution: execution }, false, 'startExecution:success');
+          await WorkflowApiService.executeWorkflowStream(
+            currentWorkflow.id, 
+            input,
+            (event) => {
+              if (event.event === 'workflow_started') {
+                set({ 
+                  currentExecution: {
+                    id: event.data.id,
+                    workflow_id: event.data.workflow_id,
+                    status: 'running',
+                    input: event.data.inputs,
+                    started_at: new Date(event.data.created_at * 1000).toISOString(),
+                    node_executions: [],
+                  } as WorkflowExecution,
+                }, false, 'startExecution:workflow_started');
+              } else if (event.event === 'node_started') {
+                const { id, node_id, node_type } = event.data;
+
+                const nodeExecution: NodeExecution = {
+                  id,
+                  execution_id: event.workflow_run_id,
+                  node_id,
+                  node_type,
+                  status: 'running',
+                  started_at: new Date().toISOString(),
+                };
+
+                set((state) => ({
+                  nodeExecutionMap: {
+                    ...state.nodeExecutionMap,
+                    [node_id]: nodeExecution
+                  }
+                }), false, 'startExecution:node_started');
+              } else if (event.event === 'node_finished') {
+                const { node_id, status, inputs, outputs, error, elapsed_time } = event.data;
+                
+                set((state) => {
+                  const prevExecution = state.nodeExecutionMap[node_id];
+                  if (!prevExecution) return state;
+
+                  const finishedExecution: NodeExecution = {
+                    ...prevExecution,
+                    id: event.data.id,
+                    status: status === 'succeeded' ? 'completed' : 'failed',
+                    input: inputs,
+                    output: outputs,
+                    error,
+                    duration: elapsed_time * 1000,
+                    completed_at: new Date().toISOString(),
+                  };
+
+                  return {
+                    nodeExecutionMap: {
+                      ...state.nodeExecutionMap,
+                      [node_id]: finishedExecution
+                    }
+                  };
+                }, false, 'startExecution:node_finished');
+              } else if (event.event === 'workflow_finished') {
+                const { status, outputs, error, elapsed_time } = event.data;
+                
+                set((state) => ({
+                  currentExecution: state.currentExecution ? {
+                    ...state.currentExecution,
+                    status: status === 'succeeded' ? 'completed' : 'failed',
+                    output: outputs,
+                    error,
+                    duration: elapsed_time * 1000,
+                    completed_at: new Date().toISOString(),
+                  } : null,
+                  isExecuting: false,
+                  executionAbortController: null,
+                }), false, 'startExecution:workflow_finished');
+              }
+            },
+            abortController.signal
+          );
+        } catch (error: any) {
+          if (error.name === 'AbortError') return;
           
-          // Start polling for status
-          await get().pollExecutionStatus(execution.id);
-        } catch (error) {
           set({ 
             isExecuting: false, 
-            executionError: error instanceof Error ? error.message : 'Failed to start execution' 
+            executionError: error instanceof Error ? error.message : 'Failed to execute workflow',
+            executionAbortController: null,
           }, false, 'startExecution:error');
         }
       },
 
       cancelExecution: async () => {
-        const { currentExecution } = get();
+        const { currentExecution, executionAbortController } = get();
+        
+        if (executionAbortController) {
+          executionAbortController.abort();
+        }
+
         if (!currentExecution) return;
 
         try {
           await WorkflowApiService.cancelExecution(currentExecution.id);
-          set({ isExecuting: false }, false, 'cancelExecution:success');
+          set({ isExecuting: false, executionAbortController: null }, false, 'cancelExecution:success');
         } catch (error) {
           console.error('Failed to cancel execution:', error);
+          set({ isExecuting: false, executionAbortController: null }, false, 'cancelExecution:error');
         }
-      },
-
-      pollExecutionStatus: async (executionId) => {
-        const poll = async () => {
-          // Check if we are still interested in this execution
-          const state = get();
-          if (state.currentExecution && state.currentExecution.id !== executionId) return;
-
-          try {
-            const execution = await WorkflowApiService.getExecution(executionId);
-            
-            // Map node executions for quick lookup
-            const nodeExecutionMap: Record<string, NodeExecution> = {};
-            if (execution.node_executions) {
-              execution.node_executions.forEach(ne => {
-                nodeExecutionMap[ne.node_id] = ne;
-              });
-            }
-
-            set({ 
-              currentExecution: execution,
-              nodeExecutionMap,
-              isExecuting: execution.status === 'running' || execution.status === 'pending'
-            }, false, 'pollExecutionStatus:update');
-
-            if (execution.status === 'running' || execution.status === 'pending') {
-              setTimeout(poll, 1000); // Poll every second
-            }
-          } catch (error) {
-            set({ 
-              isExecuting: false, 
-              executionError: error instanceof Error ? error.message : 'Failed to poll status' 
-            }, false, 'pollExecutionStatus:error');
-          }
-        };
-
-        await poll();
       },
 
       setDebugPanelOpen: (open) => {
@@ -880,6 +932,7 @@ export const useWorkflowStore = create<WorkflowState>()(
           nodeExecutionMap: {},
           isDebugPanelOpen: false,
           debugInput: {},
+          executionAbortController: null,
         }, false, 'resetEditor');
       },
     }),

@@ -29,6 +29,7 @@ const DebugPanel: React.FC = () => {
     isExecuting,
     executionError,
     currentExecution,
+    nodeExecutionMap,
     setDebugPanelOpen,
     startExecution,
     cancelExecution,
@@ -82,10 +83,6 @@ const DebugPanel: React.FC = () => {
     clearExecution();
   };
 
-  const toggleNodeExpand = (nodeId: string) => {
-    setExpandedNodes(prev => ({ ...prev, [nodeId]: !prev[nodeId] }));
-  };
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'running':
@@ -111,11 +108,22 @@ const DebugPanel: React.FC = () => {
 
   // Sort nodes by execution time if available, or maintain a logical order
   const executedNodes = useMemo(() => {
+    // If we have a map of executions (live updates), use it
+    if (Object.keys(nodeExecutionMap).length > 0) {
+      return Object.values(nodeExecutionMap).sort((a, b) => 
+        new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
+      );
+    }
+    // Fallback to static node_executions if available (historical or final state)
     if (!currentExecution?.node_executions) return [];
     return [...currentExecution.node_executions].sort((a, b) => 
       new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
     );
-  }, [currentExecution]);
+  }, [currentExecution, nodeExecutionMap]);
+
+  const toggleNodeExpand = (nodeId: string) => {
+    setExpandedNodes(prev => ({ ...prev, [nodeId]: !prev[nodeId] }));
+  };
 
   return (
     <div className="w-80 bg-white dark:bg-gray-900 border-l border-gray-100 dark:border-gray-800 flex flex-col z-20 shadow-2xl transition-all animate-in slide-in-from-right duration-300">
@@ -274,26 +282,29 @@ const DebugPanel: React.FC = () => {
                           <div className="absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full bg-white dark:bg-gray-900 flex items-center justify-center z-10">
                             {getStatusIcon(ne.status)}
                           </div>
-                          <div 
-                            className="group cursor-pointer"
-                            onClick={() => toggleNodeExpand(ne.id)}
-                          >
-                            <div className="flex items-center justify-between">
+                          <div className="group">
+                            <div 
+                              className="flex items-center justify-between cursor-pointer"
+                              onClick={() => toggleNodeExpand(ne.node_id)}
+                            >
                               <span className="text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-500 transition-colors">
                                 {nodes.find(n => n.id === ne.node_id)?.data.label || ne.node_type}
                               </span>
                               <div className="flex items-center gap-2">
-                                {ne.duration && (
+                                {ne.duration !== undefined && ne.duration !== null && (
                                   <span className="text-[9px] text-gray-400 font-mono">
                                     {ne.duration < 1000 ? `${ne.duration}ms` : `${(ne.duration / 1000).toFixed(1)}s`}
                                   </span>
                                 )}
-                                {expandedNodes[ne.id] ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
+                                {expandedNodes[ne.node_id] ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
                               </div>
                             </div>
                             
-                            {expandedNodes[ne.id] && (
-                              <div className="mt-2 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                            {expandedNodes[ne.node_id] && (
+                              <div 
+                                className="mt-2 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 {ne.input && (
                                   <div className="space-y-1">
                                     <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Input</span>

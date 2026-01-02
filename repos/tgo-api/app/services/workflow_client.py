@@ -245,6 +245,38 @@ class WorkflowServiceClient:
         )
         return await self._handle_response(response)
 
+    async def execute_workflow_stream(
+        self, workflow_id: str, project_id: str, request: Dict[str, Any]
+    ):
+        """Execute workflow with streaming response (SSE)."""
+        url = f"{self.base_url}/v1/workflows/{workflow_id}/execute/stream"
+        params = {"project_id": project_id}
+        headers = self._get_headers()
+        headers["X-Request-ID"] = str(uuid4())
+
+        async def stream_generator():
+            async with httpx.AsyncClient(timeout=None) as client:
+                async with client.stream(
+                    "POST", url, json=request, params=params, headers=headers
+                ) as response:
+                    if not response.is_success:
+                        # For simplicity, if error occurs before stream starts, we'll just yield it as a pseudo-event or let it raise
+                        # But better to handle it properly in the endpoint
+                        await response.aread()
+                        try:
+                            error_detail = response.json()
+                        except:
+                            error_detail = response.text
+                        raise HTTPException(
+                            status_code=response.status_code, detail=error_detail
+                        )
+
+                    async for line in response.aiter_lines():
+                        if line:
+                            yield f"{line}\n\n"
+
+        return stream_generator()
+
 
 # Global workflow client instance
 workflow_client = WorkflowServiceClient()

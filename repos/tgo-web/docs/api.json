@@ -10907,6 +10907,70 @@
         }
       }
     },
+    "/v1/ai/workflows/{workflow_id}/execute/stream": {
+      "post": {
+        "tags": [
+          "AI Workflows"
+        ],
+        "summary": "Execute Workflow (Streaming)",
+        "description": "执行工作流并以 Server-Sent Events (SSE) 形式实时推送执行事件。\n\n### 事件流格式\n每个消息以 `data: ` 开头，后跟 JSON 字符串，以 `\n\n` 结束。\n\n### 事件类型与数据结构\n\n#### 1. **workflow_started** (工作流启动)\n- `workflow_run_id`: 本次运行的唯一 ID\n- `data`:\n    - `id`: 运行 ID\n    - `workflow_id`: 工作流 ID\n    - `inputs`: 初始输入参数\n    - `created_at`: 开始时间戳\n\n#### 2. **node_started** (节点开始)\n- `data`:\n    - `id`: 节点执行记录 ID\n    - `node_id`: 节点在工作流中的 ID\n    - `node_type`: 节点类型 (input, llm, agent, answer, etc.)\n    - `title`: 节点名称\n    - `index`: 执行步骤序号 (从1开始)\n\n#### 3. **node_finished** (节点完成)\n- `data`:\n    - `id`: 节点执行记录 ID\n    - `status`: 执行状态 (\"succeeded\" | \"failed\")\n    - `inputs`: 节点接收到的输入\n    - `outputs`: 节点产生的输出\n    - `error`: 错误信息 (仅在失败时存在)\n    - `elapsed_time`: 节点耗时 (秒)\n\n#### 4. **workflow_finished** (工作流结束)\n- `data`:\n    - `status`: 整体执行状态 (\"succeeded\" | \"failed\")\n    - `outputs`: 最终输出结果 (通常由 answer 节点提供)\n    - `error`: 全局错误信息\n    - `total_steps`: 执行的总节点数\n    - `elapsed_time`: 整个工作流耗时 (秒)\n\n### 注意事项：\n- 响应头包含 `Content-Type: text/event-stream`。\n- 客户端应使用能够处理流式输出的库（如 EventSource 或 Fetch API）。\n- 即使连接中断，后端也会继续完成数据库中的状态记录。",
+        "operationId": "execute_workflow_stream_v1_ai_workflows__workflow_id__execute_stream_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workflow Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowExecuteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SSE Event Stream",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              },
+              "text/event-stream": {
+                "example": "data: {\"event\": \"workflow_started\", \"workflow_run_id\": \"uuid-1\", \"data\": {\"id\": \"uuid-1\", \"workflow_id\": \"wf-1\", \"inputs\": {}, \"created_at\": 1735790000}}\n\ndata: {\"event\": \"node_started\", \"workflow_run_id\": \"uuid-1\", \"data\": {\"node_id\": \"node-1\", \"node_type\": \"llm\", \"title\": \"AI对话\", \"index\": 1}}\n\ndata: {\"event\": \"node_finished\", \"workflow_run_id\": \"uuid-1\", \"data\": {\"status\": \"succeeded\", \"outputs\": {\"text\": \"Hello\"}, \"elapsed_time\": 0.5}}\n\ndata: {\"event\": \"workflow_finished\", \"workflow_run_id\": \"uuid-1\", \"data\": {\"status\": \"succeeded\", \"outputs\": {\"result\": \"Hello\"}, \"total_steps\": 2}}\n\n"
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/ai/workflows/executions/{execution_id}": {
       "get": {
         "tags": [
@@ -14597,6 +14661,83 @@
         "title": "AgentWithDetailsResponse",
         "description": "Schema for agent response with additional details."
       },
+      "AnswerNodeData": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "The display name of the node"
+          },
+          "reference_key": {
+            "type": "string",
+            "title": "Reference Key",
+            "description": "The unique reference key of the node"
+          },
+          "type": {
+            "type": "string",
+            "const": "answer",
+            "title": "Type",
+            "description": "Node type: answer",
+            "default": "answer"
+          },
+          "output_type": {
+            "type": "string",
+            "enum": [
+              "variable",
+              "template",
+              "structured"
+            ],
+            "title": "Output Type",
+            "description": "Output configuration type"
+          },
+          "output_variable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Variable",
+            "description": "Selected output variable path when type is 'variable'"
+          },
+          "output_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Template",
+            "description": "Jinja2 template content when type is 'template'"
+          },
+          "output_structure": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/OutputField"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Structure",
+            "description": "Structured output fields when type is 'structured'"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "reference_key",
+          "output_type"
+        ],
+        "title": "AnswerNodeData"
+      },
       "BatchCreateStaffRequest": {
         "properties": {
           "staff_list": {
@@ -17165,83 +17306,6 @@
         "title": "EmailConnectionTestResponse",
         "description": "Schema for email connection test results."
       },
-      "EndNodeData": {
-        "properties": {
-          "label": {
-            "type": "string",
-            "title": "Label",
-            "description": "The display name of the node"
-          },
-          "reference_key": {
-            "type": "string",
-            "title": "Reference Key",
-            "description": "The unique reference key of the node"
-          },
-          "type": {
-            "type": "string",
-            "const": "end",
-            "title": "Type",
-            "description": "Node type: end",
-            "default": "end"
-          },
-          "output_type": {
-            "type": "string",
-            "enum": [
-              "variable",
-              "template",
-              "structured"
-            ],
-            "title": "Output Type",
-            "description": "Output configuration type"
-          },
-          "output_variable": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Variable",
-            "description": "Selected output variable path when type is 'variable'"
-          },
-          "output_template": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Template",
-            "description": "Jinja2 template content when type is 'template'"
-          },
-          "output_structure": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/OutputField"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Structure",
-            "description": "Structured output fields when type is 'structured'"
-          }
-        },
-        "type": "object",
-        "required": [
-          "label",
-          "reference_key",
-          "output_type"
-        ],
-        "title": "EndNodeData"
-      },
       "ErrorDetail": {
         "description": "Error detail schema.",
         "properties": {
@@ -17303,6 +17367,39 @@
         ],
         "title": "ErrorResponse",
         "type": "object"
+      },
+      "EventNodeData": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "The display name of the node"
+          },
+          "reference_key": {
+            "type": "string",
+            "title": "Reference Key",
+            "description": "The unique reference key of the node"
+          },
+          "type": {
+            "type": "string",
+            "const": "event",
+            "title": "Type",
+            "description": "Node type: event",
+            "default": "event"
+          },
+          "event_type": {
+            "type": "string",
+            "title": "Event Type",
+            "description": "Internal system event type identifier"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "reference_key",
+          "event_type"
+        ],
+        "title": "EventNodeData"
       },
       "FileListResponse": {
         "properties": {
@@ -17593,6 +17690,41 @@
           "value"
         ],
         "title": "FormField"
+      },
+      "InputNodeData": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "The display name of the node"
+          },
+          "reference_key": {
+            "type": "string",
+            "title": "Reference Key",
+            "description": "The unique reference key of the node"
+          },
+          "type": {
+            "type": "string",
+            "const": "input",
+            "title": "Type",
+            "description": "Node type: input",
+            "default": "input"
+          },
+          "input_variables": {
+            "items": {
+              "$ref": "#/components/schemas/InputVariable"
+            },
+            "type": "array",
+            "title": "Input Variables",
+            "description": "Input variables defined for the conversation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "reference_key"
+        ],
+        "title": "InputNodeData"
       },
       "InputVariable": {
         "properties": {
@@ -21513,63 +21645,6 @@
         "title": "StaffUpdate",
         "description": "Schema for updating a staff member."
       },
-      "StartNodeData": {
-        "properties": {
-          "label": {
-            "type": "string",
-            "title": "Label",
-            "description": "The display name of the node"
-          },
-          "reference_key": {
-            "type": "string",
-            "title": "Reference Key",
-            "description": "The unique reference key of the node"
-          },
-          "type": {
-            "type": "string",
-            "const": "start",
-            "title": "Type",
-            "description": "Node type: start",
-            "default": "start"
-          },
-          "trigger_type": {
-            "type": "string",
-            "enum": [
-              "manual",
-              "cron"
-            ],
-            "title": "Trigger Type",
-            "description": "Trigger type"
-          },
-          "cron_expression": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cron Expression",
-            "description": "Cron expression for scheduled tasks"
-          },
-          "input_variables": {
-            "items": {
-              "$ref": "#/components/schemas/InputVariable"
-            },
-            "type": "array",
-            "title": "Input Variables",
-            "description": "Input variables definition for the workflow"
-          }
-        },
-        "type": "object",
-        "required": [
-          "label",
-          "reference_key",
-          "trigger_type"
-        ],
-        "title": "StartNodeData"
-      },
       "SystemInfoResponse": {
         "properties": {
           "version": {
@@ -22373,6 +22448,39 @@
         ],
         "title": "TeamWithDetailsResponse",
         "description": "Schema for team response with additional details."
+      },
+      "TimerNodeData": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "The display name of the node"
+          },
+          "reference_key": {
+            "type": "string",
+            "title": "Reference Key",
+            "description": "The unique reference key of the node"
+          },
+          "type": {
+            "type": "string",
+            "const": "timer",
+            "title": "Type",
+            "description": "Node type: timer",
+            "default": "timer"
+          },
+          "cron_expression": {
+            "type": "string",
+            "title": "Cron Expression",
+            "description": "Cron expression for scheduled tasks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "reference_key",
+          "cron_expression"
+        ],
+        "title": "TimerNodeData"
       },
       "ToggleEnabledRequest": {
         "properties": {
@@ -26803,6 +26911,55 @@
         "title": "WaitingStatusEnum",
         "description": "Waiting queue status enumeration."
       },
+      "WebhookNodeData": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "The display name of the node"
+          },
+          "reference_key": {
+            "type": "string",
+            "title": "Reference Key",
+            "description": "The unique reference key of the node"
+          },
+          "type": {
+            "type": "string",
+            "const": "webhook",
+            "title": "Type",
+            "description": "Node type: webhook",
+            "default": "webhook"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Optional custom endpoint path suffix"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST"
+            ],
+            "title": "Method",
+            "description": "HTTP method for the webhook",
+            "default": "POST"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "reference_key"
+        ],
+        "title": "WebhookNodeData"
+      },
       "WebsiteMetadataRequest": {
         "properties": {
           "url": {
@@ -27493,7 +27650,6 @@
             "enum": [
               "draft",
               "active",
-              "inactive",
               "archived"
             ],
             "title": "Status",
@@ -27557,10 +27713,19 @@
           "data": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/StartNodeData"
+                "$ref": "#/components/schemas/InputNodeData"
               },
               {
-                "$ref": "#/components/schemas/EndNodeData"
+                "$ref": "#/components/schemas/AnswerNodeData"
+              },
+              {
+                "$ref": "#/components/schemas/TimerNodeData"
+              },
+              {
+                "$ref": "#/components/schemas/WebhookNodeData"
+              },
+              {
+                "$ref": "#/components/schemas/EventNodeData"
               },
               {
                 "$ref": "#/components/schemas/LLMNodeData"
@@ -27589,14 +27754,17 @@
               "propertyName": "type",
               "mapping": {
                 "agent": "#/components/schemas/AgentNodeData",
+                "answer": "#/components/schemas/AnswerNodeData",
                 "api": "#/components/schemas/APINodeData",
                 "classifier": "#/components/schemas/ClassifierNodeData",
                 "condition": "#/components/schemas/ConditionNodeData",
-                "end": "#/components/schemas/EndNodeData",
+                "event": "#/components/schemas/EventNodeData",
+                "input": "#/components/schemas/InputNodeData",
                 "llm": "#/components/schemas/LLMNodeData",
                 "parallel": "#/components/schemas/ParallelNodeData",
-                "start": "#/components/schemas/StartNodeData",
-                "tool": "#/components/schemas/ToolNodeData"
+                "timer": "#/components/schemas/TimerNodeData",
+                "tool": "#/components/schemas/ToolNodeData",
+                "webhook": "#/components/schemas/WebhookNodeData"
               }
             }
           }
@@ -27626,10 +27794,19 @@
           "data": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/StartNodeData"
+                "$ref": "#/components/schemas/InputNodeData"
               },
               {
-                "$ref": "#/components/schemas/EndNodeData"
+                "$ref": "#/components/schemas/AnswerNodeData"
+              },
+              {
+                "$ref": "#/components/schemas/TimerNodeData"
+              },
+              {
+                "$ref": "#/components/schemas/WebhookNodeData"
+              },
+              {
+                "$ref": "#/components/schemas/EventNodeData"
               },
               {
                 "$ref": "#/components/schemas/LLMNodeData"
@@ -27658,14 +27835,17 @@
               "propertyName": "type",
               "mapping": {
                 "agent": "#/components/schemas/AgentNodeData",
+                "answer": "#/components/schemas/AnswerNodeData",
                 "api": "#/components/schemas/APINodeData",
                 "classifier": "#/components/schemas/ClassifierNodeData",
                 "condition": "#/components/schemas/ConditionNodeData",
-                "end": "#/components/schemas/EndNodeData",
+                "event": "#/components/schemas/EventNodeData",
+                "input": "#/components/schemas/InputNodeData",
                 "llm": "#/components/schemas/LLMNodeData",
                 "parallel": "#/components/schemas/ParallelNodeData",
-                "start": "#/components/schemas/StartNodeData",
-                "tool": "#/components/schemas/ToolNodeData"
+                "timer": "#/components/schemas/TimerNodeData",
+                "tool": "#/components/schemas/ToolNodeData",
+                "webhook": "#/components/schemas/WebhookNodeData"
               }
             }
           }
@@ -27716,7 +27896,6 @@
             "enum": [
               "draft",
               "active",
-              "inactive",
               "archived"
             ],
             "title": "Status",
@@ -27807,7 +27986,6 @@
                 "enum": [
                   "draft",
                   "active",
-                  "inactive",
                   "archived"
                 ]
               },

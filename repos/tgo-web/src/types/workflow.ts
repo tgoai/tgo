@@ -287,6 +287,15 @@ export interface WorkflowExecution {
 }
 
 /**
+ * Workflow execution stream events
+ */
+export type WorkflowStreamEvent = 
+  | { event: 'workflow_started'; workflow_run_id: string; data: { id: string; workflow_id: string; inputs: any; created_at: number } }
+  | { event: 'node_started'; workflow_run_id: string; data: { id: string; node_id: string; node_type: string; title: string; index: number } }
+  | { event: 'node_finished'; workflow_run_id: string; data: { id: string; node_id: string; node_type: string; status: 'succeeded' | 'failed'; inputs: any; outputs: any; error?: string; elapsed_time: number } }
+  | { event: 'workflow_finished'; workflow_run_id: string; data: { status: 'succeeded' | 'failed'; outputs: any; error?: string; total_steps: number; elapsed_time: number } };
+
+/**
  * Individual node execution record
  */
 export interface NodeExecution {

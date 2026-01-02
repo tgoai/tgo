@@ -17,10 +17,11 @@ class WorkflowExecutor:
         self.execution_results = {} # node_id -> output
         self.project_id = project_id
 
-    async def run(self, inputs: Dict[str, Any], on_node_complete=None) -> Dict[str, Any]:
+    async def run(self, inputs: Dict[str, Any], on_node_start=None, on_node_complete=None) -> Dict[str, Any]:
         """
         Run the workflow with given inputs.
-        on_node_complete: callback(node_id, status, input, output, error, duration)
+        on_node_start: callback(node_id, node_type, node_data, index)
+        on_node_complete: callback(node_id, node_type, status, input, output, error, duration)
         """
         # 1. Initialize context
         # Find trigger nodes
@@ -51,6 +52,7 @@ class WorkflowExecutor:
             
         # 3. Execute nodes in order
         executed_nodes = set()
+        node_index = 1
         
         # Simple execution loop following edges
         curr_node_ids = [n["id"] for n in self.graph.nodes.values() if n["id"] == trigger_node["id"]]
@@ -64,6 +66,16 @@ class WorkflowExecutor:
                     continue
                     
                 node = self.graph.get_node(node_id)
+
+                if on_node_start:
+                    await on_node_start(
+                        node_id=node_id,
+                        node_type=node["type"],
+                        node_data=node.get("data", {}),
+                        index=node_index
+                    )
+                node_index += 1
+
                 executor_cls = get_executor_class(node["type"])
                 
                 if not executor_cls:

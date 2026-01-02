@@ -11,7 +11,8 @@ import type {
   WorkflowCreateRequest,
   WorkflowUpdateRequest,
   WorkflowExecution,
-  WorkflowQueryParams
+  WorkflowQueryParams,
+  WorkflowStreamEvent
 } from '@/types/workflow';
 
 export class WorkflowApiService {
@@ -89,7 +90,7 @@ export class WorkflowApiService {
    * Execute a workflow
    */
   static async executeWorkflow(id: string, input?: Record<string, any>): Promise<WorkflowExecution> {
-    return apiClient.post<WorkflowExecution>(`${this.BASE_PATH}/${id}/execute`, { input });
+    return apiClient.post<WorkflowExecution>(`${this.BASE_PATH}/${id}/execute`, { inputs: input });
   }
 
   /**
@@ -114,30 +115,30 @@ export class WorkflowApiService {
   }
 
   /**
+   * Execute a workflow using streaming SSE events
+   */
+  static async executeWorkflowStream(
+    id: string, 
+    input: Record<string, any>, 
+    onEvent: (event: WorkflowStreamEvent) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    return apiClient.stream(
+      `${this.BASE_PATH}/${id}/execute/stream`,
+      { inputs: input }, // Updated to match WorkflowExecuteRequest schema
+      {
+        onMessage: (event, data) => {
+          onEvent({ event: event as any, ...data });
+        },
+        signal
+      }
+    );
+  }
+
+  /**
    * Get available variables for a node in a workflow
    */
   static async getAvailableVariables(workflowId: string): Promise<any> {
     return apiClient.get(`${this.BASE_PATH}/${workflowId}/variables`);
-  }
-
-  /**
-   * Execute and poll until completion
-   */
-  static async executeAndPoll(
-    id: string,
-    input: Record<string, any>,
-    onUpdate: (execution: WorkflowExecution) => void,
-    pollInterval: number = 1000
-  ): Promise<WorkflowExecution> {
-    let execution = await this.executeWorkflow(id, input);
-    onUpdate(execution);
-
-    while (execution.status === 'running' || execution.status === 'pending') {
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-      execution = await this.getExecution(execution.id);
-      onUpdate(execution);
-    }
-
-    return execution;
   }
 }

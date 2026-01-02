@@ -1,5 +1,5 @@
 from pydantic import BaseModel, JsonValue, Field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Literal
 from datetime import datetime
 from enum import Enum
 
@@ -9,6 +9,36 @@ class ExecutionStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+class SSEEventType(str, Enum):
+    WORKFLOW_STARTED = "workflow_started"
+    NODE_STARTED = "node_started"
+    NODE_FINISHED = "node_finished"
+    WORKFLOW_FINISHED = "workflow_finished"
+
+class WorkflowStartedEvent(BaseModel):
+    event: Literal["workflow_started"] = Field("workflow_started")
+    workflow_run_id: str = Field(..., description="Workflow execution ID")
+    task_id: str = Field(..., description="Celery task ID or placeholder")
+    data: Dict[str, JsonValue] = Field(..., description="Event data: id, workflow_id, inputs, created_at")
+
+class NodeStartedEvent(BaseModel):
+    event: Literal["node_started"] = Field("node_started")
+    workflow_run_id: str = Field(..., description="Workflow execution ID")
+    task_id: str = Field(..., description="Celery task ID or placeholder")
+    data: Dict[str, JsonValue] = Field(..., description="Event data: id, node_id, node_type, title, index, created_at")
+
+class NodeFinishedEvent(BaseModel):
+    event: Literal["node_finished"] = Field("node_finished")
+    workflow_run_id: str = Field(..., description="Workflow execution ID")
+    task_id: str = Field(..., description="Celery task ID or placeholder")
+    data: Dict[str, JsonValue] = Field(..., description="Event data: inputs, outputs, status, error, elapsed_time")
+
+class WorkflowFinishedEvent(BaseModel):
+    event: Literal["workflow_finished"] = Field("workflow_finished")
+    workflow_run_id: str = Field(..., description="Workflow execution ID")
+    task_id: str = Field(..., description="Celery task ID or placeholder")
+    data: Dict[str, JsonValue] = Field(..., description="Event data: status, outputs, error, elapsed_time, total_steps")
 
 class NodeExecutionBase(BaseModel):
     project_id: str = Field(..., description="Project ID")
