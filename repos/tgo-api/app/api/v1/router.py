@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     email,
     onboarding,
     platforms,
+    plugins,
     projects,
     wukongim,
     wukongim_webhook,
@@ -234,4 +235,11 @@ api_router.include_router(
     utils.router,
     prefix="/utils",
     tags=["Utils"],
+)
+
+# Plugin endpoints
+api_router.include_router(
+    plugins.router,
+    prefix="/plugins",
+    tags=["Plugins"],
 )

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useSetupStore } from '@/stores/setupStore';
+import PluginModal from '../plugin/PluginModal';
+import { useToast } from '@/hooks/useToast';
 
 /**
  * RootLayout Component
@@ -18,6 +20,19 @@ const RootLayout: React.FC = () => {
   const { t } = useTranslation();
   const { isInstalled, isChecking, checkError, checkSetupStatus } = useSetupStore();
   const [isInitializing, setIsInitializing] = useState(true);
+  const { showToast } = useToast();
+
+  // Listen for plugin toast events
+  useEffect(() => {
+    const handlePluginToast = (e: any) => {
+      const { message, type } = e.detail;
+      // Use the stable showToast from the context, but since we are in RootLayout
+      // we can call it directly. showToast from useToast might be unstable.
+      showToast(type || 'success', 'Plugin', message);
+    };
+    window.addEventListener('tgo:show_toast', handlePluginToast);
+    return () => window.removeEventListener('tgo:show_toast', handlePluginToast);
+  }, []); // Remove showToast dependency if it's unstable
 
   useEffect(() => {
     const checkStatus = async () => {
@@ -111,7 +126,12 @@ const RootLayout: React.FC = () => {
 
   // If installation is complete, render child routes
   if (isInstalled === true) {
-    return <Outlet />;
+    return (
+      <>
+        <Outlet />
+        <PluginModal />
+      </>
+    );
   }
 
   // Fallback: show nothing while redirecting

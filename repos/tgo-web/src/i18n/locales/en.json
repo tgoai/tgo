@@ -90,8 +90,29 @@
       "staff": "Human Agents",
       "notifications": "Notifications",
       "providers": "Model Providers",
+      "plugins": "Plugins",
       "about": "About",
       "logout": "Logout"
+    },
+    "plugins": {
+      "title": "Plugins",
+      "subtitle": "View and manage plugins connected to TGO",
+      "empty": {
+        "title": "No plugins connected",
+        "description": "Plugins can connect to TGO API via Unix Socket or TCP."
+      },
+      "viewDocs": "View Plugin Developer Guide",
+      "status": {
+        "connected": "Connected",
+        "disconnected": "Disconnected"
+      },
+      "capabilities": "Capabilities",
+      "author": "Author",
+      "connectedAt": "Connected At",
+      "debug": {
+        "title": "Debug Hint",
+        "description": "In development mode, you can connect local plugins via port 8005 (TCP) or /var/run/tgo/tgo.sock (Unix Socket)."
+      }
     },
     "profile": {
       "title": "Profile",

@@ -2,10 +2,18 @@ import React, { useMemo } from 'react';
 import { Eye, LogIn, LogOut, Activity as ActivityIcon, History } from 'lucide-react';
 import type { VisitorActivity } from '@/types';
 import { useTranslation } from 'react-i18next';
+import CollapsibleSection from '../ui/CollapsibleSection';
 
 interface RecentActivitySectionProps {
   activities?: VisitorActivity[];
   className?: string;
+  draggable?: boolean;
+  expanded?: boolean;
+  onToggle?: (expanded: boolean) => void;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
 }
 
 // 解析后端时间戳（若缺少时区信息则按UTC处理），并以本地时区渲染
@@ -82,7 +90,17 @@ function getActivityIconAndColor(type: string) {
 /**
  * 最近活动模块组件（使用渠道详情 API 的 recent_activities 数据）
  */
-const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ activities, className = '' }) => {
+const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ 
+  activities, 
+  className = '',
+  draggable,
+  expanded,
+  onToggle,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+}) => {
   const { t } = useTranslation();
   const list = useMemo(() => {
     const arr = Array.isArray(activities) ? [...activities] : [];
@@ -91,51 +109,74 @@ const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ activitie
   }, [activities]);
 
   return (
-    <div className={`pt-4 space-y-3 ${className}`}>
-      <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{t('visitor.sections.recentActivity', '最近活动')}</h4>
-      <ul className="space-y-2.5 text-gray-700 dark:text-gray-300 text-[13px] leading-5">
+    <CollapsibleSection
+      title={t('visitor.sections.recentActivity', '最近活动')}
+      className={className}
+      defaultExpanded={false}
+      expanded={expanded}
+      onToggle={onToggle}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
+      <div className="space-y-3 relative before:absolute before:inset-0 before:left-[13px] before:w-px before:bg-gray-100 dark:before:bg-gray-800 before:pointer-events-none px-0.5">
         {list.map((act) => {
           const durationText = formatDuration(act.duration_seconds, t);
           const pageUrl = act.context?.page_url;
           return (
-            <li key={act.id} className="flex items-start gap-3 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 transition">
-              {getActivityIconAndColor(act.activity_type)}
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-medium text-gray-800 dark:text-gray-200 truncate" title={act.title || act.activity_type}>
-                  {act.title || act.activity_type}
+            <div key={act.id} className="relative flex items-start gap-4 group/item">
+              <div className="z-10 bg-white dark:bg-gray-900 ring-4 ring-white dark:ring-gray-800">
+                {getActivityIconAndColor(act.activity_type)}
+              </div>
+              <div className="flex-1 min-w-0 pt-0.5 pb-2 border-b border-gray-50 dark:border-gray-800/50 group-last/item:border-0">
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-[12px] font-bold text-gray-700 dark:text-gray-200 truncate" title={act.title || act.activity_type}>
+                    {act.title || act.activity_type}
+                  </span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">
+                    {formatRelativeTime(act.occurred_at, t)}
+                  </span>
                 </div>
-                <div className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap">
-                  <span>{formatRelativeTime(act.occurred_at, t)}</span>
-                  {durationText && <span>· {durationText}</span>}
+                
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                  {durationText && (
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center">
+                      <History className="w-2.5 h-2.5 mr-1" />
+                      {durationText}
+                    </span>
+                  )}
+                  {pageUrl && (
+                    <a
+                      href={pageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-blue-500 hover:underline truncate max-w-[180px]"
+                      title={pageUrl}
+                    >
+                      {pageUrl.replace(/^(https?:\/\/)/, '')}
+                    </a>
+                  )}
                 </div>
-                {pageUrl && (
-                  <a
-                    href={pageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-0.5 inline-block text-xs text-blue-600 dark:text-blue-400 hover:underline underline-offset-2 max-w-[240px] truncate"
-                    title={pageUrl}
-                  >
-                    {pageUrl}
-                  </a>
-                )}
+                
                 {act.description && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{act.description}</div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 line-clamp-2 leading-relaxed italic">
+                    {act.description}
+                  </div>
                 )}
               </div>
-            </li>
+            </div>
           );
         })}
         {(!list || list.length === 0) && (
-          <li>
-            <div className="px-3 py-6 rounded-md border border-gray-200/60 dark:border-gray-700/60 bg-white/50 dark:bg-gray-800/50 text-center">
-              <History className="w-5 h-5 mx-auto mb-1.5 text-gray-300 dark:text-gray-600" />
-              <div className="text-xs text-gray-400 dark:text-gray-500">{t('visitor.activity.noActivity', '\u6682\u65e0\u6d3b\u52a8\u8bb0\u5f55')}</div>
-            </div>
-          </li>
+          <div className="py-8 text-center bg-gray-50/50 dark:bg-gray-900/30 rounded-lg border border-dashed border-gray-200 dark:border-gray-800">
+            <History className="w-5 h-5 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+            <div className="text-[12px] text-gray-400 dark:text-gray-500 italic">{t('visitor.activity.noActivity', '暂无活动记录')}</div>
+          </div>
         )}
-      </ul>
-    </div>
+      </div>
+    </CollapsibleSection>
   );
 };
 

@@ -25,6 +25,7 @@ import { chatMessagesApiService } from '@/services/chatMessagesApi';
 import { APIError } from '@/services/api';
 
 import { Smile, Scissors, Image as ImageIcon, Folder, Pause, Loader2, UserPlus } from 'lucide-react';
+import ChatToolbarPluginButtons from '../plugin/ChatToolbarPluginButtons';
 
 /**
  * Extract error message from error object (supports APIError, WsSendError and generic Error)
@@ -1216,6 +1217,32 @@ const MessageInput: React.FC<MessageInputProps> = ({
     setMessage(e.target.value);
   };
 
+  // Listen for plugin actions
+  useEffect(() => {
+    const handleInsertText = (e: any) => {
+      const { text, replace } = e.detail;
+      if (replace) {
+        setMessage(text);
+      } else {
+        setMessage(prev => (prev ? `${prev}\n${text}` : text));
+      }
+      textareaRef.current?.focus();
+    };
+
+    const handleSendMessageAction = (e: any) => {
+      const { content } = e.detail;
+      onSendMessage?.(content);
+    };
+
+    window.addEventListener('tgo:insert_text', handleInsertText);
+    window.addEventListener('tgo:send_message', handleSendMessageAction);
+    
+    return () => {
+      window.removeEventListener('tgo:insert_text', handleInsertText);
+      window.removeEventListener('tgo:send_message', handleSendMessageAction);
+    };
+  }, [onSendMessage]);
+
   // If visitor is in queued status, show accept button instead of input area
   if (isQueued && visitorId) {
     return (
@@ -1308,6 +1335,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
           <button onClick={handleClickFileBtn} disabled={isManualDisabled} className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" aria-label={t('chat.input.file.aria', '上传文件')} title={isManualDisabled ? t('chat.input.disabled.tooltip', 'AI助手已启用，手动输入已禁用') : t('chat.input.file.title', '发送文件')}>
             <Folder className="w-6 h-6" />
           </button>
+          
+          <ChatToolbarPluginButtons
+            disabled={isManualDisabled}
+            context={{
+              extension_type: 'chat_toolbar',
+              visitor_id: visitorId,
+              channel_id: channelId,
+              channel_type: channelType,
+              platform_type: visitorExtra?.platform_type,
+            }}
+          />
           {/* <button className="p-1.5 text-gray-500 hover:text-gray-700 transition-colors duration-200">
             <Ellipsis className="w-6 h-6" />
           </button> */}

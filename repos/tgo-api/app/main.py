@@ -198,6 +198,14 @@ async def startup_event():
         # best-effort; don't block startup
         pass
 
+    # Start plugin socket server (best-effort)
+    try:
+        from app.tasks.plugin_socket_server import start_plugin_socket_server
+        await start_plugin_socket_server()
+    except Exception:
+        # best-effort; don't block startup
+        pass
+
     # Server ready
     startup_log("🌐 Server starting...")
     startup_log(f"   📍 Listening on: http://0.0.0.0:8000")
@@ -250,6 +258,13 @@ async def shutdown_event():
     try:
         from app.tasks.auto_fallback_to_ai import stop_auto_fallback_to_ai_task
         await stop_auto_fallback_to_ai_task()
+    except Exception:
+        pass
+
+    # Stop plugin socket server (best-effort)
+    try:
+        from app.tasks.plugin_socket_server import stop_plugin_socket_server
+        await stop_plugin_socket_server()
     except Exception:
         pass
 

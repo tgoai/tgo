@@ -2,6 +2,7 @@ import React from 'react';
 import type { SystemInfo as ChannelSystemInfo } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { formatLocalDateTime } from '@/utils/dateUtils';
+import CollapsibleSection from '../ui/CollapsibleSection';
 
 // 常用语言代码到显示名称的映射（简体中文版本）
 const LANGUAGE_DISPLAY_NAMES_ZH_CN: Record<string, string> = {
@@ -205,6 +206,13 @@ interface SystemInfoSectionProps {
   ipAddress?: string;
   displayLocation?: string;
   className?: string;
+  draggable?: boolean;
+  expanded?: boolean;
+  onToggle?: (expanded: boolean) => void;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
 }
 
 /**
@@ -216,7 +224,14 @@ const SystemInfoSection: React.FC<SystemInfoSectionProps> = ({
   timezone: timezoneProp,
   ipAddress: ipAddressProp,
   displayLocation: displayLocationProp,
-  className = ''
+  className = '',
+  draggable,
+  expanded,
+  onToggle,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
 }) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language || 'zh-CN';
@@ -230,7 +245,6 @@ const SystemInfoSection: React.FC<SystemInfoSectionProps> = ({
   const os = valueOrDash(systemInfo?.operating_system);
   const firstSeen = formatLocalDateTime(systemInfo?.first_seen_at);
   const language = formatLanguageCode(languageProp, currentLang);
-  const languageRaw = languageProp?.trim() || '-'; // 用于 title 显示原始代码
   const timezone = valueOrDash(timezoneProp);
   const ipAddress = valueOrDash(ipAddressProp);
   const displayLocation = valueOrDash(displayLocationProp);
@@ -245,81 +259,50 @@ const SystemInfoSection: React.FC<SystemInfoSectionProps> = ({
     Boolean((displayLocationProp ?? '').trim());
 
   return (
-    <div className={`pt-4 space-y-3 ${className}`}>
-      <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{t('visitor.sections.systemInfo', '系统信息')}</h4>
+    <CollapsibleSection
+      title={t('visitor.sections.systemInfo', '系统信息')}
+      className={className}
+      defaultExpanded={false}
+      expanded={expanded}
+      onToggle={onToggle}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       {hasAnyInfo ? (
-        <div className="space-y-1.5 text-[13px] leading-5">
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('visitor.system.fields.platform', '平台')}</span>
-            <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2" title={platform}>
-              {platform}
-            </span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('visitor.system.fields.sourcePage', '来源页面')}</span>
-            <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2">
-              {sourceDetailUrl ? (
-                <a
-                  href={sourceDetailUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-blue-600 dark:text-blue-400 hover:underline underline-offset-2 break-all"
-                  title={sourceDetailUrl}
-                >
+        <div className="space-y-1 px-0.5">
+          {[
+            { label: t('visitor.system.fields.platform', '平台'), value: platform },
+            { 
+              label: t('visitor.system.fields.sourcePage', '来源页面'), 
+              value: sourceDetailUrl ? (
+                <a href={sourceDetailUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline break-all" title={sourceDetailUrl}>
                   {sourceDetailUrl}
                 </a>
-              ) : (
-                <span title={sourceDetail}>{sourceDetail}</span>
-              )}
-            </span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('visitor.system.fields.browser', '浏览器')}</span>
-            <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2" title={browser}>
-              {browser}
-            </span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('visitor.system.fields.os', '操作系统')}</span>
-            <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2" title={os}>
-              {os}
-            </span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('visitor.system.fields.language', '语言')}</span>
-            <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2" title={languageRaw !== language ? `${language} (${languageRaw})` : language}>
-              {language}
-            </span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('visitor.system.fields.timezone', '时区')}</span>
-            <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2" title={timezone}>
-              {timezone}
-            </span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('visitor.system.fields.ipAddress', 'IP 地址')}</span>
-            <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2" title={ipAddress}>
-              {ipAddress}
-            </span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('visitor.system.fields.location', '位置')}</span>
-            <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2" title={displayLocation}>
-              {displayLocation}
-            </span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 pt-0.5">{t('visitor.system.fields.firstSeen', '首次访问')}</span>
-            <span className="text-gray-800 dark:text-gray-200 font-medium flex-1 min-w-0 ml-2 text-right line-clamp-2" title={firstSeen}>
-              {firstSeen}
-            </span>
-          </div>
+              ) : sourceDetail 
+            },
+            { label: t('visitor.system.fields.browser', '浏览器'), value: browser },
+            { label: t('visitor.system.fields.os', '操作系统'), value: os },
+            { label: t('visitor.system.fields.language', '语言'), value: language },
+            { label: t('visitor.system.fields.timezone', '时区'), value: timezone },
+            { label: t('visitor.system.fields.ipAddress', 'IP 地址'), value: ipAddress },
+            { label: t('visitor.system.fields.location', '位置'), value: displayLocation },
+            { label: t('visitor.system.fields.firstSeen', '首次访问'), value: firstSeen },
+          ].map((item, idx) => (
+            <div key={idx} className="flex justify-between items-start py-0.5 group">
+              <span className="text-gray-400 dark:text-gray-500 text-[12px] flex-shrink-0 pt-0.5">{item.label}</span>
+              <span className="text-gray-700 dark:text-gray-200 font-medium text-[12px] leading-5 flex-1 min-w-0 ml-4 text-right line-clamp-2 break-all">
+                {item.value}
+              </span>
+            </div>
+          ))}
         </div>
       ) : (
-        <div className="text-xs text-gray-400 dark:text-gray-500">{t('visitor.system.empty', '暂无系统信息')}</div>
+        <div className="text-[12px] text-gray-400 dark:text-gray-500 py-4 text-center italic">{t('visitor.system.empty', '暂无系统信息')}</div>
       )}
-    </div>
+    </CollapsibleSection>
   );
 };
 

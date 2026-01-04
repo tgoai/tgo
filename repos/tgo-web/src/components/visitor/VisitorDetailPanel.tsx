@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { User, AlertCircle, Loader2, X } from 'lucide-react';
 import TagManager from '../ui/TagManager';
+import CollapsibleSection from '../ui/CollapsibleSection';
 import VisitorHeader from './VisitorHeader';
 import BasicInfoSection from './BasicInfoSection';
 import ImageCropModal from '../ui/ImageCropModal';
@@ -10,6 +11,7 @@ import ImageCropModal from '../ui/ImageCropModal';
 import AIInsightsSection from './AIInsightsSection';
 import SystemInfoSection from './SystemInfoSection';
 import RecentActivitySection from './RecentActivitySection';
+import PluginPanelSection from '../plugin/PluginPanelSection';
 import { visitorApiService, type VisitorAttributesUpdateRequest, type VisitorResponse } from '@/services/visitorApi';
 import { tagsApiService } from '@/services/tagsApi';
 import { useChannelStore } from '@/stores/channelStore';
@@ -19,7 +21,7 @@ import { useToast } from '@/hooks/useToast';
 import type { ChannelVisitorExtra } from '@/types';
 import { PlatformType } from '@/types';
 import { toPlatformType } from '@/utils/platformUtils';
-import { buildLastSeenText } from '@/utils/dateUtils';
+import { formatOnlineDuration } from '@/utils/dateUtils';
 import type { ExtendedVisitor, CustomAttribute, VisitorTag } from '@/data/mockVisitor';
 
 export interface VisitorDetailPanelProps {
@@ -41,6 +43,8 @@ export interface VisitorDetailPanelProps {
   variant?: 'sidebar' | 'drawer';
   /** 自定义类名 */
   className?: string;
+  /** 自定义样式 */
+  style?: React.CSSProperties;
 }
 
 /**
@@ -175,6 +179,7 @@ const VisitorDetailPanel: React.FC<VisitorDetailPanelProps> = ({
   onVisitorUpdated,
   variant = 'sidebar',
   className = '',
+  style,
 }) => {
   const [visitor, setVisitor] = useState<ExtendedVisitor | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -183,6 +188,41 @@ const VisitorDetailPanel: React.FC<VisitorDetailPanelProps> = ({
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasLoadedInitial, setHasLoadedInitial] = useState(false);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [recentlyMovedId, setRecentlyMovedId] = useState<string | null>(null);
+  
+  // 板块展开收起状态
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('visitor_panel_expanded_sections');
+      return saved ? JSON.parse(saved) : {
+        basic_info: true,
+        ai_insights: true,
+        tags: true,
+        system_info: false,
+        plugins: true,
+        recent_activity: false
+      };
+    } catch {
+      return {
+        basic_info: true,
+        ai_insights: true,
+        tags: true,
+        system_info: false,
+        plugins: true,
+        recent_activity: false
+      };
+    }
+  });
+
+  const handleToggleSection = (sectionId: string, expanded: boolean) => {
+    setExpandedSections(prev => {
+      const next = { ...prev, [sectionId]: expanded };
+      localStorage.setItem('visitor_panel_expanded_sections', JSON.stringify(next));
+      return next;
+    });
+  };
   // Avatar crop modal state
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState<string>('');
@@ -190,6 +230,24 @@ const VisitorDetailPanel: React.FC<VisitorDetailPanelProps> = ({
   const { t } = useTranslation();
   const { showToast } = useToast();
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // 默认模块顺序
+  const DEFAULT_ORDER = ['basic_info', 'ai_insights', 'tags', 'system_info', 'plugins', 'recent_activity'];
+  const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('visitor_panel_section_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // 验证保存的顺序是否包含所有当前定义的模块，防止版本更新导致问题
+        if (Array.isArray(parsed) && parsed.length === DEFAULT_ORDER.length && parsed.every(id => DEFAULT_ORDER.includes(id))) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load visitor panel order:', e);
+    }
+    return DEFAULT_ORDER;
+  });
 
   // 是否使用频道模式（从 channelStore 获取数据）
   const useChannelMode = Boolean(channelId && channelType != null);
@@ -779,19 +837,111 @@ const VisitorDetailPanel: React.FC<VisitorDetailPanelProps> = ({
     }
   }, [visitor, useChannelMode, channelId, channelType, cropImageSrc, cropImageMimeType, showToast, t, onVisitorUpdated]);
 
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id);
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDragOverId(null);
+  };
+
+  // 容器级别的 dragOver 处理 - 通过 data 属性查找目标
+  const handleContainerDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // 查找最近的带有 data-section-id 的元素
+    const target = (e.target as HTMLElement).closest('[data-section-id]');
+    if (!target) {
+      setDragOverId(null);
+      return;
+    }
+    
+    const targetId = target.getAttribute('data-section-id');
+    if (!targetId || targetId === draggedId) {
+      if (dragOverId !== null) setDragOverId(null);
+      return;
+    }
+    
+    if (dragOverId !== targetId) {
+      setDragOverId(targetId);
+    }
+  };
+
+  // 容器级别的 drop 处理
+  const handleContainerDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    
+    const id = e.dataTransfer.getData('text/plain') || draggedId;
+    
+    // 查找最近的带有 data-section-id 的元素
+    const target = (e.target as HTMLElement).closest('[data-section-id]');
+    const targetId = target?.getAttribute('data-section-id');
+    
+    setDragOverId(null);
+    
+    if (!id || !targetId || id === targetId) {
+      setDraggedId(null);
+      return;
+    }
+
+    // 设置最近移动 ID，用于触发入位动画
+    setRecentlyMovedId(id);
+    setTimeout(() => setRecentlyMovedId(null), 800);
+
+    // 使用函数式更新确保获取最新的 sectionOrder
+    setSectionOrder(prevOrder => {
+      const newOrder = [...prevOrder];
+      const draggedIdx = newOrder.indexOf(id);
+      const targetIdx = newOrder.indexOf(targetId);
+      
+      if (draggedIdx === -1 || targetIdx === -1) {
+        setDraggedId(null);
+        return prevOrder;
+      }
+
+      // 移除被拖拽的项
+      newOrder.splice(draggedIdx, 1);
+      
+      // 重新计算目标索引（因为移除后索引可能变化）
+      const newTargetIdx = newOrder.indexOf(targetId);
+      if (newTargetIdx === -1) {
+        setDraggedId(null);
+        return prevOrder;
+      }
+      
+      // 插入到目标位置
+      newOrder.splice(newTargetIdx, 0, id);
+      
+      // 保存到 localStorage
+      localStorage.setItem('visitor_panel_section_order', JSON.stringify(newOrder));
+      
+      // 延迟清除拖拽 ID，让 transition 动画有时间运行
+      setTimeout(() => setDraggedId(null), 50);
+      
+      return newOrder;
+    });
+  };
+
   // 基于 variant 的样式
+  const hasExternalWidth = style && style.width;
+  const widthClass = hasExternalWidth ? '' : 'w-72';
+
   const containerClasses = variant === 'drawer'
     ? `w-full h-full bg-white dark:bg-gray-800 flex flex-col ${className}`
-    : `w-72 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-l border-gray-200/60 dark:border-gray-700/60 flex flex-col shrink-0 font-sans antialiased ${className}`;
+    : `${widthClass} bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-l border-gray-200/60 dark:border-gray-700/60 flex flex-col shrink-0 font-sans antialiased ${className}`;
 
   const emptyContainerClasses = variant === 'drawer'
     ? `w-full h-full bg-white dark:bg-gray-800 flex items-center justify-center ${className}`
-    : `w-72 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-l border-gray-200/60 dark:border-gray-700/60 flex items-center justify-center shrink-0 font-sans antialiased ${className}`;
+    : `${widthClass} bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-l border-gray-200/60 dark:border-gray-700/60 flex items-center justify-center shrink-0 font-sans antialiased ${className}`;
 
   // 渲染空状态或错误状态
   if (!visitor) {
     return (
-      <div className={emptyContainerClasses}>
+      <div className={emptyContainerClasses} style={style}>
         <div className="text-center text-gray-500 dark:text-gray-400 px-4">
           {isLoading ? (
             <>
@@ -825,7 +975,7 @@ const VisitorDetailPanel: React.FC<VisitorDetailPanelProps> = ({
   const channelExtra = channelInfo?.extra as ChannelVisitorExtra | undefined;
 
   return (
-    <div className={containerClasses}>
+    <div className={containerClasses} style={style}>
       {/* Panel Header */}
       <div className="p-4 border-b border-gray-200/60 dark:border-gray-700/60 sticky top-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg z-10">
         {showCloseButton && onClose && (
@@ -856,7 +1006,7 @@ const VisitorDetailPanel: React.FC<VisitorDetailPanelProps> = ({
             const fallbackPlatform = visitor.platform || '';
             return fromExtra ?? toPlatformType(fallbackPlatform);
           })()}
-          lastSeenText={buildLastSeenText(channelExtra?.last_offline_time, channelExtra?.is_online ?? null) || undefined}
+          lastSeenText={formatOnlineDuration(visitor.basicInfo.lastOnlineDurationMinutes, visitor.status === 'online')}
           onAvatarClick={handleAvatarClick}
           isUploading={isUploadingAvatar}
           visitorId={channelId || visitor.id}
@@ -864,7 +1014,18 @@ const VisitorDetailPanel: React.FC<VisitorDetailPanelProps> = ({
       </div>
 
       {/* Panel Content */}
-      <div className="relative flex-grow overflow-y-auto p-4 space-y-6" style={{ height: 0 }}>
+      <div 
+        className="relative flex-grow overflow-y-auto p-4 space-y-4" 
+        style={{ height: 0 }}
+        onDragOver={handleContainerDragOver}
+        onDrop={handleContainerDrop}
+        onDragLeave={(e) => {
+          // 只有离开容器本身时才清除指示器
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDragOverId(null);
+          }
+        }}
+      >
         {/* Loading/Error State */}
         {isUpdating && (
           <div className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center text-xs text-blue-700 dark:text-blue-400 bg-white/80 dark:bg-gray-800/80 backdrop-blur px-2 py-1 rounded border border-blue-100 dark:border-blue-800 shadow-sm">
@@ -880,58 +1041,154 @@ const VisitorDetailPanel: React.FC<VisitorDetailPanelProps> = ({
           </div>
         )}
 
-        {/* Basic Info */}
+        {sectionOrder.map((sectionId) => {
+          const isDragging = draggedId === sectionId;
+          const isDragOver = dragOverId === sectionId;
+          const isRecentlyMoved = recentlyMovedId === sectionId;
+          
+          // 外层包装器样式：负责挪位动画
+          const wrapperClassName = `
+            relative group/section
+            transition-all duration-500 ease-[cubic-bezier(0.2,1,0.3,1)]
+            ${isDragOver ? 'pt-10' : 'pt-0'}
+            ${isRecentlyMoved ? 'z-20' : 'z-auto'}
+          `;
+
+          // 内层组件样式：负责拖拽视觉反馈和入位动画
+          const sectionClassName = `
+            transition-all duration-500 ease-[cubic-bezier(0.2,1,0.3,1)]
+            ${isDragging ? 'opacity-20 scale-[0.95] blur-[2px] shadow-inner' : 'opacity-100 scale-100 shadow-none'}
+            ${isRecentlyMoved ? 'ring-2 ring-blue-500/30 ring-offset-2 dark:ring-offset-gray-800 rounded-lg bg-blue-50/5 dark:bg-blue-900/5' : ''}
+          `;
+
+          // 插入位置指示器
+          const dropIndicator = isDragOver && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(59,130,246,0.5)] z-10 pointer-events-none" />
+          );
+
+          const wrapWithIndicator = (content: React.ReactNode) => (
+            <div 
+              key={sectionId} 
+              data-section-id={sectionId}
+              className={wrapperClassName}
+            >
+              {dropIndicator}
+              {content}
+            </div>
+          );
+
+          switch (sectionId) {
+            case 'basic_info':
+              return wrapWithIndicator(
         <BasicInfoSection
           basicInfo={visitor.basicInfo}
-          isOnline={visitor.status === 'online'}
           onUpdateBasicInfo={handleUpdateBasicInfo}
           onAddCustomAttribute={handleAddCustomAttribute}
           onUpdateCustomAttribute={handleUpdateCustomAttribute}
           onDeleteCustomAttribute={handleDeleteCustomAttribute}
+                  draggable
+                  className={sectionClassName}
+                  expanded={expandedSections.basic_info}
+                  onToggle={(expanded) => handleToggleSection('basic_info', expanded)}
+                  onDragStart={(e) => handleDragStart(e, 'basic_info')}
+                  onDragEnd={handleDragEnd}
         />
-
-        {/* AI 洞察 */}
+              );
+            case 'ai_insights':
+              return wrapWithIndicator(
         <AIInsightsSection
           satisfactionScore={aiInsights?.satisfaction_score ?? null}
           emotionScore={aiInsights?.emotion_score ?? null}
           intent={aiInsights?.intent ?? null}
           insightSummary={aiInsights?.insight_summary ?? null}
-        />
-
-        {/* Tags */}
-        <div className="pt-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{t('visitor.tags.title', '标签')}</h4>
-            {isUpdating && (
-              <div className="flex items-center text-xs text-blue-600 dark:text-blue-400">
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                {t('common.updating', '更新中')}
-              </div>
-            )}
-          </div>
-          <TagManager
-            tags={visitor.tags}
-            onAddTag={handleAddTag}
-            onUpdateTag={handleUpdateTag}
-            onRemoveTag={handleRemoveTag}
-            fetchCommonTags={fetchCommonTags}
-            onAssociateExistingTag={handleAssociateExistingTag}
-            maxTags={8}
-            className="mt-1"
-          />
-        </div>
-
-        {/* System Info Section */}
+                  draggable
+                  className={sectionClassName}
+                  expanded={expandedSections.ai_insights}
+                  onToggle={(expanded) => handleToggleSection('ai_insights', expanded)}
+                  onDragStart={(e) => handleDragStart(e, 'ai_insights')}
+                  onDragEnd={handleDragEnd}
+                />
+              );
+            case 'tags':
+              return wrapWithIndicator(
+                <CollapsibleSection
+                  title={t('visitor.tags.title', '标签')}
+                  draggable
+                  className={sectionClassName}
+                  expanded={expandedSections.tags}
+                  onToggle={(expanded) => handleToggleSection('tags', expanded)}
+                  onDragStart={(e) => handleDragStart(e, 'tags')}
+                  onDragEnd={handleDragEnd}
+                  rightContent={isUpdating && (
+                    <div className="flex items-center text-xs text-blue-600 dark:text-blue-400">
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      {t('common.updating', '更新中')}
+                    </div>
+                  )}
+                >
+                  <TagManager
+                    tags={visitor.tags}
+                    onAddTag={handleAddTag}
+                    onUpdateTag={handleUpdateTag}
+                    onRemoveTag={handleRemoveTag}
+                    fetchCommonTags={fetchCommonTags}
+                    onAssociateExistingTag={handleAssociateExistingTag}
+                    maxTags={8}
+                    className="mt-1"
+                  />
+                </CollapsibleSection>
+              );
+            case 'system_info':
+              return wrapWithIndicator(
         <SystemInfoSection
           systemInfo={useChannelMode ? systemInfo : (visitorData?.system_info || null)}
           language={channelExtra?.language || visitorData?.language || undefined}
           timezone={channelExtra?.timezone || visitorData?.timezone || undefined}
           ipAddress={channelExtra?.ip_address || visitorData?.ip_address || undefined}
           displayLocation={channelExtra?.display_location || visitorData?.display_location || undefined}
-        />
-
-        {/* Recent Activity Section */}
-        <RecentActivitySection activities={useChannelMode ? recentActivities : (visitorData?.recent_activities || [])} />
+                  draggable
+                  className={sectionClassName}
+                  expanded={expandedSections.system_info}
+                  onToggle={(expanded) => handleToggleSection('system_info', expanded)}
+                  onDragStart={(e) => handleDragStart(e, 'system_info')}
+                  onDragEnd={handleDragEnd}
+                />
+              );
+            case 'plugins':
+              return visitor && wrapWithIndicator(
+          <PluginPanelSection
+            visitorId={visitor.id}
+            context={{
+              extension_type: 'visitor_panel',
+              visitor_id: visitor.id,
+              channel_id: channelId,
+              channel_type: channelType,
+              platform_type: channelExtra?.platform_type,
+            }}
+                  draggable
+                  className={sectionClassName}
+                  expanded={expandedSections.plugins}
+                  onToggle={(expanded) => handleToggleSection('plugins', expanded)}
+                  onDragStart={(e) => handleDragStart(e, 'plugins')}
+                  onDragEnd={handleDragEnd}
+                />
+              );
+            case 'recent_activity':
+              return wrapWithIndicator(
+                <RecentActivitySection 
+                  activities={useChannelMode ? recentActivities : (visitorData?.recent_activities || [])} 
+                  draggable
+                  className={sectionClassName}
+                  expanded={expandedSections.recent_activity}
+                  onToggle={(expanded) => handleToggleSection('recent_activity', expanded)}
+                  onDragStart={(e) => handleDragStart(e, 'recent_activity')}
+                  onDragEnd={handleDragEnd}
+                />
+              );
+            default:
+              return null;
+          }
+        })}
       </div>
 
       {/* Avatar Crop Modal */}

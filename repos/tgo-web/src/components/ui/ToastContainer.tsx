@@ -52,9 +52,9 @@ const ToastContainer: React.FC<ToastContainerProps> = ({ children }) => {
       {children}
       
       {/* Toast容器 */}
-      <div className="fixed top-4 right-4 z-50 space-y-3 max-w-md">
+      <div className="fixed top-4 right-4 z-[2000] space-y-3 max-w-md pointer-events-none">
         {toasts.map(toast => (
-          <div key={toast.id} className="transform transition-all duration-300 ease-in-out">
+          <div key={toast.id} className="transform transition-all duration-300 ease-in-out pointer-events-auto">
             <Toast
               id={toast.id}
               type={toast.type}

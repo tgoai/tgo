@@ -1,13 +1,12 @@
 import React from 'react';
 import EditableField from '../ui/EditableField';
 import CustomAttributeManager from '../ui/CustomAttributeManager';
+import CollapsibleSection from '../ui/CollapsibleSection';
 import type { VisitorBasicInfo } from '@/data/mockVisitor';
 import { useTranslation } from 'react-i18next';
-import { formatOnlineDuration } from '@/utils/dateUtils';
 
 interface BasicInfoSectionProps {
   basicInfo: VisitorBasicInfo;
-  isOnline?: boolean;
   onUpdateBasicInfo: (
     field: 'name' | 'nickname' | 'email' | 'phone' | 'note',
     value: string
@@ -16,6 +15,13 @@ interface BasicInfoSectionProps {
   onUpdateCustomAttribute: (id: string, key: string, value: string) => void;
   onDeleteCustomAttribute: (id: string) => void;
   className?: string;
+  draggable?: boolean;
+  expanded?: boolean;
+  onToggle?: (expanded: boolean) => void;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
 }
 
 
@@ -25,12 +31,18 @@ interface BasicInfoSectionProps {
  */
 const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
   basicInfo,
-  isOnline = false,
   onUpdateBasicInfo,
   onAddCustomAttribute,
   onUpdateCustomAttribute,
   onDeleteCustomAttribute,
-  className = ''
+  className = '',
+  draggable,
+  expanded,
+  onToggle,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
 }) => {
   const { t } = useTranslation();
   const validateEmail = (email: string): string | null => {
@@ -44,8 +56,18 @@ const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
     return phoneRegex.test(phone) ? null : t('visitor.validation.invalidPhone', '\u8bf7\u8f93\u5165\u6709\u6548\u7684\u7535\u8bdd\u53f7\u7801');
   };
   return (
-    <div className={className}>
-      <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider mb-3">{t('visitor.sections.basicInfo', '基本信息')}</h4>
+    <CollapsibleSection
+      title={t('visitor.sections.basicInfo', '基本信息')}
+      className={className}
+      defaultExpanded={true}
+      expanded={expanded}
+      onToggle={onToggle}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       <div className="space-y-1.5 text-[13px] leading-5">
         <EditableField
           label={t('visitor.fields.name', '姓名')}
@@ -75,12 +97,6 @@ const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
           type="tel"
           validate={validatePhone}
         />
-        <div className="flex justify-between items-center py-1">
-          <span className="text-gray-500 dark:text-gray-400">{t('visitor.table.lastOnline', '最后在线')}</span>
-          <span className="text-gray-800 dark:text-gray-200 font-medium">
-            {formatOnlineDuration(basicInfo.lastOnlineDurationMinutes, isOnline)}
-          </span>
-        </div>
         <EditableField
           label={t('visitor.fields.note', '备注')}
           value={basicInfo.note || ''}
@@ -97,7 +113,7 @@ const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
           className="pt-2 space-y-1.5"
         />
       </div>
-    </div>
+    </CollapsibleSection>
   );
 };
 

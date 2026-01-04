@@ -90,8 +90,29 @@
       "staff": "人工坐席",
       "notifications": "消息通知",
       "providers": "模型提供商",
+      "plugins": "插件管理",
       "about": "关于",
       "logout": "退出登录"
+    },
+    "plugins": {
+      "title": "插件管理",
+      "subtitle": "查看并管理已连接到 TGO 的插件",
+      "empty": {
+        "title": "暂无已连接的插件",
+        "description": "插件可以通过 Unix Socket 或 TCP 连接到 TGO API 服务。"
+      },
+      "viewDocs": "查看插件开发指南",
+      "status": {
+        "connected": "已连接",
+        "disconnected": "已断开"
+      },
+      "capabilities": "功能声明",
+      "author": "作者",
+      "connectedAt": "连接时间",
+      "debug": {
+        "title": "调试提示",
+        "description": "在开发模式下，您可以通过 8005 端口（TCP）或 /var/run/tgo/tgo.sock（Unix Socket）连接本地开发的插件。"
+      }
     },
     "profile": {
       "title": "个人资料",

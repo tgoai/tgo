@@ -104,10 +104,10 @@ const EditableField: React.FC<EditableFieldProps> = ({
 
   if (isEditing) {
     return (
-      <div className={`flex justify-between items-start ${className}`}>
-        <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 text-[13px] leading-5 pt-1.5">{label}:</span>
-        <div className="flex-1 ml-2 min-w-0">
-          <div className="flex items-center space-x-1.5">
+      <div className={`flex justify-between items-start py-0.5 ${className}`}>
+        <span className="text-gray-400 dark:text-gray-500 flex-shrink-0 text-[12px] leading-6 pt-0.5">{label}</span>
+        <div className="flex-1 ml-3 min-w-0">
+          <div className="flex items-center space-x-1">
             <input
               ref={inputRef}
               type={type}
@@ -117,29 +117,27 @@ const EditableField: React.FC<EditableFieldProps> = ({
               onBlur={handleBlur}
               placeholder={placeholder}
               disabled={isLoading}
-              className={`flex-1 min-w-0 max-w-[140px] px-2.5 py-1.5 text-[13px] leading-5 text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors ${
-                error ? 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'
+              className={`flex-1 min-w-0 max-w-[150px] px-2 py-1 text-[12px] leading-5 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-800 border rounded transition-all focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 ${
+                error ? 'border-red-400 dark:border-red-500' : 'border-gray-200 dark:border-gray-700'
               } ${isLoading ? 'opacity-50' : ''}`}
             />
             <button
               onClick={handleSave}
               disabled={isLoading}
-              className="p-1.5 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-md transition-colors disabled:opacity-50 flex-shrink-0"
-              title={t('common.save', '保存')}
+              className="p-1 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors disabled:opacity-50 flex-shrink-0"
             >
               <Check className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleCancel}
               disabled={isLoading}
-              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50 flex-shrink-0"
-              title={t('common.cancel', '取消')}
+              className="p-1 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50 flex-shrink-0"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
           {error && (
-            <div className="mt-1.5 text-[11px] leading-4 text-red-600 dark:text-red-400 font-medium">{error}</div>
+            <div className="mt-1 text-[10px] text-red-500 dark:text-red-400 font-medium px-1">{error}</div>
           )}
         </div>
       </div>
@@ -147,31 +145,18 @@ const EditableField: React.FC<EditableFieldProps> = ({
   }
 
   return (
-    <div className={`flex justify-between items-start group ${className}`}>
-      <span className="text-gray-500 dark:text-gray-400 text-[13px] leading-5 flex-shrink-0 pt-0.5">{label}:</span>
-      <div className="flex items-start space-x-1.5 flex-1 min-w-0 ml-2">
+    <div className={`flex justify-between items-start group py-0.5 ${className}`}>
+      <span className="text-gray-400 dark:text-gray-500 text-[12px] leading-6 flex-shrink-0">{label}</span>
+      <div className="flex items-center space-x-1.5 flex-1 min-w-0 ml-3 justify-end">
         <span
-          className={`text-gray-800 dark:text-gray-200 font-medium text-[13px] leading-5 flex-1 min-w-0 text-right ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:text-gray-900 dark:hover:text-gray-100'} line-clamp-2`}
+          className={`text-gray-700 dark:text-gray-200 font-medium text-[12px] leading-6 truncate max-w-full ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors'} text-right`}
           onClick={handleEdit}
           title={value || placeholder || '-'}
-          style={{
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            wordBreak: 'break-all'
-          }}
         >
           {value || placeholder || '-'}
         </span>
         {!disabled && (
-          <button
-            onClick={handleEdit}
-            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-all flex-shrink-0 mt-0.5"
-            title={t('common.edit', '编辑')}
-          >
-            <Edit3 className="w-3 h-3" />
-          </button>
+          <Edit3 className="w-2.5 h-2.5 text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 cursor-pointer" onClick={handleEdit} />
         )}
       </div>
     </div>

@@ -184,7 +184,10 @@ services:
       - tgo-workflow
       - postgres
       - redis
+    ports:
+      - "8005:8005" # Plugin socket for local debugging
     environment:
+
       API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost/api}
     volumes:
       # Persist API uploads (chat files, platform logos, etc.) under unified data directory

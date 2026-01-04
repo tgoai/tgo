@@ -121,17 +121,17 @@ const CustomAttributeManager: React.FC<CustomAttributeManagerProps> = ({
     <div className={className}>
       {/* Existing attributes */}
       {attributes.map((attr) => (
-        <div key={attr.id} className="flex justify-between items-start group">
+        <div key={attr.id} className="flex justify-between items-start group py-0.5">
           {editingId === attr.id ? (
             <div className="flex-1 space-y-2 min-w-0">
-              <div className="flex items-center space-x-1.5">
+              <div className="flex items-center space-x-1">
                 <input
                   type="text"
                   value={editKey}
                   onChange={(e) => setEditKey(e.target.value)}
                   onKeyDown={(e) => handleKeyDown(e, 'edit')}
                   placeholder={t('visitor.customAttr.namePlaceholder', '属性名')}
-                  className="w-16 px-2 py-1.5 text-[13px] leading-5 text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors"
+                  className="w-16 px-2 py-1 text-[12px] leading-5 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded transition-all focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                 />
                 <input
                   type="text"
@@ -139,26 +139,23 @@ const CustomAttributeManager: React.FC<CustomAttributeManagerProps> = ({
                   onChange={(e) => setEditValue(e.target.value)}
                   onKeyDown={(e) => handleKeyDown(e, 'edit')}
                   placeholder={t('visitor.customAttr.valuePlaceholder', '属性值')}
-                  className="flex-1 min-w-0 max-w-[100px] px-2 py-1.5 text-[13px] leading-5 text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors"
+                  className="flex-1 min-w-0 max-w-[120px] px-2 py-1 text-[12px] leading-5 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded transition-all focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                 />
                 <button
                   onClick={handleSaveEdit}
-                  className="p-1.5 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-md transition-colors flex-shrink-0"
-                  title={t('common.save', '保存')}
+                  className="p-1 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
                 >
                   <Check className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={handleCancelEdit}
-                  className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors flex-shrink-0"
-                  title={t('common.cancel', '取消')}
+                  className="p-1 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => handleDeleteInEdit(editingId!)}
-                  className="p-1.5 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors flex-shrink-0"
-                  title={t('common.delete', '删除')}
+                  className="p-1 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -166,29 +163,16 @@ const CustomAttributeManager: React.FC<CustomAttributeManagerProps> = ({
             </div>
           ) : (
             <>
-              <span className="text-gray-500 dark:text-gray-400 text-[13px] leading-5 flex-shrink-0 pt-0.5">{attr.key}:</span>
-              <div className="flex items-start space-x-1.5 flex-1 min-w-0 ml-2">
+              <span className="text-gray-400 dark:text-gray-500 text-[12px] leading-6 flex-shrink-0">{attr.key}</span>
+              <div className="flex items-center space-x-1.5 flex-1 min-w-0 ml-3 justify-end">
                 <span
-                  className="text-gray-800 dark:text-gray-200 font-medium text-[13px] leading-5 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100 flex-1 min-w-0 text-right line-clamp-2"
+                  className="text-gray-700 dark:text-gray-200 font-medium text-[12px] leading-6 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate max-w-full text-right"
                   onClick={() => handleStartEdit(attr)}
                   title={attr.value}
-                  style={{
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    wordBreak: 'break-all'
-                  }}
                 >
                   {attr.value}
                 </span>
-                <button
-                  onClick={() => handleStartEdit(attr)}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-all flex-shrink-0 mt-0.5"
-                  title={t('common.edit', '编辑')}
-                >
-                  <Edit3 className="w-3 h-3" />
-                </button>
+                <Edit3 className="w-2.5 h-2.5 text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 cursor-pointer" onClick={() => handleStartEdit(attr)} />
               </div>
             </>
           )}
