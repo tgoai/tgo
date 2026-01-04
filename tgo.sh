@@ -1422,7 +1422,7 @@ cmd_upgrade() {
     echo "[INFO] Using user-provided parameters for upgrade"
     save_install_mode "$mode" "$use_cn"
   else
-    echo "[INFO] Loading saved install mode configuration..."
+    echo "[INFO] 111Loading saved install mode configuration..."
     read -r mode use_cn <<< "$(load_install_mode)"
   fi
 
