@@ -74,7 +74,7 @@ class TelegramChannelListener:
         self._stop_event = asyncio.Event()
         self._consumer_task: asyncio.Task | None = None
         self._visitor_service = VisitorService(
-            base_url=settings.api_base,
+            base_url=settings.api_base_url,
             cache_ttl_seconds=300,
             redis_url=settings.redis_url,
         )
@@ -346,7 +346,7 @@ class TelegramChannelListener:
                                 file_bytes = await telegram_download_file(platform.cfg.bot_token, file_path)
                                 
                                 # c) Upload to tgo-api using the real visitor.channel_id
-                                upload_url = f"{settings.api_base.rstrip('/')}/v1/chat/upload"
+                                upload_url = f"{settings.api_base_url.rstrip('/')}/v1/chat/upload"
                                 channel_id = visitor.channel_id or f"{visitor.id}-vtr"
                                 
                                 print(f"[TELEGRAM] Uploading image for visitor {visitor.id}, channel {channel_id}...")

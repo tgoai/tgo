@@ -45,7 +45,7 @@ def _internalize_url(url: str) -> str:
         return url
     
     # If URL is from localhost/api or localhost:8000, map it to internal settings.api_base
-    internal_base = settings.api_base.rstrip('/')
+    internal_base = settings.api_base_url.rstrip('/')
     
     import re
     # Case 1: http://localhost:8000/v1/...
