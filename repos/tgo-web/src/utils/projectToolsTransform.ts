@@ -70,7 +70,13 @@ export const transformAiToolResponse = (aiTool: AiToolResponse): MCPTool => {
 
   // Extract category from tool name or config if available
   // For now, default to 'integration' since new API doesn't have category field
-  const category: MCPCategory = 'integration';
+  let category: MCPCategory = 'integration';
+  let author: string = mockData.author;
+
+  if (aiTool.transport_type === 'plugin') {
+    category = 'integration'; // Or a dedicated category if added to MCPCategory type
+    author = '插件';
+  }
 
   return {
     id: aiTool.id,
@@ -79,7 +85,7 @@ export const transformAiToolResponse = (aiTool: AiToolResponse): MCPTool => {
     category: category,
     status: isActive ? 'active' : 'inactive', // Use deleted_at to determine status
     version: 'v1.0.0', // New API doesn't have version field
-    author: mockData.author,
+    author: author,
     lastUpdated: new Date(aiTool.updated_at).toLocaleDateString('zh-CN'),
     usageCount: mockData.usageCount,
     rating: mockData.rating,
@@ -87,7 +93,7 @@ export const transformAiToolResponse = (aiTool: AiToolResponse): MCPTool => {
     capabilities: [], // Will be populated from config if available
     successRate: mockData.successRate,
     avgResponseTime: mockData.avgResponseTime,
-    input_schema: aiTool.config || {}, // Use config as input_schema placeholder
+    input_schema: aiTool.config?.input_schema || aiTool.config || {},
     short_no: undefined, // New API doesn't have short_no
     config: {
       project_id: aiTool.project_id,

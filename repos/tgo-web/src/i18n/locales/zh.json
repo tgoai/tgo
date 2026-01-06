@@ -111,7 +111,7 @@
       "connectedAt": "连接时间",
       "debug": {
         "title": "调试提示",
-        "description": "在开发模式下，您可以通过 8005 端口（TCP）或 /var/run/tgo/tgo.sock（Unix Socket）连接本地开发的插件。"
+        "description": "在开发模式下，插件可以通过 8005 端口（TCP）连接到 TGO AI 服务。"
       }
     },
     "profile": {
@@ -2683,6 +2683,11 @@
       "noMatch": "未找到匹配的MCP工具",
       "configTool": "配置工具",
       "manageTools": "管理MCP工具",
+      "category": {
+        "mcpServer": "MCP 服务器",
+        "custom": "自定义工具",
+        "plugin": "插件工具"
+      },
       "confirmSelection": "确认选择 ({{count}})",
       "loadFailedDesc": "无法加载MCP工具列表，请稍后重试",
       "retryFailedTitle": "重试失败",
@@ -2708,6 +2713,7 @@
       "data": "数据分析",
       "ai": "AI工具",
       "integration": "集成服务",
+      "plugin": "插件工具",
       "unknown": "未知分类"
     },
     "page": {

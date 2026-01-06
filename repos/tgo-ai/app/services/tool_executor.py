@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tool import Tool, ToolType
 from app.services.rag_service import rag_service_client
+from app.services.api_service import api_service_client
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 from app.core.logging import get_logger
@@ -19,6 +20,16 @@ class ToolExecutor:
         self.db = db
         self.project_id = project_id
         self._tool_registry: Dict[str, Dict[str, Any]] = {}
+        self._context: Dict[str, Any] = {}
+
+    def set_context(self, visitor_id: Optional[str] = None, session_id: Optional[str] = None, agent_id: Optional[str] = None, language: Optional[str] = None):
+        """Set execution context for plugin tools."""
+        self._context = {
+            "visitor_id": visitor_id,
+            "session_id": session_id,
+            "agent_id": agent_id,
+            "language": language,
+        }
 
     async def register_tools(
         self, 
@@ -37,8 +48,12 @@ class ToolExecutor:
             result = await self.db.execute(stmt)
             tools = result.scalars().all()
             for tool in tools:
+                tool_type_str = "mcp" if tool.tool_type == ToolType.MCP else "function"
+                if tool.transport_type == "plugin":
+                    tool_type_str = "plugin"
+                
                 self._tool_registry[tool.name] = {
-                    "type": "mcp" if tool.tool_type == ToolType.MCP else "function",
+                    "type": tool_type_str,
                     "id": str(tool.id),
                     "tool": tool
                 }
@@ -74,6 +89,8 @@ class ToolExecutor:
                 return await self._execute_rag(info["id"], args)
             elif tool_type == "mcp":
                 return await self._execute_mcp(info["tool"], args)
+            elif tool_type == "plugin":
+                return await self._execute_plugin(info["tool"], args)
             elif tool_type == "function":
                 # For now, we don't have a specific implementation for generic functions 
                 # in the database that aren't MCP. 
@@ -134,3 +151,27 @@ class ToolExecutor:
                     return "Tool executed successfully with no content returned."
         except Exception as e:
             return f"<error>MCP execution failed: {str(e)}</error>"
+
+    async def _execute_plugin(self, tool_model: Tool, args: Dict[str, Any]) -> str:
+        """Execute a plugin tool via the core API service proxy."""
+        plugin_id = tool_model.config.get("plugin_id")
+        tool_name = tool_model.config.get("tool_name")
+        
+        if not plugin_id or not tool_name:
+            return "<error>Plugin tool missing configuration (plugin_id or tool_name)</error>"
+
+        try:
+            result = await api_service_client.execute_plugin_tool(
+                plugin_id=plugin_id,
+                tool_name=tool_name,
+                arguments=args,
+                context=self._context,
+            )
+            
+            if result.get("success"):
+                return result.get("content", "工具执行成功")
+            else:
+                error_msg = result.get("error") or result.get("content") or "工具执行失败"
+                return f"<error>{error_msg}</error>"
+        except Exception as e:
+            return f"<error>Plugin tool execution failed: {str(e)}</error>"

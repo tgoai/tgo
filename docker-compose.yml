@@ -172,6 +172,29 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # Plugin Runtime service
+  tgo-plugin-runtime:
+    image: ghcr.io/tgoai/tgo/tgo-plugin-runtime:latest
+    container_name: tgo-plugin-runtime
+    env_file:
+      - ./.env
+      - ./envs/tgo-plugin-runtime.env
+    depends_on:
+      - tgo-ai
+      - postgres
+    ports:
+      - "8005:8005" # TCP port for local plugin debugging
+    volumes:
+      - ./data/plugins:/var/lib/tgo/plugins # Plugin installation directory
+      - plugin-socket:/var/run/tgo           # Shared socket directory
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8090/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
   # API service
   tgo-api:
     image: ghcr.io/tgoai/tgo/tgo-api:latest
@@ -182,10 +205,9 @@ services:
     depends_on:
       - tgo-ai
       - tgo-workflow
+      - tgo-plugin-runtime
       - postgres
       - redis
-    ports:
-      - "8005:8005" # Plugin socket for local debugging
     environment:
 
       API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost/api}
@@ -341,4 +363,7 @@ services:
     restart: unless-stopped
     profiles:
       - ssl-auto
+
+volumes:
+  plugin-socket:
 

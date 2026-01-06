@@ -2,7 +2,22 @@
  * Plugin system type definitions
  */
 
-export type PluginCapabilityType = 'visitor_panel' | 'chat_toolbar' | 'sidebar_iframe' | 'channel_integration';
+export type PluginCapabilityType = 'visitor_panel' | 'chat_toolbar' | 'sidebar_iframe' | 'channel_integration' | 'mcp_tools';
+
+export interface MCPToolParameter {
+  name: string;
+  type: string;
+  description?: string;
+  required: boolean;
+  enum_values?: string[];
+}
+
+export interface MCPToolDefinition {
+  name: string;
+  title: string;
+  description?: string;
+  parameters?: MCPToolParameter[];
+}
 
 export interface PluginCapability {
   type: PluginCapabilityType;
@@ -13,6 +28,7 @@ export interface PluginCapability {
   shortcut?: string;
   url?: string;
   width?: number;
+  tools?: MCPToolDefinition[];
 }
 
 export interface PluginInfo {
@@ -72,5 +88,22 @@ export interface PluginEventRequest {
   language?: string;
   form_data?: Record<string, any>;
   payload?: Record<string, any>;
+}
+
+export interface InstalledPluginInfo {
+  id: string | null;
+  plugin_id: string;
+  name: string;
+  version: string;
+  description?: string;
+  author?: string;
+  status: 'pending' | 'installing' | 'running' | 'stopped' | 'error';
+  install_type: 'github' | 'binary' | 'dev';
+  installed_at: string;
+  updated_at: string;
+  pid?: number;
+  last_error?: string;
+  is_dev_mode?: boolean;
+  capabilities?: PluginCapability[];
 }
 

@@ -19,8 +19,6 @@ interface PluginPanelSectionProps {
   onDrop?: (e: React.DragEvent) => void;
 }
 
-const EMPTY_ARRAY: any[] = [];
-
 const PluginPanelSection: React.FC<PluginPanelSectionProps> = ({ 
   visitorId, 
   context,
@@ -34,18 +32,22 @@ const PluginPanelSection: React.FC<PluginPanelSectionProps> = ({
   onDrop,
 }) => {
   const { t } = useTranslation();
-  const visitorPanels = usePluginStore((state) => state.visitorPanels[visitorId] || EMPTY_ARRAY);
+  const visitorPanels = usePluginStore((state) => state.visitorPanels[visitorId]);
   const fetchVisitorPanels = usePluginStore((state) => state.fetchVisitorPanels);
   const isLoading = usePluginStore((state) => state.isLoadingVisitorPanels);
   const [expandedPanels, setExpandedPanels] = useState<Record<string, boolean>>({});
 
   // Memoize context to avoid unnecessary re-renders if the object hasn't changed its values
-  const memoizedContext = useMemo(() => context, [
-    context.visitor_id,
-    context.channel_id,
-    context.channel_type,
-    context.platform_type
-  ]);
+  // We use stringify to ensure all relevant context properties are tracked
+  const contextKey = JSON.stringify({
+    v: context.visitor_id,
+    c: context.channel_id,
+    t: context.channel_type,
+    p: context.platform_type,
+    e: context.extension_type
+  });
+
+  const memoizedContext = useMemo(() => context, [contextKey]);
 
   useEffect(() => {
     if (visitorId) {
@@ -74,7 +76,7 @@ const PluginPanelSection: React.FC<PluginPanelSectionProps> = ({
     return <Icon size={14} className="mr-2" />;
   };
 
-  if (isLoading && visitorPanels.length === 0) {
+  if (visitorPanels === undefined || (isLoading && visitorPanels.length === 0)) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="w-5 h-5 text-gray-400 animate-spin mr-2" />

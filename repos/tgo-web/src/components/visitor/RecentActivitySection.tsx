@@ -3,6 +3,7 @@ import { Eye, LogIn, LogOut, Activity as ActivityIcon, History } from 'lucide-re
 import type { VisitorActivity } from '@/types';
 import { useTranslation } from 'react-i18next';
 import CollapsibleSection from '../ui/CollapsibleSection';
+import { formatRelativeTime } from '@/utils/dateUtils';
 
 interface RecentActivitySectionProps {
   activities?: VisitorActivity[];
@@ -14,44 +15,6 @@ interface RecentActivitySectionProps {
   onDragEnd?: (e: React.DragEvent) => void;
   onDragOver?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
-}
-
-// 解析后端时间戳（若缺少时区信息则按UTC处理），并以本地时区渲染
-function parseAPITimestampToLocalDate(iso: string): Date {
-  if (!iso) return new Date(NaN);
-  let s = iso.trim();
-  // 仅保留毫秒（JS Date 不支持微秒）
-  s = s.replace(/(\.\d{3})\d+$/, '$1');
-  const hasTZ = /[zZ]|[+-]\d{2}:\d{2}$/.test(s);
-  if (!hasTZ) s += 'Z'; // 无时区则按UTC处理
-  const d = new Date(s);
-  if (!Number.isFinite(d.getTime())) {
-    // 兜底：手动解析为UTC
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/);
-    if (m) {
-      const [_, Y, M, D, h, m2, s2, ms] = m;
-      return new Date(Date.UTC(+Y, +M - 1, +D, +h, +m2, +s2, +(ms || 0)));
-    }
-  }
-  return d;
-}
-
-// 相对时间格式：刚刚 / X分钟前 / X小时前 / 昨天 HH:mm / YYYY/MM/DD HH:mm（考虑本地时区）
-function formatRelativeTime(iso: string, t: any): string {
-  const d = parseAPITimestampToLocalDate(iso);
-  if (!Number.isFinite(d.getTime())) return '';
-  const now = new Date();
-  const diffSec = Math.max(0, Math.floor((now.getTime() - d.getTime()) / 1000));
-  if (diffSec < 60) return t('time.relative.justNow', '刚刚');
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return t('time.relative.minutesAgo', { count: diffMin, defaultValue: `${diffMin}分钟前` });
-  const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return t('time.relative.hoursAgo', { count: diffHour, defaultValue: `${diffHour}小时前` });
-  const diffDay = Math.floor(diffHour / 24);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  if (diffDay === 1) return t('time.relative.yesterdayAt', { time: `${hh}:${mm}`, defaultValue: `昨天 ${hh}:${mm}` });
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${hh}:${mm}`;
 }
 
 function formatDuration(seconds?: number | null, t?: any): string | null {
@@ -136,7 +99,7 @@ const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({
                     {act.title || act.activity_type}
                   </span>
                   <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">
-                    {formatRelativeTime(act.occurred_at, t)}
+                    {formatRelativeTime(act.occurred_at)}
                   </span>
                 </div>
                 

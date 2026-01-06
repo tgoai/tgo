@@ -377,7 +377,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // If a previous stream is ongoing, auto-cancel it before sending a new one
       if (st.isStreaming) { try { await get().cancelStreaming('auto_cancel_on_new_send') } catch {} }
 
-      // 2. 调用 /v1/chat/completion 接口（stream=false）
+      // 2. 先通过 websocket 发送
+      // 确保 IM 已就绪
+      if (!IMService.isReady) {
+        if (!st.initializing && st.apiBase) {
+          console.log('[Chat] IM not ready, attempting to initialize...')
+          try { void get().initIM({ apiBase: st.apiBase }) } catch {}
+        }
+        const start = Date.now()
+        const timeout = 10000
+        while (!IMService.isReady && (Date.now() - start) < timeout) {
+          await new Promise(r => setTimeout(r, 120))
+        }
+        if (!IMService.isReady) {
+          throw new Error('Cannot send message: IM service is not ready after waiting.')
+        }
+      }
+
+      console.log('[Chat] WebSocket sending...')
+      const result = await IMService.sendText(v, { clientMsgNo })
+      console.log('[Chat] WebSocket send result:', result)
+
+      // 只有 WebSocket 发送成功（reasonCode 为 Success）才继续调用 completion 接口
+      if (result.reasonCode !== ReasonCode.Success) {
+        console.warn('[Chat] WebSocket send did not return Success, skipping completion API.', result.reasonCode)
+        set(state => ({
+          messages: state.messages.map(m => m.id === id ? { ...m, status: undefined, reasonCode: result.reasonCode } : m)
+        }))
+        return
+      }
+
+      // 3. WebSocket 发送成功后，再调用 /v1/chat/completion 接口（stream=false）
       const url = `${apiBase.replace(/\/$/, '')}/v1/chat/completion`
       const payload: Record<string, any> = {
         api_key: platformApiKey,
@@ -414,26 +444,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       console.log('[Chat] /v1/chat/completion success')
-
-      // 3. 接口调用成功后，再通过 websocket 发送
-      // 确保 IM 已就绪
-      if (!IMService.isReady) {
-        if (!st.initializing && st.apiBase) {
-          console.log('[Chat] IM not ready, attempting to initialize...')
-          try { void get().initIM({ apiBase: st.apiBase }) } catch {}
-        }
-        const start = Date.now()
-        const timeout = 10000
-        while (!IMService.isReady && (Date.now() - start) < timeout) {
-          await new Promise(r => setTimeout(r, 120))
-        }
-        if (!IMService.isReady) {
-          throw new Error('Cannot send message: IM service is not ready after waiting.')
-        }
-      }
-
-      const result = await IMService.sendText(v, { clientMsgNo })
-      console.log('[Chat] WebSocket send result:', result)
 
       set(state => ({
         messages: state.messages.map(m => m.id === id ? { ...m, status: undefined, reasonCode: result.reasonCode } : m)

@@ -146,7 +146,6 @@ class AgnoTeamRunner:
             self._logger.warning(
                 "Result consolidation agent did not provide final content; falling back to aggregated outputs"
             )
-
         output = TeamRunOutput(
             content=final_content,
             member_responses=[self._event_to_run_output(evt) for evt in collector.member_completions.values()],

@@ -432,7 +432,7 @@ export interface ProjectToolsMeta {
 }
 
 export type ToolStatus = 'ACTIVE' | 'INACTIVE' | 'DEPRECATED';
-export type ToolSourceType = 'MARKETPLACE' | 'CUSTOM' | 'MCP_SERVER';
+export type ToolSourceType = 'MARKETPLACE' | 'CUSTOM' | 'MCP_SERVER' | 'PLUGIN';
 
 // Tool type enumeration for /v1/ai/tools API
 export type ToolType = 'MCP' | 'FUNCTION';

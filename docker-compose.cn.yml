@@ -39,6 +39,9 @@ services:
   tgo-api:
     image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-api:latest
 
+  tgo-plugin-runtime:
+    image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-plugin-runtime:latest
+    
   tgo-platform:
     image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-platform:latest
 

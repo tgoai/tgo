@@ -109,7 +109,7 @@ class AgnoTeamBuilder:
             "name": context.team.name or "Supervisor Coordination Team",
             "role": "Coordinator",
             "description": context.team.instruction,
-            "instructions": settings.supervisor_runtime.team_instructions,
+            "instructions":  settings.supervisor_runtime.team_instructions,
             "user_id": context.user_id,
             "session_id": context.session_id,
             "model": team_model,
@@ -118,7 +118,8 @@ class AgnoTeamBuilder:
             "delegate_task_to_all_members": False,
             "expected_output": context.expected_output,
             "add_datetime_to_context": True,
-            "respond_directly": True, # 直接返回成员的回答，不进行额外的汇总
+            "markdown": True,
+            "respond_directly": False, # 是否直接返回成员的回答，不进行额外的汇总。当为True时，会直接返回成员的回答，不进行额外的汇总。当为False时，会先汇总成员的回答，再返回。
             "stream_member_events": True,
             "share_member_interactions": False,
             "show_members_responses": False,

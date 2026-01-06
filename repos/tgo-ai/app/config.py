@@ -82,6 +82,12 @@ class Settings(BaseSettings):
         description="Base URL for the core API service (events ingestion)",
     )
 
+    # Plugin Runtime Configuration
+    plugin_runtime_url: str = Field(
+        default="http://localhost:8090",
+        description="Base URL for the plugin runtime service",
+    )
+
     # Server Configuration
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8081, description="Server port")

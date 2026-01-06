@@ -213,6 +213,48 @@ def create_agno_mcp_tool(
     )
 
 
+def create_plugin_tool(
+    plugin_id: str,
+    tool_name: str,
+    title: str,
+    description: Optional[str],
+    parameters: Optional[Dict[str, Any]],
+    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+) -> Function:
+    """根据插件信息生成插件工具包装."""
+    from app.services.api_service import api_service_client
+
+    async def plugin_tool_entrypoint(**tool_args: Any) -> Any:
+        context = {
+            "visitor_id": user_id,
+            "session_id": session_id,
+            "agent_id": agent_id,
+        }
+        try:
+            result = await api_service_client.execute_plugin_tool(
+                plugin_id=plugin_id,
+                tool_name=tool_name,
+                arguments=tool_args,
+                context=context,
+            )
+            if result.get("success"):
+                return result.get("content", "工具执行成功")
+            else:
+                return f"<error>{result.get('error', '工具执行失败')}</error>"
+        except Exception as e:
+            return f"<error>插件工具执行失败: {str(e)}</error>"
+
+    return Function(
+        name=tool_name,
+        description=description or title,
+        parameters=parameters or {"type": "object", "properties": {}},
+        entrypoint=plugin_tool_entrypoint,
+        skip_entrypoint_processing=True,
+    )
+
+
 def wrap_mcp_authenticate_tool(func: Function) -> Function:
     """捕获MCP鉴权异常并提示用户完成登录流程."""
 

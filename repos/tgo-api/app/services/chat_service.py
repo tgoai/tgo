@@ -151,7 +151,6 @@ async def forward_ai_event_to_wukongim(
     """Forward AI event to WuKongIM."""
     try:
         data = event_data.get("data") or {}
-        print(f"event_type----->: {event_type}, data: {data}")
         if event_type == "team_run_started":
             await wukongim_client.send_event(
                 channel_id=channel_id,
@@ -261,6 +260,8 @@ async def process_ai_stream_to_wukongim(
             from_uid=from_uid,
         )
         yield {"event_type": "workflow_failed", "data": error_data}
+    
+    print(f"full_content----->: {full_content}")
 
 
 async def handle_ai_response_non_stream(
