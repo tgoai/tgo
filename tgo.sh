@@ -1573,6 +1573,9 @@ cmd_upgrade() {
     done
   fi
 
+  # Ensure SECRET_KEY is set (generate if missing)
+  ensure_api_secret_key
+
   # Upgrade flow based on mode
   if [ "$mode" = "source" ]; then
     echo ""
