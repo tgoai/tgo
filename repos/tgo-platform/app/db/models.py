@@ -283,3 +283,59 @@ class DingTalkInbox(Base):
         Index("ix_dingtalk_inbox_status_fetched", "status", "fetched_at"),
     )
 
+
+class TelegramInbox(Base):
+    """Inbound Telegram Bot messages stored for async processing pipeline.
+
+    Stores messages received from Telegram Bot webhook callbacks for two-stage processing.
+    The chat_id is used for replying to messages via sendMessage API.
+    """
+
+    __tablename__ = "pt_telegram_inbox"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Associations
+    platform_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("pt_platforms.id", ondelete="CASCADE"), index=True, nullable=False)
+
+    # Message identity (Telegram message_id, unique per chat)
+    message_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    update_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # Telegram update_id for deduplication
+
+    # Sender info
+    from_user: Mapped[str] = mapped_column(String(255), nullable=False)  # Telegram user_id
+    from_username: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Telegram @username
+    from_display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)  # First name + Last name
+
+    # Chat context
+    chat_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)  # Chat ID for replying
+    chat_type: Mapped[str] = mapped_column(String(20), nullable=False, server_default="private")  # private, group, supergroup, channel
+
+    # Message content
+    msg_type: Mapped[str] = mapped_column(String(50), nullable=False, server_default="text")  # text, photo, document, etc.
+    content: Mapped[str] = mapped_column(Text, nullable=True)  # Extracted text content
+
+    # AI response
+    ai_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Raw event payload (stores full update for debugging)
+    raw_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Timestamps
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # From Telegram message.date
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Processing status
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+    __table_args__ = (
+        UniqueConstraint("platform_id", "message_id", "chat_id", name="uq_telegram_inbox_platform_message_chat"),
+        Index("ix_telegram_inbox_platform_status", "platform_id", "status"),
+        Index("ix_telegram_inbox_status_fetched", "status", "fetched_at"),
+        Index("ix_telegram_inbox_update_id", "update_id"),
+    )
+
+

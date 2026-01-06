@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.db.models import Platform
 from app.domain.entities import NormalizedMessage, ChatCompletionRequest
 from app.domain.ports import TgoApiClient, SSEManager, PlatformAdapter
-from app.domain.services.adapters import SimpleStdoutAdapter, EmailAdapter, WeComAdapter, WeComBotAdapter, FeishuBotAdapter, DingTalkBotAdapter
+from app.domain.services.adapters import SimpleStdoutAdapter, EmailAdapter, WeComAdapter, WeComBotAdapter, FeishuBotAdapter, DingTalkBotAdapter, TelegramAdapter
 
 
 def _expected_output_for(ptype: str) -> str | None:
@@ -21,6 +21,8 @@ def _expected_output_for(ptype: str) -> str | None:
         return "text"  # Feishu Bot uses text for reply
     if p == "dingtalk_bot":
         return "text"  # DingTalk Bot uses text for reply
+    if p == "telegram":
+        return "text"  # Telegram supports Markdown but default to text
     if p == "email":
         return "markdown"
     return None
@@ -40,6 +42,8 @@ def _default_system_message_for(ptype: str) -> str | None:
     if p == "feishu_bot":
         return None
     if p == "dingtalk_bot":
+        return None
+    if p == "telegram":
         return None
     return None
 
@@ -127,6 +131,15 @@ async def select_adapter_for_target(msg: NormalizedMessage, platform: Platform) 
         if not session_webhook:
             return SimpleStdoutAdapter()
         return DingTalkBotAdapter(session_webhook=session_webhook)
+    if ptype == "telegram":
+        cfg = platform.config or {}
+        # Get telegram context which contains chat_id for reply
+        tc = ((msg.extra or {}).get("telegram") or {})
+        bot_token = tc.get("bot_token") or cfg.get("bot_token") or ""
+        chat_id = tc.get("chat_id") or msg.from_uid or ""
+        if not (bot_token and chat_id):
+            return SimpleStdoutAdapter()
+        return TelegramAdapter(bot_token=bot_token, chat_id=chat_id)
     return SimpleStdoutAdapter()
 
 
@@ -161,6 +174,7 @@ async def process_message(
                 api_key=msg.platform_api_key,
                 message=msg.content,
                 from_uid=msg.from_uid or "",
+                msg_type=(msg.extra or {}).get("msg_type") or 1,
                 system_message=system_message,
                 expected_output=expected_output,
                 extra=msg.extra,
@@ -190,12 +204,31 @@ async def process_message(
                         return None
                     if ev.event in {"error", "disconnected"}:
                         break
-                    if et in {"team_run_content"}:
+                    
+                    # Debug: print all event types and data
+                    # print(f"[DISPATCH DEBUG] event={ev.event} type={et} payload={payload}")
+                    
+                    if et in {"team_run_content", "agent_run_content", "workflow_content", "workflow_run_content"}:
                         data = payload.get("data", {})
-                        text = data.get("content")
+                        # Try flat content first, then nested data.content (level 3)
+                        text = data.get("content") or data.get("text")
+                        if not text and isinstance(data, dict):
+                            inner_data = data.get("data", {})
+                            if isinstance(inner_data, dict):
+                                text = inner_data.get("content") or inner_data.get("text")
+                        
                         if text:
                             chunks.append(text)
-                    if et in {"workflow_completed", "team_run_completed", "workflow_failed"}:
+                    elif ev.event == "message" and not et:
+                        # Fallback for plain message events
+                        text = payload.get("text") or payload.get("content")
+                        if not text and isinstance(payload.get("data"), dict):
+                            text = payload["data"].get("text") or payload["data"].get("content")
+                        
+                        if text:
+                            chunks.append(text)
+                    
+                    if et in {"workflow_completed", "team_run_completed", "workflow_failed", "agent_run_completed"}:
                         break
                 final = {"text": "".join(chunks)}
                 await adapter.send_final(final)

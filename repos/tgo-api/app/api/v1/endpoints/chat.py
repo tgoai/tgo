@@ -289,6 +289,11 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
     channel_type = req.channel_type if req.channel_type is not None else CHANNEL_TYPE_CUSTOMER_SERVICE
     session_id = f"{channel_id_enc}@{channel_type}"
 
+    # 3.1) Resolve relative image/file URLs if present
+    if req.msg_type in {2, 3} and req.message.startswith("/"):
+        base_url = settings.API_BASE_URL.rstrip("/")
+        req.message = f"{base_url}{req.message}"
+
     # 3.2) Forward a copy of user message to WuKongIM (best-effort)
     if req.forward_user_message_to_wukongim:
         await chat_service.send_user_message_to_wukongim(
@@ -296,6 +301,7 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
             channel_id=channel_id_enc,
             channel_type=channel_type,
             content=req.message,
+            msg_type=req.msg_type,
             extra=req.extra,
         )
 

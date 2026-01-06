@@ -11,6 +11,7 @@ import DingTalkBotPlatformConfig from '@/components/platforms/DingTalkBotPlatfor
 import EmailPlatformConfig from '@/components/platforms/EmailPlatformConfig';
 import DouyinPlatformConfig from '@/components/platforms/DouyinPlatformConfig';
 import CustomPlatformConfig from '@/components/platforms/CustomPlatformConfig';
+import TelegramPlatformConfig from '@/components/platforms/TelegramPlatformConfig';
 
 /**
  * Platform Configuration page component
@@ -126,6 +127,10 @@ const PlatformConfigPage: React.FC = () => {
   // 自定义平台（Custom）
   if (platform.type === 'custom') {
     return <CustomPlatformConfig platform={platform} />;
+  }
+  // Telegram
+  if ((platform.type as any) === 'telegram') {
+    return <TelegramPlatformConfig platform={platform} />;
   }
 
   // Fallback to generic/placeholder config for other types
