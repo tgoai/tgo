@@ -452,18 +452,36 @@ async def send_user_message_to_wukongim(
     channel_id: str,
     channel_type: int,
     content: str,
+    msg_type: Optional[int] = 1,
     extra: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Send a copy of the user's message to WuKongIM (best-effort)."""
     if not content:
         return
     try:
-        await wukongim_client.send_text_message(
+        # Build payload based on msg_type
+        # 1=TEXT, 2=IMAGE, 3=FILE
+        payload: Dict[str, Any] = {
+            "type": msg_type or 1,
+            "content": content,
+        }
+        if msg_type == 2:  # IMAGE
+            payload["url"] = content
+        elif msg_type == 3:  # FILE
+            payload["url"] = content
+            # For files, name is often required by frontend
+            if extra and extra.get("file_name"):
+                payload["name"] = extra["file_name"]
+            else:
+                payload["name"] = content.split("/")[-1]
+        if extra:
+            payload["extra"] = extra
+
+        await wukongim_client.send_message(
+            payload=payload,
             from_uid=from_uid,
             channel_id=channel_id,
             channel_type=channel_type,
-            content=content,
-            extra=extra,
             client_msg_no=f"user_{uuid4().hex}",
         )
     except Exception:

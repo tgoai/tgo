@@ -76,7 +76,7 @@ SEED_PLATFORM_TYPES: List[Dict[str, object]] = [
         "type": "telegram",
         "name": "Telegram",
         "name_en": "Telegram",
-        "is_supported": False,
+        "is_supported": True,
     },
     {
         "type": "sms",

@@ -56,11 +56,18 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.db.base import get_db
-from app.db.models import Platform, WeComInbox, WuKongIMInbox, FeishuInbox, DingTalkInbox
+from app.db.models import Platform, WeComInbox, WuKongIMInbox, FeishuInbox, DingTalkInbox, TelegramInbox
 from app.api.error_utils import error_response, get_request_id
 from app.api.schemas import ErrorResponse
 from app.api.feishu_utils import feishu_verify_signature, feishu_decrypt_message, feishu_clean_message_text
 from app.api.dingtalk_utils import dingtalk_verify_signature
+from app.api.telegram_utils import (
+    telegram_verify_secret_token,
+    extract_message_from_update,
+    extract_text_from_message,
+    get_chat_type,
+    get_sender_info,
+)
 
 router = APIRouter()
 
@@ -922,6 +929,153 @@ async def _handle_wukongim_webhook(
 
 
 
+async def _handle_telegram_webhook(
+    platform: Platform,
+    request: Request,
+    db: AsyncSession,
+) -> dict[str, Any] | Response:
+    """Handle Telegram Bot webhook POST callback.
+
+    Telegram sends updates as JSON to the webhook URL.
+    Updates contain messages, edited_messages, channel_posts, etc.
+
+    Config structure:
+    {
+        "bot_token": "123456:ABC-DEF...",
+        "webhook_secret": "optional-secret-token"
+    }
+
+    Docs: https://core.telegram.org/bots/api#update
+    """
+    config = platform.config or {}
+    webhook_secret = (config.get("webhook_secret") or "").strip()
+
+    # Verify secret token if configured
+    secret_header = request.headers.get("X-Telegram-Bot-Api-Secret-Token") or ""
+    if webhook_secret and not telegram_verify_secret_token(secret_header, webhook_secret):
+        logging.warning("[TELEGRAM] Secret token verification failed for platform %s", platform.id)
+        return error_response(
+            status.HTTP_403_FORBIDDEN,
+            code="SECRET_TOKEN_MISMATCH",
+            message="Secret token verification failed",
+            request_id=get_request_id(request),
+        )
+
+    raw_body = await request.body()
+    body_text = raw_body.decode("utf-8") if raw_body else ""
+
+    logging.info("[TELEGRAM] Received webhook: platform_id=%s, body_length=%d", platform.id, len(body_text))
+    logging.debug("[TELEGRAM] Raw body: %s", body_text[:500] if body_text else "(empty)")
+
+    # Parse JSON body
+    try:
+        update = json.loads(body_text)
+    except Exception as e:
+        logging.error("[TELEGRAM] Failed to parse JSON: %s, body=%s", e, body_text[:200] if body_text else "(empty)")
+        return error_response(
+            status.HTTP_400_BAD_REQUEST,
+            code="INVALID_PAYLOAD",
+            message="Invalid JSON payload",
+            request_id=get_request_id(request),
+        )
+
+    # Extract update_id for deduplication
+    update_id = update.get("update_id")
+
+    # Extract message from the update
+    message = extract_message_from_update(update)
+    if not message:
+        logging.info("[TELEGRAM] No message in update, ignoring (update_id=%s)", update_id)
+        return {"ok": True}
+
+    # Extract message data
+    message_id = str(message.get("message_id", ""))
+    chat = message.get("chat", {})
+    chat_id = str(chat.get("id", ""))
+    chat_type = get_chat_type(message)
+
+    # Get sender info
+    from_user_id, from_username, from_display_name = get_sender_info(message)
+
+    # Extract content
+    content = extract_text_from_message(message)
+    msg_type = "text"
+    if "photo" in message:
+        msg_type = "photo"
+    elif "document" in message:
+        msg_type = "document"
+    elif "voice" in message:
+        msg_type = "voice"
+    elif "video" in message:
+        msg_type = "video"
+    elif "audio" in message:
+        msg_type = "audio"
+    elif "sticker" in message:
+        msg_type = "sticker"
+    elif "location" in message:
+        msg_type = "location"
+    elif "contact" in message:
+        msg_type = "contact"
+    elif "poll" in message:
+        msg_type = "poll"
+
+    # Convert message.date (Unix timestamp) to datetime
+    received_at = None
+    try:
+        msg_date = message.get("date")
+        if msg_date:
+            received_at = datetime.fromtimestamp(int(msg_date), tz=timezone.utc)
+    except Exception:
+        received_at = None
+
+    logging.info(
+        "[TELEGRAM] Parsed message: message_id=%s, chat_id=%s, chat_type=%s, from_user=%s, content_len=%d",
+        message_id, chat_id, chat_type, from_user_id, len(content)
+    )
+
+    if not message_id or not chat_id:
+        logging.warning("[TELEGRAM] Missing message_id or chat_id")
+        return {"ok": True}
+
+    if not from_user_id:
+        logging.warning("[TELEGRAM] Missing from_user, cannot store message")
+        return {"ok": True}
+
+    # Store inbound message into telegram_inbox
+    try:
+        raw_payload = {
+            "update": update,
+            "message": message,
+        }
+
+        inbox_record = TelegramInbox(
+            platform_id=platform.id,
+            message_id=message_id,
+            update_id=update_id,
+            from_user=from_user_id,
+            from_username=from_username,
+            from_display_name=from_display_name,
+            chat_id=chat_id,
+            chat_type=chat_type,
+            msg_type=msg_type,
+            content=content or "",
+            raw_payload=raw_payload,
+            status="pending",
+            received_at=received_at,
+        )
+        db.add(inbox_record)
+        await db.commit()
+        logging.info("[TELEGRAM] Stored message: id=%s, platform_id=%s", inbox_record.id, platform.id)
+    except IntegrityError as e:
+        logging.info("[TELEGRAM] Duplicate message detected for %s: %s", platform.id, e)
+        await db.rollback()
+    except Exception as e:
+        logging.error("[TELEGRAM] Store raw message failed for %s: %s", platform.id, e)
+        await db.rollback()
+        return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return {"ok": True}
+
 
 @router.post("/v1/platforms/callback/{platform_api_key}", responses={400: {"model": ErrorResponse}, 403: {"model": ErrorResponse}, 404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}, 501: {"model": ErrorResponse}})
 async def platforms_callback(platform_api_key: str, request: Request, db: AsyncSession = Depends(get_db)):
@@ -953,6 +1107,8 @@ async def platforms_callback(platform_api_key: str, request: Request, db: AsyncS
         return await _handle_dingtalk_bot_webhook(platform=platform, request=request, db=db)
     if platform_type == "website":
         return await _handle_wukongim_webhook(platform=platform, request=request, db=db)
+    if platform_type == "telegram":
+        return await _handle_telegram_webhook(platform=platform, request=request, db=db)
 
     # Unsupported platform type for this endpoint
     return error_response(status.HTTP_404_NOT_FOUND, code="PLATFORM_TYPE_UNSUPPORTED", message=f"Unsupported platform type: {platform.type}", request_id=get_request_id(request))

@@ -26,6 +26,7 @@ from app.domain.services.listeners.wecom_listener import WeComChannelListener
 from app.domain.services.listeners.wukongim_listener import WuKongIMChannelListener
 from app.domain.services.listeners.feishu_listener import FeishuChannelListener
 from app.domain.services.listeners.dingtalk_listener import DingTalkChannelListener
+from app.domain.services.listeners.telegram_listener import TelegramChannelListener
 
 
 
@@ -75,9 +76,18 @@ async def lifespan(app: FastAPI):
         sse_manager=app.state.sse_manager,
     )
 
+    # Start Telegram Bot consumer (uses getUpdates polling)
+    app.state.telegram_listener = TelegramChannelListener(
+        session_factory=SessionLocal,
+        normalizer=normalizer,
+        tgo_api_client=app.state.tgo_api_client,
+        sse_manager=app.state.sse_manager,
+    )
+
     app.state.wukongim_listener_task = asyncio.create_task(app.state.wukongim_listener.start())
     app.state.feishu_listener_task = asyncio.create_task(app.state.feishu_listener.start())
     app.state.dingtalk_listener_task = asyncio.create_task(app.state.dingtalk_listener.start())
+    app.state.telegram_listener_task = asyncio.create_task(app.state.telegram_listener.start())
     app.state.wecom_listener_task = asyncio.create_task(app.state.wecom_listener.start())
 
 
@@ -90,11 +100,13 @@ async def lifespan(app: FastAPI):
         await app.state.wukongim_listener.stop()
         await app.state.feishu_listener.stop()
         await app.state.dingtalk_listener.stop()
+        await app.state.telegram_listener.stop()
         app.state.email_listener_task.cancel()
         app.state.wecom_listener_task.cancel()
         app.state.wukongim_listener_task.cancel()
         app.state.feishu_listener_task.cancel()
         app.state.dingtalk_listener_task.cancel()
+        app.state.telegram_listener_task.cancel()
         with suppress(asyncio.CancelledError):
             await app.state.email_listener_task
         with suppress(asyncio.CancelledError):
@@ -105,6 +117,8 @@ async def lifespan(app: FastAPI):
             await app.state.feishu_listener_task
         with suppress(asyncio.CancelledError):
             await app.state.dingtalk_listener_task
+        with suppress(asyncio.CancelledError):
+            await app.state.telegram_listener_task
         await app.state.tgo_api_client.aclose()
 
 app = FastAPI(lifespan=lifespan, docs_url="/v1/docs", redoc_url="/v1/redoc")

@@ -62,6 +62,11 @@ class ChatCompletionRequest(BaseSchema):
         description="额外数据，会随消息一起转发到 WuKongIM",
         examples=[{"source": "web", "page": "/product/123"}]
     )
+    msg_type: Optional[int] = Field(
+        1,
+        description="消息类型：1-文本，2-图片，3-文件，4-语音，5-视频",
+        examples=[1, 2]
+    )
     forward_user_message_to_wukongim: bool = Field(
         default=True,
         description="是否将用户消息同时转发一份到 WuKongIM（默认开启）",

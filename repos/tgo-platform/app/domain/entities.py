@@ -70,6 +70,7 @@ class ChatCompletionRequest(BaseModel):
     system_message: str | None = None
     # Desired output format for the assistant response: e.g., "text", "markdown", "html"
     expected_output: str | None = None
+    msg_type: int | None = 1
     extra: dict | None = None
     timeout_seconds: int | None = 120
 

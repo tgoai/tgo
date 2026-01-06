@@ -39,6 +39,25 @@ from app.api.wecom_utils import wecom_get_access_token, wecom_kf_send_msg, wecom
 from app.core.config import settings
 
 
+def _internalize_url(url: str) -> str:
+    """Map public/localhost download URLs to internal Docker service addresses."""
+    if not url:
+        return url
+    
+    # If URL is from localhost/api or localhost:8000, map it to internal settings.api_base
+    internal_base = settings.api_base.rstrip('/')
+    
+    import re
+    # Case 1: http://localhost:8000/v1/...
+    transformed = re.sub(r'^https?://(localhost|127\.0\.0\.1):8000', internal_base, url)
+    # Case 2: http://localhost/api/v1/... -> Strip /api and replace host
+    if "/api/v1/" in transformed and ("localhost" in transformed or "127.0.0.1" in transformed):
+        transformed = transformed.replace("/api/v1/", "/v1/")
+        transformed = re.sub(r'^https?://(localhost|127\.0\.0\.1)', internal_base, transformed)
+        
+    return transformed
+
+
 class SendMessageRequest(BaseModel):
     platform_api_key: str = Field(..., description="Per-platform API key")
     from_uid: str = Field(..., description="Sender user id (for logging)")
@@ -161,8 +180,10 @@ async def send_message(req_body: SendMessageRequest, request: Request, db: Async
                 if not url:
                     return error_response(status.HTTP_400_BAD_REQUEST, code="INVALID_PAYLOAD", message="Image url is required", request_id=request_id)
                 # Download image
+                download_url = _internalize_url(url)
+                logging.info("[SEND] downloading image for wecom from: %s (original: %s)", download_url, url)
                 async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
-                    r = await client.get(url)
+                    r = await client.get(download_url)
                     r.raise_for_status()
                     file_bytes = r.content
                     content_type = r.headers.get("content-type") or "image/jpeg"
@@ -218,6 +239,108 @@ async def send_message(req_body: SendMessageRequest, request: Request, db: Async
             await adapter.send_final({"text": content_text})
             logging.info("[SEND] client_msg_no=%s email sent to %s", client_msg_no, target_email)
             return {"ok": True, "client_msg_no": client_msg_no, "message": "Message sent successfully"}
+
+        if platform_type == "telegram":
+            # Get bot token and visitor's chat_id
+            bot_token = (cfg.get("bot_token") or "").strip()
+            if not bot_token:
+                return error_response(
+                    status.HTTP_400_BAD_REQUEST,
+                    code="PLATFORM_CONFIG_INVALID",
+                    message="Telegram requires bot_token in config",
+                    request_id=request_id,
+                )
+            
+            # Resolve target chat_id for visitor
+            chat_id = await resolve_visitor_platform_open_id(visitor_id)
+            if not chat_id:
+                return error_response(
+                    status.HTTP_400_BAD_REQUEST,
+                    code="VISITOR_NOT_FOUND",
+                    message="Could not resolve Telegram chat_id for visitor",
+                    request_id=request_id,
+                )
+            
+            if msg_type == 1:
+                # Text message
+                content_text = str(payload.get("content") or "")
+                if not content_text:
+                    return error_response(
+                        status.HTTP_400_BAD_REQUEST,
+                        code="INVALID_PAYLOAD",
+                        message="Text content is required",
+                        request_id=request_id,
+                    )
+                
+                from app.api.telegram_utils import telegram_send_text
+                result = await telegram_send_text(
+                    bot_token=bot_token,
+                    chat_id=chat_id,
+                    text=content_text[:4096],
+                )
+                
+                if result.get("ok"):
+                    logging.info("[SEND] client_msg_no=%s telegram text sent to %s", client_msg_no, chat_id)
+                    return {"ok": True, "client_msg_no": client_msg_no, "message": "Message sent successfully"}
+                else:
+                    return error_response(
+                        status.HTTP_502_BAD_GATEWAY,
+                        code="TELEGRAM_ERROR",
+                        message=result.get("description", "Unknown Telegram error"),
+                        request_id=request_id,
+                    )
+            elif msg_type == 2:
+                # Image
+                url = str(payload.get("url") or "")
+                if not url:
+                    return error_response(
+                        status.HTTP_400_BAD_REQUEST,
+                        code="INVALID_PAYLOAD",
+                        message="Image url is required",
+                        request_id=request_id,
+                    )
+                
+                # Download image first (Telegram servers might not be able to access local URLs)
+                try:
+                    download_url = _internalize_url(url)
+                    logging.info("[SEND] downloading image for telegram from: %s (original: %s)", download_url, url)
+                    async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
+                        r = await client.get(download_url)
+                        r.raise_for_status()
+                        file_bytes = r.content
+                except Exception as e:
+                    logging.error("[SEND] failed to download image for telegram: %s", e)
+                    return error_response(
+                        status.HTTP_400_BAD_REQUEST,
+                        code="IMAGE_DOWNLOAD_FAILED",
+                        message=str(e),
+                        request_id=request_id,
+                    )
+                
+                from app.api.telegram_utils import telegram_send_photo
+                result = await telegram_send_photo(
+                    bot_token=bot_token,
+                    chat_id=chat_id,
+                    photo=file_bytes,
+                )
+                
+                if result.get("ok"):
+                    logging.info("[SEND] client_msg_no=%s telegram photo sent to %s", client_msg_no, chat_id)
+                    return {"ok": True, "client_msg_no": client_msg_no, "message": "Message sent successfully"}
+                else:
+                    return error_response(
+                        status.HTTP_502_BAD_GATEWAY,
+                        code="TELEGRAM_ERROR",
+                        message=result.get("description", "Unknown Telegram error"),
+                        request_id=request_id,
+                    )
+            else:
+                return error_response(
+                    status.HTTP_400_BAD_REQUEST,
+                    code="UNSUPPORTED_MESSAGE_TYPE",
+                    message=f"Telegram currently supports only text (type=1), got: {msg_type}",
+                    request_id=request_id,
+                )
 
         return error_response(status.HTTP_400_BAD_REQUEST, code="PLATFORM_TYPE_UNSUPPORTED", message=f"Unsupported platform type: {platform.type}", request_id=request_id)
 
