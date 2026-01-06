@@ -2092,6 +2092,11 @@
       "noMatch": "No matching MCP tools found",
       "configTool": "Configure Tool",
       "manageTools": "Manage MCP Tools",
+      "category": {
+        "mcpServer": "MCP Server",
+        "custom": "Custom Tool",
+        "plugin": "Plugin Tool"
+      },
       "confirmSelection": "Confirm Selection ({{count}})",
       "loadFailedDesc": "Unable to load MCP tool list, please try again later",
       "retryFailedTitle": "Retry Failed",
@@ -2110,15 +2115,16 @@
       "search": {
         "placeholder": "Search MCP tools..."
       },
-      "categories": {
-        "all": "All",
-        "productivity": "Productivity",
-        "communication": "Communication",
-        "data": "Data Analysis",
-        "ai": "AI Tools",
-        "integration": "Integration",
-        "unknown": "Unknown Category"
-      },
+    "categories": {
+      "all": "All",
+      "productivity": "Productivity",
+      "communication": "Communication",
+      "data": "Data Analysis",
+      "ai": "AI Tools",
+      "integration": "Integration",
+      "plugin": "Plugin Tool",
+      "unknown": "Unknown Category"
+    },
       "page": {
         "customTool": "Custom Tool"
       },

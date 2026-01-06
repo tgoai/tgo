@@ -131,6 +131,11 @@ class ChatService:
 
         # Create tool executor and register tools
         executor = ToolExecutor(self.db, project_id)
+        # Set context for plugin tools
+        executor.set_context(
+            visitor_id=request.user, # request.user contains visitor_id
+            agent_id=str(request.agent_id) if hasattr(request, "agent_id") else None,
+        )
         await executor.register_tools(request.tool_ids, request.collection_ids)
 
         self._logger.info(

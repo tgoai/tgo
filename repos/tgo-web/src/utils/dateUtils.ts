@@ -113,3 +113,31 @@ export function formatOnlineDuration(minutes: number | null | undefined, isOnlin
   return i18n.t('visitor.onlineStatus.weeksAgo', { count: weeks, defaultValue: `${weeks} 周前` });
 }
 
+/**
+ * Format relative time (just now / X minutes ago / yesterday / date)
+ */
+export function formatRelativeTime(iso?: string | null): string {
+  if (!iso) return '';
+  const d = parseAPITimestampToLocalDate(iso);
+  if (!d || !Number.isFinite(d.getTime())) return '';
+  
+  const now = new Date();
+  const diffSec = Math.max(0, Math.floor((now.getTime() - d.getTime()) / 1000));
+  
+  if (diffSec < 60) return i18n.t('time.relative.justNow', '刚刚');
+  
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return i18n.t('time.relative.minutesAgo', { count: diffMin, defaultValue: `${diffMin}分钟前` });
+  
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return i18n.t('time.relative.hoursAgo', { count: diffHour, defaultValue: `${diffHour}小时前` });
+  
+  const diffDay = Math.floor(diffHour / 24);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  
+  if (diffDay === 1) return i18n.t('time.relative.yesterdayAt', { time: `${hh}:${mm}`, defaultValue: `昨天 ${hh}:${mm}` });
+  
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${hh}:${mm}`;
+}
+

@@ -18,9 +18,12 @@ interface MCPToolSelectionModalProps {
   onConfirm: (selectedToolIds: string[], toolConfigs: Record<string, Record<string, any>>) => void;
 }
 
-// Tool categories for filtering - simplified to only show "All"
+// Tool categories for filtering
 const TOOL_CATEGORIES = [
-  { id: 'all' }
+  { id: 'all', label: 'common.all' },
+  { id: 'mcp_server', label: 'mcp.selectModal.category.mcpServer' },
+  { id: 'custom', label: 'mcp.selectModal.category.custom' },
+  { id: 'plugin', label: 'mcp.selectModal.category.plugin' },
 ];
 
 
@@ -83,13 +86,27 @@ const MCPToolSelectionModal: React.FC<MCPToolSelectionModalProps> = ({
     const mcpTools = transformAiToolResponseList(aiTools);
     let filtered = mcpTools;
 
-    // Only filter by search query since we only have "All" category
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(tool => {
+        if (selectedCategory === 'mcp_server') {
+          return tool.config?.transport_type === 'http' || tool.config?.transport_type === 'sse';
+        } else if (selectedCategory === 'custom') {
+          return tool.config?.transport_type === undefined || tool.config?.transport_type === null;
+        } else if (selectedCategory === 'plugin') {
+          return tool.config?.transport_type === 'plugin';
+        }
+        return false;
+      });
+    }
+
+    // Filter by search query
     if (debouncedSearch.trim()) {
-      filtered = searchProjectTools(mcpTools, debouncedSearch);
+      filtered = searchProjectTools(filtered, debouncedSearch);
     }
 
     return filtered;
-  }, [aiTools, debouncedSearch]);
+  }, [aiTools, debouncedSearch, selectedCategory]);
 
   const handleToolClick = (tool: MCPTool) => {
     setTempSelectedTools(prev => {
@@ -182,7 +199,7 @@ const MCPToolSelectionModal: React.FC<MCPToolSelectionModalProps> = ({
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
-                {t('common.all', '全部')}
+                {t(category.label)}
               </button>
             ))}
           </div>

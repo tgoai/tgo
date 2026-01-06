@@ -462,27 +462,18 @@ class Settings(BaseSettings):
         description="Allowed MIME types for platform logo uploads",
     )
 
-    # Plugin Manager Settings
+    # Plugin Runtime Service Settings
     PLUGIN_ENABLED: bool = Field(
         default=True,
         description="Enable plugin system",
     )
-    PLUGIN_SOCKET_PATH: str = Field(
-        default="/var/run/tgo/tgo.sock",
-        description="Unix socket path for plugin communication",
+    PLUGIN_RUNTIME_URL: str = Field(
+        default="http://localhost:8090",
+        description="URL of the tgo-plugin-runtime service",
     )
-    PLUGIN_TCP_PORT: Optional[int] = Field(
-        default=None,
-        description="TCP port for plugin communication (alternative to Unix socket)",
-    )
-    PLUGIN_REQUEST_TIMEOUT: int = Field(
-        default=30,
-        description="Timeout in seconds for plugin requests",
-        gt=0,
-    )
-    PLUGIN_PING_INTERVAL: int = Field(
-        default=30,
-        description="Interval in seconds for plugin heartbeat ping",
+    PLUGIN_RUNTIME_TIMEOUT: int = Field(
+        default=35,
+        description="Timeout in seconds for plugin runtime requests",
         gt=0,
     )
 

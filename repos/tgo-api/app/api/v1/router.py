@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     onboarding,
     platforms,
     plugins,
+    plugin_tools,
     projects,
     wukongim,
     wukongim_webhook,
@@ -238,6 +239,12 @@ api_router.include_router(
 )
 
 # Plugin endpoints
+api_router.include_router(
+    plugin_tools.router,
+    prefix="/plugins/tools",
+    tags=["Plugin Tools"],
+)
+
 api_router.include_router(
     plugins.router,
     prefix="/plugins",

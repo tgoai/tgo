@@ -1,4 +1,4 @@
-"""Plugin Socket Server - Unix Socket server for plugin communication."""
+"""Plugin Socket Server - Unix Socket / TCP server for plugin communication."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ import os
 import struct
 from typing import Optional
 
-from app.core.config import settings
+from app.config import settings
 from app.core.logging import get_logger
 from app.services.plugin_manager import plugin_manager, PluginConnection
 
-logger = get_logger("tasks.plugin_socket_server")
+logger = get_logger("services.socket_server")
 
 # Global state
 _server: Optional[asyncio.AbstractServer] = None
@@ -72,18 +72,34 @@ async def _handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWri
         capabilities = params.get("capabilities", [])
         description = params.get("description")
         author = params.get("author")
+        dev_token = params.get("dev_token")
         
         # Register the plugin
-        plugin_id, plugin = await plugin_manager.register(
-            plugin_id=pid,
-            name=name,
-            version=version,
-            capabilities=capabilities,
-            reader=reader,
-            writer=writer,
-            description=description,
-            author=author,
-        )
+        # Check if it's a TCP connection (for dev mode verification)
+        # For TCP, peer is a tuple (host, port); for UNIX, it's a string (path)
+        is_tcp = isinstance(peer, tuple)
+        
+        try:
+            plugin_id, plugin = await plugin_manager.register(
+                plugin_id=pid,
+                name=name,
+                version=version,
+                capabilities=capabilities,
+                reader=reader,
+                writer=writer,
+                description=description,
+                author=author,
+                dev_token=dev_token,
+                is_tcp=is_tcp,
+            )
+        except ValueError as e:
+            logger.warning(f"Registration failed for {peer}: {e}")
+            await _send_message(writer, {
+                "jsonrpc": "2.0",
+                "id": first_msg.get("id"),
+                "error": {"code": -32000, "message": str(e)}
+            })
+            return
         
         # Send success response
         await _send_message(writer, {
@@ -92,7 +108,7 @@ async def _handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWri
             "result": {
                 "success": True,
                 "plugin_id": plugin_id,
-                "host_version": settings.PROJECT_VERSION,
+                "host_version": settings.SERVICE_VERSION,
             }
         })
         
@@ -131,13 +147,9 @@ async def _handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWri
                 pass
 
 
-async def start_plugin_socket_server():
+async def start_socket_server():
     """Start the plugin socket server as a background task."""
     global _server, _server_task
-    
-    if not settings.PLUGIN_ENABLED:
-        logger.info("Plugin system is disabled")
-        return
     
     if _server_task is not None and not _server_task.done():
         logger.warning("Plugin socket server is already running")
@@ -191,13 +203,9 @@ async def start_plugin_socket_server():
         logger.exception(f"Failed to start plugin socket server: {e}")
 
 
-
-async def stop_plugin_socket_server():
+async def stop_socket_server():
     """Stop the plugin socket server."""
     global _server, _server_task
-    
-    # Shutdown all plugins gracefully
-    await plugin_manager.shutdown_all()
     
     # Stop the server
     if _server:

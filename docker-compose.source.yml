@@ -27,6 +27,15 @@ services:
     build:
       context: ./repos/tgo-api
 
+  # Plugin Runtime service
+  tgo-plugin-runtime:
+    image: tgo-plugin-runtime:local
+    build:
+      context: ./repos/tgo-plugin-runtime
+    volumes:
+      - ./data/plugins:/var/lib/tgo/plugins
+      - plugin-socket:/var/run/tgo
+
   # Platform service
   tgo-platform:
     image: tgo-platform:local
@@ -66,4 +75,7 @@ services:
     environment:
       # Runtime environment variables (injected by docker-entrypoint.sh)
       VITE_API_BASE: ${VITE_API_BASE:-http://localhost:${API_PORT:-8000}}
+
+volumes:
+  plugin-socket:
 

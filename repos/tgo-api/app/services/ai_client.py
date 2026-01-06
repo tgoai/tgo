@@ -622,6 +622,37 @@ class AIServiceClient:
         )
         return await self._handle_response(response)
 
+    async def create_or_update_tool(
+        self,
+        project_id: str,
+        tool_data: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Create or update a tool in the AI service."""
+        tool_name = tool_data.get("name")
+        # Check if tool already exists
+        existing_tools = await self.list_tools(project_id)
+        existing_tool = next((t for t in existing_tools if t["name"] == tool_name), None)
+
+        if existing_tool:
+            # Update existing tool
+            return await self.update_tool(project_id, existing_tool["id"], tool_data)
+        else:
+            # Create new tool
+            # create_tool in AI service expects tool_data with project_id
+            data = {**tool_data, "project_id": project_id}
+            return await self.create_tool(data)
+
+    async def delete_tools_by_prefix(
+        self,
+        project_id: str,
+        prefix: str,
+    ) -> None:
+        """Delete all tools with names starting with prefix."""
+        tools = await self.list_tools(project_id)
+        for tool in tools:
+            if tool["name"].startswith(prefix):
+                await self.delete_tool(project_id, tool["id"])
+
 
 
 

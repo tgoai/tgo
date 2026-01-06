@@ -1,14 +1,19 @@
-"""Plugin API endpoints."""
+"""Plugin API endpoints - Proxies to tgo-plugin-runtime service."""
 
-from typing import Any, Dict, Optional, List
+from typing import Optional
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, status, Depends
+import httpx
 from sqlalchemy.orm import Session
+from jose import jwt
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.logging import get_logger
-from app.services.plugin_manager import plugin_manager
-from app.models.visitor import Visitor # Import Visitor model
+from app.core.security import get_current_active_user
+from app.services.plugin_runtime_client import plugin_runtime_client
+from app.models import Visitor, Staff
 from app.schemas.plugin import (
     VisitorInfo,
     PluginListResponse,
@@ -20,10 +25,40 @@ from app.schemas.plugin import (
     ChatToolbarResponse,
     PluginRenderResponse,
     PluginActionResponse,
+    PluginInstallRequest,
+    InstalledPluginInfo,
+    InstalledPluginListResponse,
+    DevTokenRequest,
+    DevTokenResponse,
+    PluginFetchRequest,
+    PluginFetchResponse,
 )
 
 logger = get_logger("api.plugins")
 router = APIRouter()
+
+
+def _handle_runtime_error(e: Exception, context: str):
+    """Helper to handle errors from plugin runtime service."""
+    if isinstance(e, HTTPException):
+        raise e
+        
+    if isinstance(e, httpx.HTTPStatusError):
+        if 400 <= e.response.status_code < 500:
+            try:
+                detail = e.response.json().get("detail", e.response.text)
+            except Exception:
+                detail = e.response.text
+            raise HTTPException(status_code=e.response.status_code, detail=detail)
+        logger.error(f"Plugin runtime service error ({e.response.status_code}) during {context}: {e.response.text}")
+        raise HTTPException(status_code=502, detail="Plugin runtime service error")
+    
+    if isinstance(e, httpx.RequestError):
+        logger.error(f"Plugin runtime connection error during {context}: {e}")
+        raise HTTPException(status_code=502, detail="Plugin runtime service unavailable")
+    
+    logger.error(f"Unexpected error during {context}: {e}")
+    raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 def _get_visitor_info(db_visitor: Visitor, language: Optional[str] = None) -> VisitorInfo:
@@ -47,258 +82,318 @@ def _get_visitor_info(db_visitor: Visitor, language: Optional[str] = None) -> Vi
     )
 
 
-@router.get("", response_model=PluginListResponse)
-async def list_plugins() -> PluginListResponse:
-    """
-    Get all registered plugins.
+def _enrich_visitor_info(
+    request_visitor: Optional[VisitorInfo],
+    visitor_id: Optional[str],
+    language: Optional[str],
+    db: Session
+) -> Optional[VisitorInfo]:
+    """Enrich visitor info from database if not provided."""
+    if request_visitor:
+        return request_visitor
     
-    Returns a list of all currently connected plugins with their capabilities.
-    """
-    plugins = plugin_manager.get_all_plugins()
-    return PluginListResponse(plugins=plugins, total=len(plugins))
+    if not visitor_id:
+        return None
+    
+    try:
+        db_visitor = db.query(Visitor).filter(Visitor.id == visitor_id).first()
+        if db_visitor:
+            return _get_visitor_info(db_visitor, language)
+    except Exception as e:
+        logger.warning(f"Failed to fetch visitor info: {e}")
+    
+    return None
+
+
+# ==================== Plugin List ====================
+
+@router.get("", response_model=PluginListResponse)
+async def list_plugins(
+    current_user: Staff = Depends(get_current_active_user)
+) -> PluginListResponse:
+    """Get all registered plugins, including global and project-specific ones."""
+    try:
+        data = await plugin_runtime_client.list_plugins(project_id=str(current_user.project_id))
+        return PluginListResponse(**data)
+    except Exception as e:
+        _handle_runtime_error(e, "list_plugins")
 
 
 @router.get("/chat-toolbar/buttons", response_model=ChatToolbarResponse)
-async def get_chat_toolbar_buttons() -> ChatToolbarResponse:
-    """
-    Get all chat toolbar buttons from registered plugins.
-    
-    Returns a list of buttons that should be displayed in the chat toolbar.
-    """
-    buttons = plugin_manager.get_chat_toolbar_buttons()
-    return ChatToolbarResponse(buttons=buttons)
+async def get_chat_toolbar_buttons(
+    current_user: Staff = Depends(get_current_active_user)
+) -> ChatToolbarResponse:
+    """Get all chat toolbar buttons from registered plugins for the current project."""
+    try:
+        data = await plugin_runtime_client.get_chat_toolbar_buttons(project_id=str(current_user.project_id))
+        return ChatToolbarResponse(**data)
+    except Exception as e:
+        _handle_runtime_error(e, "get_chat_toolbar_buttons")
 
+
+# ==================== Visitor Panel ====================
 
 @router.post("/visitor-panel/render", response_model=VisitorPanelRenderResponse)
 async def render_visitor_panels(
     request: VisitorPanelRenderRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Staff = Depends(get_current_active_user)
 ) -> VisitorPanelRenderResponse:
-    """
-    Render all visitor panel plugins for a specific visitor.
-    
-    Returns a list of rendered panels from all plugins that support visitor_panel.
-    """
-    visitor_info = request.visitor
-    
-    # If visitor info not provided, fetch from database
-    if not visitor_info and request.visitor_id:
-        try:
-            db_visitor = db.query(Visitor).filter(Visitor.id == request.visitor_id).first()
-            if db_visitor:
-                visitor_info = _get_visitor_info(db_visitor, request.language)
-        except Exception as e:
-            logger.warning(f"Failed to fetch visitor info for plugin render: {e}")
-
-    panels = await plugin_manager.render_visitor_panels(
-        visitor_id=request.visitor_id,
-        session_id=request.session_id,
-        visitor=visitor_info,
-        context=request.context,
-        language=request.language,
+    """Render all visitor panel plugins for a specific visitor."""
+    # Enrich visitor info
+    visitor_info = _enrich_visitor_info(
+        request.visitor,
+        request.visitor_id,
+        request.language,
+        db
     )
-    return VisitorPanelRenderResponse(panels=panels)
+    
+    request_data = {
+        "visitor_id": request.visitor_id,
+        "session_id": request.session_id,
+        "visitor": visitor_info.model_dump(exclude_none=True) if visitor_info else None,
+        "language": request.language,
+        "context": request.context or {},
+    }
+    
+    try:
+        data = await plugin_runtime_client.render_visitor_panels(request_data, project_id=str(current_user.project_id))
+        return VisitorPanelRenderResponse(**data)
+    except Exception as e:
+        _handle_runtime_error(e, "render_visitor_panels")
 
+
+# ==================== Chat Toolbar ====================
 
 @router.post("/chat-toolbar/{plugin_id}/render", response_model=PluginRenderResponse)
 async def render_chat_toolbar_plugin(
     plugin_id: str,
     request: PluginRenderRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Staff = Depends(get_current_active_user)
 ) -> PluginRenderResponse:
-    """
-    Render a chat toolbar plugin's content.
+    """Render a chat toolbar plugin's content."""
+    visitor_info = _enrich_visitor_info(
+        request.visitor,
+        request.visitor_id,
+        request.language,
+        db
+    )
     
-    Called when user clicks a toolbar button.
-    """
-    plugin = plugin_manager.get_plugin(plugin_id)
-    if not plugin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Plugin not found: {plugin_id}"
-        )
-    
-    visitor_info = request.visitor
-    # If visitor info not provided, fetch from database
-    if not visitor_info and request.visitor_id:
-        try:
-            db_visitor = db.query(Visitor).filter(Visitor.id == request.visitor_id).first()
-            if db_visitor:
-                visitor_info = _get_visitor_info(db_visitor, request.language)
-        except Exception as e:
-            logger.warning(f"Failed to fetch visitor info for plugin render: {e}")
-
-    print("visitor_info--->",visitor_info)
-    params = {
-        "action_id": request.action_id,
+    request_data = {
         "visitor_id": request.visitor_id,
         "session_id": request.session_id,
         "visitor": visitor_info.model_dump(exclude_none=True) if visitor_info else None,
         "agent_id": request.agent_id,
-        "context": request.context,
+        "action_id": request.action_id,
         "language": request.language,
+        "context": request.context or {},
     }
     
-    result = await plugin_manager.send_request(plugin_id, "chat_toolbar/render", params)
-    if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Plugin did not respond in time"
+    try:
+        data = await plugin_runtime_client.render_chat_toolbar(
+            plugin_id, 
+            request_data, 
+            project_id=str(current_user.project_id)
         )
-    
-    return PluginRenderResponse(**result)
+        if data is None:
+            raise HTTPException(status_code=404, detail=f"Plugin not found: {plugin_id}")
+        return PluginRenderResponse(**data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _handle_runtime_error(e, "render_chat_toolbar_plugin")
 
 
 @router.post("/chat-toolbar/{plugin_id}/event", response_model=PluginActionResponse)
 async def send_chat_toolbar_event(
     plugin_id: str,
-    request: PluginEventRequest
+    request: PluginEventRequest,
+    current_user: Staff = Depends(get_current_active_user)
 ) -> PluginActionResponse:
-    """
-    Send an event to a chat toolbar plugin.
-    
-    Called when user interacts with the toolbar plugin's UI.
-    """
-    plugin = plugin_manager.get_plugin(plugin_id)
-    if not plugin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Plugin not found: {plugin_id}"
-        )
-    
-    params = {
+    """Send an event to a chat toolbar plugin."""
+    request_data = {
         "event_type": request.event_type,
         "action_id": request.action_id,
+        "extension_type": request.extension_type,
         "visitor_id": request.visitor_id,
         "session_id": request.session_id,
         "selected_id": request.selected_id,
         "language": request.language,
         "form_data": request.form_data,
-        "payload": request.payload,
+        "payload": request.payload or {},
     }
     
-    result = await plugin_manager.send_request(plugin_id, "chat_toolbar/event", params)
-    if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Plugin did not respond in time"
+    try:
+        data = await plugin_runtime_client.send_chat_toolbar_event(
+            plugin_id, 
+            request_data, 
+            project_id=str(current_user.project_id)
         )
-    
-    return PluginActionResponse(**result)
+        if data is None:
+            raise HTTPException(status_code=404, detail=f"Plugin not found: {plugin_id}")
+        return PluginActionResponse(**data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _handle_runtime_error(e, "send_chat_toolbar_event")
 
+
+@router.get("/installed", response_model=InstalledPluginListResponse)
+async def list_installed_plugins(
+    current_user: Staff = Depends(get_current_active_user)
+) -> InstalledPluginListResponse:
+    """Get all installed plugins from database via runtime service."""
+    try:
+        data = await plugin_runtime_client.list_installed_plugins(project_id=str(current_user.project_id))
+        return InstalledPluginListResponse(**data)
+    except Exception as e:
+        _handle_runtime_error(e, "list_installed_plugins")
+
+
+@router.post("/fetch-info", response_model=PluginFetchResponse)
+async def fetch_plugin_info(
+    request: PluginFetchRequest,
+    current_user: Staff = Depends(get_current_active_user)
+) -> PluginFetchResponse:
+    """Fetch plugin information from a URL (GitHub, Gitee, or custom)."""
+    try:
+        data = await plugin_runtime_client.fetch_plugin_info(request.url)
+        if not data:
+            raise HTTPException(status_code=400, detail="Could not fetch plugin information from the provided URL")
+        return PluginFetchResponse(**data)
+    except Exception as e:
+        _handle_runtime_error(e, "fetch_plugin_info")
+
+
+@router.post("/install", response_model=InstalledPluginInfo)
+async def install_plugin(
+    request: PluginInstallRequest,
+    current_user: Staff = Depends(get_current_active_user)
+) -> InstalledPluginInfo:
+    """Install a new plugin via runtime service."""
+    # Add project_id to request for runtime to store
+    request_data = request.model_dump(exclude_none=True)
+    request_data["project_id"] = str(current_user.project_id)
+    
+    try:
+        data = await plugin_runtime_client.install_plugin(request_data)
+        if data is None:
+            raise HTTPException(status_code=500, detail="Installation failed at runtime")
+        return InstalledPluginInfo(**data)
+    except Exception as e:
+        _handle_runtime_error(e, "install_plugin")
+
+
+# ==================== Generic Plugin Routes ====================
 
 @router.get("/{plugin_id}", response_model=PluginInfo)
-async def get_plugin(plugin_id: str) -> PluginInfo:
-    """
-    Get a specific plugin by ID.
-    """
-    plugin = plugin_manager.get_plugin(plugin_id)
-    if not plugin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Plugin not found: {plugin_id}"
-        )
-    return plugin.to_info()
+async def get_plugin(
+    plugin_id: str,
+    current_user: Staff = Depends(get_current_active_user)
+) -> PluginInfo:
+    """Get a specific plugin by ID."""
+    try:
+        data = await plugin_runtime_client.get_plugin(plugin_id, project_id=str(current_user.project_id))
+        if data is None:
+            raise HTTPException(status_code=404, detail=f"Plugin not found: {plugin_id}")
+        return PluginInfo(**data)
+    except Exception as e:
+        _handle_runtime_error(e, "get_plugin")
 
 
-@router.post("/{plugin_id}/render", response_model=PluginRenderResponse)
-async def render_plugin(
-    plugin_id: str, 
-    request: PluginRenderRequest,
-    db: Session = Depends(get_db)
-) -> PluginRenderResponse:
-    """
-    Trigger a plugin to render its UI.
-    
-    Sends a render request to the plugin and returns the JSON-UI response.
-    """
-    plugin = plugin_manager.get_plugin(plugin_id)
-    if not plugin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Plugin not found: {plugin_id}"
-        )
-    
-    visitor_info = request.visitor
-    # If visitor info not provided, fetch from database
-    if not visitor_info and request.visitor_id:
-        try:
-            db_visitor = db.query(Visitor).filter(Visitor.id == request.visitor_id).first()
-            if db_visitor:
-                visitor_info = _get_visitor_info(db_visitor, request.language)
-        except Exception as e:
-            logger.warning(f"Failed to fetch visitor info for plugin render: {e}")
+@router.delete("/{plugin_id}", response_model=dict)
+async def uninstall_plugin(
+    plugin_id: str,
+    current_user: Staff = Depends(get_current_active_user)
+) -> dict:
+    """Uninstall a plugin via runtime service."""
+    try:
+        resp = await plugin_runtime_client.uninstall_plugin(plugin_id, project_id=str(current_user.project_id))
+        if resp and resp.get("success"):
+            return resp
+        raise HTTPException(status_code=400, detail=resp.get("message") if resp else "Uninstallation failed")
+    except Exception as e:
+        _handle_runtime_error(e, "uninstall_plugin")
 
-    # Determine the render method based on plugin capabilities
-    method = "visitor_panel/render"
-    for cap in plugin.capabilities:
-        if cap.type == "chat_toolbar":
-            method = "chat_toolbar/render"
-            break
+
+@router.post("/{plugin_id}/start", response_model=dict)
+async def start_plugin(
+    plugin_id: str,
+    current_user: Staff = Depends(get_current_active_user)
+) -> dict:
+    """Start a plugin via runtime service."""
+    try:
+        # Pass None or empty dict, runtime will fetch config from DB if not provided
+        resp = await plugin_runtime_client.start_plugin(plugin_id, None, project_id=str(current_user.project_id))
+        if resp and resp.get("success"):
+            return resp
+        raise HTTPException(status_code=400, detail=resp.get("message") if resp else "Failed to start")
+    except Exception as e:
+        _handle_runtime_error(e, "start_plugin")
+
+
+@router.post("/{plugin_id}/stop", response_model=dict)
+async def stop_plugin(
+    plugin_id: str,
+    current_user: Staff = Depends(get_current_active_user)
+) -> dict:
+    """Stop a plugin via runtime service."""
+    try:
+        resp = await plugin_runtime_client.stop_plugin(plugin_id, project_id=str(current_user.project_id))
+        if resp and resp.get("success"):
+            return resp
+        raise HTTPException(status_code=400, detail=resp.get("message") if resp else "Failed to stop")
+    except Exception as e:
+        _handle_runtime_error(e, "stop_plugin")
+
+
+@router.post("/{plugin_id}/restart", response_model=dict)
+async def restart_plugin(
+    plugin_id: str,
+    current_user: Staff = Depends(get_current_active_user)
+) -> dict:
+    """Restart a plugin via runtime service."""
+    try:
+        resp = await plugin_runtime_client.restart_plugin(plugin_id, project_id=str(current_user.project_id))
+        if resp and resp.get("success"):
+            return resp
+        raise HTTPException(status_code=400, detail=resp.get("message") if resp else "Failed to restart")
+    except Exception as e:
+        _handle_runtime_error(e, "restart_plugin")
+
+
+@router.get("/{plugin_id}/logs", response_model=dict)
+async def get_plugin_logs(
+    plugin_id: str,
+    current_user: Staff = Depends(get_current_active_user)
+) -> dict:
+    """Get plugin logs via runtime service."""
+    try:
+        return await plugin_runtime_client.get_plugin_logs(plugin_id, project_id=str(current_user.project_id))
+    except Exception as e:
+        _handle_runtime_error(e, "get_plugin_logs")
+
+
+@router.post("/dev-token", response_model=DevTokenResponse)
+async def generate_dev_token(
+    request: DevTokenRequest,
+    current_user: Staff = Depends(get_current_active_user)
+) -> DevTokenResponse:
+    """Generate a dev token for plugin debugging in a specific project."""
+    # TODO: Verify user has access to project
     
-    params = {
-        "visitor_id": request.visitor_id,
-        "session_id": request.session_id,
-        "visitor": visitor_info.model_dump(exclude_none=True) if visitor_info else None,
-        "agent_id": request.agent_id,
-        "action_id": request.action_id,
-        "context": request.context,
-        "language": request.language,
+    expires_at = datetime.utcnow() + timedelta(hours=request.expires_hours)
+    token_data = {
+        "project_id": str(request.project_id),
+        "user_id": str(current_user.id),
+        "type": "plugin_dev",
+        "exp": expires_at
     }
     
-    result = await plugin_manager.send_request(plugin_id, method, params)
-    if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Plugin did not respond in time"
-        )
+    token = jwt.encode(token_data, settings.SECRET_KEY, algorithm="HS256")
     
-    return PluginRenderResponse(**result)
-
-
-@router.post("/{plugin_id}/event", response_model=PluginActionResponse)
-async def send_plugin_event(plugin_id: str, request: PluginEventRequest) -> PluginActionResponse:
-    """
-    Send an event to a plugin.
-    
-    Used when user interacts with plugin UI (button click, form submit, etc.).
-    Returns the JSON-ACTION response.
-    """
-    plugin = plugin_manager.get_plugin(plugin_id)
-    if not plugin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Plugin not found: {plugin_id}"
-        )
-    
-    # Determine the event method based on plugin capabilities or explicit extension_type
-    method = None
-    if request.extension_type:
-        method = f"{request.extension_type}/event"
-    else:
-        # Fallback to guessing (backward compatibility)
-        method = "visitor_panel/event"
-        for cap in plugin.capabilities:
-            if cap.type == "chat_toolbar":
-                method = "chat_toolbar/event"
-                break
-    
-    params = {
-        "event_type": request.event_type,
-        "action_id": request.action_id,
-        "visitor_id": request.visitor_id,
-        "session_id": request.session_id,
-        "selected_id": request.selected_id,
-        "language": request.language,
-        "form_data": request.form_data,
-        "payload": request.payload,
-    }
-    
-    result = await plugin_manager.send_request(plugin_id, method, params)
-    if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Plugin did not respond in time"
-        )
-    
-    return PluginActionResponse(**result)
+    return DevTokenResponse(
+        token=token,
+        expires_at=expires_at
+    )

@@ -36,6 +36,7 @@ from app.runtime.tools.utils import (
     create_agno_mcp_tool,
     create_rag_tool,
     create_workflow_tools,
+    create_plugin_tool,
     wrap_mcp_authenticate_tool,
 )
 
@@ -479,7 +480,12 @@ class AgentBuilder:
 
         # Group tools by endpoint and transport type
         tools_by_endpoint: Dict[str, List[AgentTool]] = {}
+        plugin_tools: List[AgentTool] = []
         for tool in mcp_tools:
+            if tool.transport_type == "plugin":
+                plugin_tools.append(tool)
+                continue
+
             if not tool.endpoint:
                 self._logger.warning(
                     "MCP tool missing endpoint, skipping",
@@ -493,10 +499,6 @@ class AgentBuilder:
                 tools_by_endpoint[endpoint] = []
             tools_by_endpoint[endpoint].append(tool)
 
-        if not tools_by_endpoint:
-            self._logger.debug("No valid MCP endpoints found after filtering")
-            return []
-
         # Build headers for authentication (used by HTTP/SSE transports)
         headers = {}
         if session_id:
@@ -507,6 +509,67 @@ class AgentBuilder:
         # Separate stdio commands from HTTP/SSE endpoints
         stdio_commands: List[str] = []
         mcp_tools_instances: List[Any] = []
+
+        # Handle plugin-based tools
+        for tool_binding in plugin_tools:
+            try:
+                # Load tool definition from tool.base_config (which contains the Tool model config)
+                config = tool_binding.base_config or {}
+                plugin_id = config.get("plugin_id")
+                tool_name = config.get("tool_name")
+                parameters_list = config.get("parameters", [])
+                
+                if not plugin_id or not tool_name:
+                    self._logger.warning(f"Plugin tool missing configuration: {tool_binding.tool_name}")
+                    continue
+
+                # Convert parameters list to JSON Schema
+                properties = {}
+                required = []
+                for p in parameters_list:
+                    p_name = p.get("name")
+                    p_type = p.get("type", "string")
+                    p_desc = p.get("description", "")
+                    p_required = p.get("required", False)
+                    
+                    prop = {"type": p_type, "description": p_desc}
+                    if p_type == "enum" and "enum_values" in p:
+                        prop["type"] = "string"
+                        prop["enum"] = p["enum_values"]
+                    elif p_type == "number":
+                        prop["type"] = "number"
+                    elif p_type == "boolean":
+                        prop["type"] = "boolean"
+                    
+                    properties[p_name] = prop
+                    if p_required:
+                        required.append(p_name)
+                
+                parameters_schema = {
+                    "type": "object",
+                    "properties": properties,
+                }
+                if required:
+                    parameters_schema["required"] = required
+
+                plugin_tool_func = create_plugin_tool(
+                    plugin_id=plugin_id,
+                    tool_name=tool_name,
+                    title=tool_binding.tool_name,
+                    description=config.get("description"), # Note: description might be in base_config or tool model
+                    parameters=parameters_schema,
+                    session_id=session_id,
+                    user_id=user_id,
+                    agent_id=str(internal_agent.id),
+                )
+                mcp_tools_instances.append(plugin_tool_func)
+                self._logger.debug(f"Added plugin tool: {tool_binding.tool_name} (plugin_id={plugin_id})")
+            except Exception as exc:
+                self._logger.warning(f"Failed to create plugin tool {tool_binding.tool_name}: {exc}")
+
+        if not tools_by_endpoint and not plugin_tools:
+            self._logger.debug("No valid MCP endpoints or plugin tools found after filtering")
+            return []
 
         for endpoint, endpoint_tools in tools_by_endpoint.items():
             try:
