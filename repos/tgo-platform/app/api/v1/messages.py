@@ -36,6 +36,7 @@ from app.api.error_utils import error_response, get_request_id
 from app.db.models import Platform
 
 from app.api.wecom_utils import wecom_get_access_token, wecom_kf_send_msg, wecom_upload_temp_media, resolve_visitor_platform_open_id, resolve_wecom_open_kfid
+from app.api.slack_utils import slack_send_text, slack_send_file, slack_get_dm_channel
 from app.core.config import settings
 
 
@@ -339,6 +340,121 @@ async def send_message(req_body: SendMessageRequest, request: Request, db: Async
                     status.HTTP_400_BAD_REQUEST,
                     code="UNSUPPORTED_MESSAGE_TYPE",
                     message=f"Telegram currently supports only text (type=1), got: {msg_type}",
+                    request_id=request_id,
+                )
+
+        if platform_type == "slack":
+            # Get bot token and visitor's Slack user ID/channel
+            bot_token = (cfg.get("bot_token") or "").strip()
+            if not bot_token:
+                return error_response(
+                    status.HTTP_400_BAD_REQUEST,
+                    code="PLATFORM_CONFIG_INVALID",
+                    message="Slack requires bot_token in config",
+                    request_id=request_id,
+                )
+            
+            # Resolve target user_id/channel for visitor
+            target_id = await resolve_visitor_platform_open_id(visitor_id)
+            if not target_id:
+                return error_response(
+                    status.HTTP_400_BAD_REQUEST,
+                    code="VISITOR_NOT_FOUND",
+                    message="Could not resolve Slack user_id for visitor",
+                    request_id=request_id,
+                )
+            
+            if msg_type == 1:
+                # Text message
+                content_text = str(payload.get("content") or "")
+                if not content_text:
+                    return error_response(
+                        status.HTTP_400_BAD_REQUEST,
+                        code="INVALID_PAYLOAD",
+                        message="Text content is required",
+                        request_id=request_id,
+                    )
+                
+                result = await slack_send_text(
+                    bot_token=bot_token,
+                    channel=target_id,
+                    text=content_text,
+                )
+                
+                if result.get("ok"):
+                    logging.info("[SEND] client_msg_no=%s slack text sent to %s", client_msg_no, target_id)
+                    return {"ok": True, "client_msg_no": client_msg_no, "message": "Message sent successfully"}
+                else:
+                    return error_response(
+                        status.HTTP_502_BAD_GATEWAY,
+                        code="SLACK_ERROR",
+                        message=result.get("error", "Unknown Slack error"),
+                        request_id=request_id,
+                    )
+            elif msg_type == 2:
+                # Image
+                url = str(payload.get("url") or "")
+                if not url:
+                    return error_response(
+                        status.HTTP_400_BAD_REQUEST,
+                        code="INVALID_PAYLOAD",
+                        message="Image url is required",
+                        request_id=request_id,
+                    )
+                
+                # Download image
+                try:
+                    download_url = _internalize_url(url)
+                    logging.info("[SEND] downloading image for slack from: %s (original: %s)", download_url, url)
+                    async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
+                        r = await client.get(download_url)
+                        r.raise_for_status()
+                        file_bytes = r.content
+                except Exception as e:
+                    logging.error("[SEND] failed to download image for slack: %s", e)
+                    return error_response(
+                        status.HTTP_400_BAD_REQUEST,
+                        code="IMAGE_DOWNLOAD_FAILED",
+                        message=str(e),
+                        request_id=request_id,
+                    )
+                
+                # Derive filename
+                try:
+                    filename = url.rsplit("/", 1)[-1] or "image.png"
+                    if "?" in filename:
+                        filename = filename.split("?")[0]
+                except Exception:
+                    filename = "image.png"
+                
+                # Slack files_upload_v2 requires a real channel ID (starts with D, C, G)
+                # If target_id is a User ID (starts with U), resolve it to a DM channel ID
+                if target_id.startswith("U"):
+                    target_id = await slack_get_dm_channel(bot_token, target_id)
+
+                result = await slack_send_file(
+                    bot_token=bot_token,
+                    channel=target_id,
+                    file_bytes=file_bytes,
+                    filename=filename,
+                    initial_comment=str(payload.get("content") or ""),
+                )
+                
+                if result.get("ok"):
+                    logging.info("[SEND] client_msg_no=%s slack photo sent to %s", client_msg_no, target_id)
+                    return {"ok": True, "client_msg_no": client_msg_no, "message": "Message sent successfully"}
+                else:
+                    return error_response(
+                        status.HTTP_502_BAD_GATEWAY,
+                        code="SLACK_ERROR",
+                        message=result.get("error", "Unknown Slack error"),
+                        request_id=request_id,
+                    )
+            else:
+                return error_response(
+                    status.HTTP_400_BAD_REQUEST,
+                    code="UNSUPPORTED_MESSAGE_TYPE",
+                    message=f"Slack supports text(1) and image(2), got: {msg_type}",
                     request_id=request_id,
                 )
 

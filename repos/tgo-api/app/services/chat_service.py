@@ -151,7 +151,7 @@ async def forward_ai_event_to_wukongim(
     """Forward AI event to WuKongIM."""
     try:
         data = event_data.get("data") or {}
-        if event_type == "team_run_started":
+        if event_type in {"team_run_started", "agent_run_started", "workflow_run_started", "workflow_started"}:
             await wukongim_client.send_event(
                 channel_id=channel_id,
                 channel_type=channel_type,
@@ -161,8 +161,14 @@ async def forward_ai_event_to_wukongim(
                 from_uid=from_uid,
                 force=True,
             )
-        elif event_type == "team_run_content":
-            chunk_text = data.get("content")
+        elif event_type in {"team_run_content", "agent_run_content", "workflow_content", "workflow_run_content"}:
+            # Robust extraction of content from data
+            chunk_text = data.get("content") or data.get("text")
+            if not chunk_text and isinstance(data, dict):
+                inner_data = data.get("data", {})
+                if isinstance(inner_data, dict):
+                    chunk_text = inner_data.get("content") or inner_data.get("text")
+            
             if chunk_text is not None:
                 await wukongim_client.send_event(
                     channel_id=channel_id,
@@ -172,8 +178,8 @@ async def forward_ai_event_to_wukongim(
                     client_msg_no=client_msg_no,
                     from_uid=from_uid,
                 )
-                return chunk_text
-        elif event_type == "team_run_completed":
+                return str(chunk_text)
+        elif event_type in {"team_run_completed", "agent_run_completed", "workflow_completed", "workflow_run_completed"}:
             await wukongim_client.send_event(
                 channel_id=channel_id,
                 channel_type=channel_type,
@@ -297,7 +303,7 @@ async def handle_ai_response_non_stream(
             expected_output=expected_output,
         ):
             event_type = data.get("event_type")
-            await forward_ai_event_to_wukongim(
+            content_chunk = await forward_ai_event_to_wukongim(
                 event_type=event_type,
                 event_data=data,
                 channel_id=channel_id,
@@ -305,8 +311,8 @@ async def handle_ai_response_non_stream(
                 client_msg_no=client_msg_no,
                 from_uid=from_uid,
             )
-            if event_type == "team_run_content":
-                full_content += data.get("content", "")
+            if content_chunk:
+                full_content += content_chunk
             last_data = data
             
         return {"success": True, "content": full_content, "data": last_data}
@@ -498,20 +504,22 @@ async def get_or_create_visitor(
     platform: Platform,
     platform_open_id: str,
     nickname: Optional[str] = None,
-) -> Visitor:
+    avatar_url: Optional[str] = None,
+) -> tuple[Visitor, bool]:
     """
     获取或创建访客。
     
-    如果访客存在且状态为 CLOSED，自动重置为 NEW。
+    如果访客存在且信息发生变化，自动更新并通知 WuKongIM。
     
     Args:
         db: 数据库会话
         platform: 平台对象
         platform_open_id: 平台用户ID
         nickname: 昵称（可选）
+        avatar_url: 头像URL（可选）
         
     Returns:
-        Visitor: 访客对象
+        tuple[Visitor, bool]: (访客对象, 是否发生了更新)
     """
     visitor = (
         db.query(Visitor)
@@ -529,15 +537,39 @@ async def get_or_create_visitor(
             db=db,
             platform=platform,
             platform_open_id=platform_open_id,
-            nickname=nickname or platform_open_id,
+            name=nickname, # 同时设置 name
+            nickname=nickname,
+            avatar_url=avatar_url,
         )
+        return visitor, True
     else:
+        # 更新访客信息（如果提供且发生变化）
+        changed = False
+        if nickname:
+            if visitor.nickname != nickname:
+                visitor.nickname = nickname
+                changed = True
+            if visitor.name != nickname:
+                visitor.name = nickname
+                changed = True
+            # 同步更新 nickname_zh 以确保两个字段一致
+            if visitor.nickname_zh != nickname:
+                visitor.nickname_zh = nickname
+                changed = True
+        
+        if avatar_url and visitor.avatar_url != avatar_url:
+            visitor.avatar_url = avatar_url
+            changed = True
+            
         # 重置已关闭的访客状态
         if visitor.service_status == VisitorServiceStatus.CLOSED.value:
             visitor.service_status = VisitorServiceStatus.NEW.value
+            changed = True
+            logger.debug(f"Reset visitor {visitor.id} status from CLOSED to NEW")
+
+        if changed:
             visitor.updated_at = datetime.utcnow()
             db.commit()
-            logger.debug(f"Reset visitor {visitor.id} status from CLOSED to NEW")
     
-    return visitor
+    return visitor, changed
 

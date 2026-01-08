@@ -118,7 +118,7 @@ SEED_PLATFORM_TYPES: List[Dict[str, object]] = [
         "type": "slack",
         "name": "Slack",
         "name_en": "Slack",
-        "is_supported": False,
+        "is_supported": True,
     },
     {
         "type": "teams",

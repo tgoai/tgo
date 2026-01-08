@@ -457,11 +457,17 @@
           "providers": {
             "openai": {
               "name": "OpenAI",
-              "models": ["text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"]
+              "models": [
+                "text-embedding-3-small",
+                "text-embedding-3-large",
+                "text-embedding-ada-002"
+              ]
             },
             "qwen": {
               "name": "Qwen/DashScope",
-              "models": ["text-embedding-v4"]
+              "models": [
+                "text-embedding-v4"
+              ]
             }
           }
         },
@@ -474,96 +480,96 @@
         "required": "Please set both default LLM and default Embedding models",
         "atLeastOneRequired": "Please select at least one default model"
       }
-    }
-,
-	    "providers": {
-	      "title": "Model Providers",
-	      "subtitle": "Manage access configs for AI providers: keys, secure proxy, model lists and defaults.",
-	      "docs": "View Docs",
-	      "add": "Add Provider",
-	      "addTitle": "Add Provider",
+    },
+    "providers": {
+      "title": "Model Providers",
+      "subtitle": "Manage access configs for AI providers: keys, secure proxy, model lists and defaults.",
+      "docs": "View Docs",
+      "add": "Add Provider",
+      "addTitle": "Add Provider",
       "enableButton": "Enable",
       "updateButton": "Update",
-	      "defaultName": "New Provider",
-	      "baseUrl": "Base URL",
-	      "provider": {
-	        "openai": "OpenAI",
-	        "azure": "Azure OpenAI",
-	        "qwen": "Qwen (DashScope)",
-	        "moonshot": "Moonshot (Kimi)",
-	        "deepseek": "DeepSeek",
-	        "baichuan": "Baichuan",
-	        "ollama": "Ollama",
-	        "custom": "Custom"
-	      },
-	      "groups": {
-	        "connection": "Authentication & Connection",
-	        "models": "",
-	        "modelsTitle": "Models & Defaults"
-	      },
-	      "fields": {
-	        "kind": "Provider",
-	        "name": "Name/Alias",
-	        "apiKey": "API Key",
-	        "baseUrl": "API Base URL",
-	        "models": "Available Models",
-	        "defaultModel": "Default Model",
-	        "modelType": "Model Type",
-	        "embeddingModel": "Embedding Model",
-	        "azure": {
-	          "deployment": "Deployment Name",
-	          "resource": "Resource",
-	          "apiVersion": "API Version"
-	        }
-	      },
-	      "modelType": {
-	        "chat": "Chat Model",
-	        "embedding": "Embedding Model"
-	      },
-	      "help": {
-	        "azure": {
-	          "deployment": "Deployment name in Azure, different from model ID",
-	          "resource": "Azure resource name, e.g. your OpenAI service resource",
-	          "apiVersion": "Azure OpenAI API version, e.g. 2024-02-15-preview"
-	        },
-	        "modelsCustom": "If the list is empty or you can't find the model you need, you can manually enter a custom model name",
-	        "embeddingModel": "Enter the embedding model name, e.g. text-embedding-3-small, text-embedding-ada-002"
-	      },
-	      "placeholders": {
-	        "apiKeyMasked": "Configured: {{mask}}, leave empty to keep",
-	        "apiKey": "Paste API Key",
-	        "modelsSearch": "Search or enter model ID...",
-	        "baseUrl": { "custom": "Custom Base URL" },
-	        "embeddingModel": "e.g., text-embedding-3-small"
-	      },
-	      "fetchModels": {
-	        "failed": "Failed to fetch models",
-	        "empty": "No models available"
-	      },
-	      "selectDefaultModel": "Please add models first",
-	      "test": {
-	        "ok": "Connection succeeded",
-	        "failed": "Connection failed"
-	      },
-
-	      "testButton": "Test Connection",
-
-	      "badges": { "default": "Default" },
-	      "toast": {
-	        "added": "Provider added",
-	        "saved": "Changes saved",
-	        "deleted": "Provider deleted"
-	      },
-	      "validate": {
-	        "apiKey": "Please enter API Key",
-	        "azureDeployment": "Please enter Azure deployment name"
-	      },
-
+      "defaultName": "New Provider",
+      "baseUrl": "Base URL",
+      "provider": {
+        "openai": "OpenAI",
+        "azure": "Azure OpenAI",
+        "qwen": "Qwen (DashScope)",
+        "moonshot": "Moonshot (Kimi)",
+        "deepseek": "DeepSeek",
+        "baichuan": "Baichuan",
+        "ollama": "Ollama",
+        "custom": "Custom"
+      },
+      "groups": {
+        "connection": "Authentication & Connection",
+        "models": "",
+        "modelsTitle": "Models & Defaults"
+      },
+      "fields": {
+        "kind": "Provider",
+        "name": "Name/Alias",
+        "apiKey": "API Key",
+        "baseUrl": "API Base URL",
+        "models": "Available Models",
+        "defaultModel": "Default Model",
+        "modelType": "Model Type",
+        "embeddingModel": "Embedding Model",
+        "azure": {
+          "deployment": "Deployment Name",
+          "resource": "Resource",
+          "apiVersion": "API Version"
+        }
+      },
+      "modelType": {
+        "chat": "Chat Model",
+        "embedding": "Embedding Model"
+      },
+      "help": {
+        "azure": {
+          "deployment": "Deployment name in Azure, different from model ID",
+          "resource": "Azure resource name, e.g. your OpenAI service resource",
+          "apiVersion": "Azure OpenAI API version, e.g. 2024-02-15-preview"
+        },
+        "modelsCustom": "If the list is empty or you can't find the model you need, you can manually enter a custom model name",
+        "embeddingModel": "Enter the embedding model name, e.g. text-embedding-3-small, text-embedding-ada-002"
+      },
+      "placeholders": {
+        "apiKeyMasked": "Configured: {{mask}}, leave empty to keep",
+        "apiKey": "Paste API Key",
+        "modelsSearch": "Search or enter model ID...",
+        "baseUrl": {
+          "custom": "Custom Base URL"
+        },
+        "embeddingModel": "e.g., text-embedding-3-small"
+      },
+      "fetchModels": {
+        "failed": "Failed to fetch models",
+        "empty": "No models available"
+      },
+      "selectDefaultModel": "Please add models first",
+      "test": {
+        "ok": "Connection succeeded",
+        "failed": "Connection failed"
+      },
+      "testButton": "Test Connection",
+      "badges": {
+        "default": "Default"
+      },
+      "toast": {
+        "added": "Provider added",
+        "saved": "Changes saved",
+        "deleted": "Provider deleted"
+      },
+      "validate": {
+        "apiKey": "Please enter API Key",
+        "azureDeployment": "Please enter Azure deployment name"
+      },
       "createModelOption": "Create",
-	      "confirmDeleteTitle": "Delete Provider",
-	      "confirmDeleteMsg": "Are you sure you want to delete this provider configuration? This action cannot be undone.",
-	      "empty": "No providers configured yet. Click \u201cAdd Provider\u201d in the top-right to get started."
-	    }
+      "confirmDeleteTitle": "Delete Provider",
+      "confirmDeleteMsg": "Are you sure you want to delete this provider configuration? This action cannot be undone.",
+      "empty": "No providers configured yet. Click \u201cAdd Provider\u201d in the top-right to get started."
+    }
   },
   "about": {
     "title": "System Information",
@@ -720,7 +726,6 @@
         "cancel": "Cancel"
       }
     },
-
     "create": {
       "sections": {
         "modelConfig": "Model Configuration",
@@ -747,7 +752,6 @@
         "shortNoMissingDesc": "The following tools are missing short_no or name: {{names}}, please refresh the tool store or reselect and try again"
       }
     },
-
     "edit": {
       "loading": "Loading agent details...",
       "loadAgentError": "Unable to load agent details, please try again later",
@@ -759,8 +763,6 @@
         "missingDesc": "The following tools are missing name: {{names}}, please reselect and try again"
       }
     },
-
-
     "detail": {
       "basicInfo": "Basic Info",
       "performanceStats": "Performance Stats",
@@ -2243,18 +2245,18 @@
       "retryFailedDesc": "Unable to load tool list, please check your network connection"
     },
     "source": {
-        "marketplace": "Tool Marketplace",
-        "custom": "Custom",
-        "unknown": "Unknown"
-      },
-      "author": {
-        "marketplace": "Tool Marketplace",
-        "customUser": "User Custom",
-        "unknown": "Unknown Source"
-      },
-      "search": {
-        "placeholder": "Search tools..."
-      },
+      "marketplace": "Tool Marketplace",
+      "custom": "Custom",
+      "unknown": "Unknown"
+    },
+    "author": {
+      "marketplace": "Tool Marketplace",
+      "customUser": "User Custom",
+      "unknown": "Unknown Source"
+    },
+    "search": {
+      "placeholder": "Search tools..."
+    },
     "categories": {
       "all": "All",
       "productivity": "Productivity",
@@ -2265,217 +2267,217 @@
       "plugin": "Plugin Tool",
       "unknown": "Unknown Category"
     },
-      "page": {
-        "customTool": "Custom Tool"
+    "page": {
+      "customTool": "Custom Tool"
+    },
+    "tools": {
+      "addMcpTool": "Add Tool",
+      "delete": {
+        "successTitle": "Deleted",
+        "successMessage": "Tool \"{{name}}\" has been deleted"
       },
-      "tools": {
-        "addMcpTool": "Add Tool",
-        "delete": {
-          "successTitle": "Deleted",
-          "successMessage": "Tool \"{{name}}\" has been deleted"
-        },
-        "confirmDelete": {
-          "title": "Confirm Delete",
-          "message": "Are you sure you want to delete tool \"{{name}}\"? This action cannot be undone."
-        },
-        "unknownAction": {
-          "title": "Unknown action",
-          "message": "Unsupported action type: {{type}}"
-        },
-        "actionFailed": {
-          "title": "Action failed",
-          "message": "An error occurred while performing {{type}} action"
-        },
-        "uninstall": {
-          "successTitle": "Uninstalled",
-          "successMessage": "Tool \"{{name}}\" has been uninstalled"
-        },
-        "toggle": {
-          "enabledTitle": "Enabled",
-          "enabledMessage": "Tool \"{{name}}\" has been enabled",
-          "disabledTitle": "Disabled",
-          "disabledMessage": "Tool \"{{name}}\" has been disabled"
-        },
-        "installedEmpty": {
-          "title": "No installed tools",
-          "description": "Click the \"Add Tool\" button in the top-right to create your first tool",
-          "action": "Go to Tool Store"
-        },
-        "addHttpTool": "Add HTTP Tool",
-        "list": {
-          "emptyTitle": "No tools",
-          "emptyDescriptionAll": "Click \"Add Tool\" to add your first tool",
-          "emptyDescriptionCategory": "No tools under category \"{{category}}\"",
-          "emptyAction": "Start adding tools"
-        },
-        "endpoint": "Endpoint",
-        "noDescription": "No description",
-        "endpointCopied": "Endpoint copied to clipboard",
-        "copyEndpointFailed": "Failed to copy endpoint",
-        "edit": {
-          "title": "Edit Tool",
-          "message": "Edit functionality for tool \"{{name}}\" is coming soon",
-          "notFound": "Tool Not Found",
-          "notFoundMessage": "Unable to find detailed information for this tool"
-        }
+      "confirmDelete": {
+        "title": "Confirm Delete",
+        "message": "Are you sure you want to delete tool \"{{name}}\"? This action cannot be undone."
       },
-      "addToolModal": {
-        "title": "Add MCP Tool",
-        "subtitle": "Connect to external capability servers via MCP protocol",
-        "fields": {
-          "name": "Tool Name",
-          "description": "Tool Description",
-          "transportType": "Transport Type",
-          "endpoint": "Endpoint",
-          "config": "Configuration"
-        },
-        "placeholders": {
-          "name": "e.g., weather-api",
-          "description": "Brief description of the tool's functionality",
-          "endpoint": "e.g., https://api.example.com/tool",
-          "config": "{\"key\": \"value\"}"
-        },
-        "hints": {
-          "config": "Please enter valid JSON format configuration"
-        },
-        "errors": {
-          "nameRequired": "Please enter tool name",
-          "invalidName": "Tool name can only contain letters, numbers, underscores and hyphens",
-          "endpointRequired": "Please enter endpoint",
-          "invalidJson": "Configuration must be valid JSON format",
-          "noProject": "No project selected"
-        },
-        "success": {
-          "title": "Added Successfully",
-          "message": "{{name}} has been successfully added"
-        },
-        "confirm": "Confirm Create",
-        "error": {
-          "title": "Add Failed",
-          "message": "Failed to add tool, please try again later"
-        }
+      "unknownAction": {
+        "title": "Unknown action",
+        "message": "Unsupported action type: {{type}}"
       },
-      "addHttpToolModal": {
-        "title": "Add HTTP Tool",
-        "subtitle": "Configure external API endpoints as AI agent capabilities",
-        "sections": {
-          "basic": "Basic Information",
-          "config": "API Configuration"
-        },
-        "fields": {
-          "name": "Tool Name",
-          "description": "Tool Description",
-          "endpoint": "API Endpoint",
-          "method": "HTTP Method",
-          "headers": "Request Headers",
-          "parameters": "Input Parameters"
-        },
-        "placeholders": {
-          "name": "e.g., search_user",
-          "description": "Describe the tool's function to help AI understand when to call it",
-          "endpoint": "https://api.example.com/v1/users",
-          "paramDesc": "Parameter description..."
-        },
-        "params": {
-          "name": "Name",
-          "type": "Type",
-          "desc": "Description",
-          "required": "Required",
-          "empty": "Define dynamic parameters needed when AI calls the endpoint"
-        },
-        "addHeader": "Add Header",
-        "addParameter": "Add Parameter",
-        "confirm": "Confirm Create",
-        "errors": {
-          "nameRequired": "Please enter tool name",
-          "invalidName": "Tool name can only contain letters, numbers, underscores and hyphens",
-          "descriptionRequired": "Please enter tool description",
-          "endpointRequired": "Please enter API endpoint"
-        },
-        "success": {
-          "title": "Added Successfully",
-          "message": "HTTP tool {{name}} has been added"
-        },
-        "error": {
-          "title": "Add Failed",
-          "message": "Failed to add HTTP tool"
-        }
+      "actionFailed": {
+        "title": "Action failed",
+        "message": "An error occurred while performing {{type}} action"
       },
-      "editHttpToolModal": {
-        "title": "Edit HTTP Tool",
-        "subtitle": "Update external API endpoint configuration",
-        "save": "Save Changes",
-        "success": {
-          "title": "Updated Successfully",
-          "message": "HTTP tool {{name}} has been updated"
-        },
-        "error": {
-          "title": "Update Failed",
-          "message": "Failed to update HTTP tool"
-        }
+      "uninstall": {
+        "successTitle": "Uninstalled",
+        "successMessage": "Tool \"{{name}}\" has been uninstalled"
       },
-      "editToolModal": {
+      "toggle": {
+        "enabledTitle": "Enabled",
+        "enabledMessage": "Tool \"{{name}}\" has been enabled",
+        "disabledTitle": "Disabled",
+        "disabledMessage": "Tool \"{{name}}\" has been disabled"
+      },
+      "installedEmpty": {
+        "title": "No installed tools",
+        "description": "Click the \"Add Tool\" button in the top-right to create your first tool",
+        "action": "Go to Tool Store"
+      },
+      "addHttpTool": "Add HTTP Tool",
+      "list": {
+        "emptyTitle": "No tools",
+        "emptyDescriptionAll": "Click \"Add Tool\" to add your first tool",
+        "emptyDescriptionCategory": "No tools under category \"{{category}}\"",
+        "emptyAction": "Start adding tools"
+      },
+      "endpoint": "Endpoint",
+      "noDescription": "No description",
+      "endpointCopied": "Endpoint copied to clipboard",
+      "copyEndpointFailed": "Failed to copy endpoint",
+      "edit": {
         "title": "Edit Tool",
-        "subtitle": "Modify MCP tool connection configuration",
-        "fields": {
-          "name": "Tool Name",
-          "description": "Tool Description",
-          "transportType": "Transport Type",
-          "endpoint": "Endpoint",
-          "toolType": "Tool Type"
-        },
-        "placeholders": {
-          "name": "e.g., weather-api",
-          "description": "Brief description of the tool's functionality",
-          "endpoint": "e.g., https://api.example.com/tool"
-        },
-        "hints": {
-          "toolTypeReadonly": "Tool type cannot be modified"
-        },
-        "errors": {
-          "nameRequired": "Please enter tool name",
-          "invalidName": "Tool name can only contain letters, numbers, underscores and hyphens",
-          "endpointRequired": "Please enter endpoint"
-        },
-        "success": {
-          "title": "Updated Successfully",
-          "message": "{{name}} has been successfully updated"
-        },
-        "save": "Save Changes",
-        "error": {
-          "title": "Update Failed",
-          "message": "Failed to update tool, please try again later"
-        }
-      },
-      "selectModal": {
-        "title": "Select Tools",
-        "searchPlaceholder": "Search tools...",
-        "loading": "Loading tools...",
-        "loadFailedDesc": "Unable to load tool list, please try again later",
-        "retryFailedTitle": "Retry Failed",
-        "retryFailedDesc": "Unable to load tool list, please check your network connection",
-        "noMatch": "No matching tools found",
-        "configTool": "Configure Tool",
-        "manageTools": "Manage Tools",
-        "confirmSelection": "Confirm Selection ({{count}})"
-      },
-      "config": {
-        "title": "Tool Configuration",
-        "info": "Tool Information",
-        "parameters": "Configuration Parameters",
-        "noParams": "This tool has no configurable parameters",
-        "placeholders": {
-          "array": "Separate multiple values with commas",
-          "required": "Required",
-          "optional": "Optional"
-        },
-        "validation": {
-          "required": "This field is required",
-          "number": "Please enter a valid number"
-        },
-        "save": "Save Configuration"
+        "message": "Edit functionality for tool \"{{name}}\" is coming soon",
+        "notFound": "Tool Not Found",
+        "notFoundMessage": "Unable to find detailed information for this tool"
       }
     },
+    "addToolModal": {
+      "title": "Add MCP Tool",
+      "subtitle": "Connect to external capability servers via MCP protocol",
+      "fields": {
+        "name": "Tool Name",
+        "description": "Tool Description",
+        "transportType": "Transport Type",
+        "endpoint": "Endpoint",
+        "config": "Configuration"
+      },
+      "placeholders": {
+        "name": "e.g., weather-api",
+        "description": "Brief description of the tool's functionality",
+        "endpoint": "e.g., https://api.example.com/tool",
+        "config": "{\"key\": \"value\"}"
+      },
+      "hints": {
+        "config": "Please enter valid JSON format configuration"
+      },
+      "errors": {
+        "nameRequired": "Please enter tool name",
+        "invalidName": "Tool name can only contain letters, numbers, underscores and hyphens",
+        "endpointRequired": "Please enter endpoint",
+        "invalidJson": "Configuration must be valid JSON format",
+        "noProject": "No project selected"
+      },
+      "success": {
+        "title": "Added Successfully",
+        "message": "{{name}} has been successfully added"
+      },
+      "confirm": "Confirm Create",
+      "error": {
+        "title": "Add Failed",
+        "message": "Failed to add tool, please try again later"
+      }
+    },
+    "addHttpToolModal": {
+      "title": "Add HTTP Tool",
+      "subtitle": "Configure external API endpoints as AI agent capabilities",
+      "sections": {
+        "basic": "Basic Information",
+        "config": "API Configuration"
+      },
+      "fields": {
+        "name": "Tool Name",
+        "description": "Tool Description",
+        "endpoint": "API Endpoint",
+        "method": "HTTP Method",
+        "headers": "Request Headers",
+        "parameters": "Input Parameters"
+      },
+      "placeholders": {
+        "name": "e.g., search_user",
+        "description": "Describe the tool's function to help AI understand when to call it",
+        "endpoint": "https://api.example.com/v1/users",
+        "paramDesc": "Parameter description..."
+      },
+      "params": {
+        "name": "Name",
+        "type": "Type",
+        "desc": "Description",
+        "required": "Required",
+        "empty": "Define dynamic parameters needed when AI calls the endpoint"
+      },
+      "addHeader": "Add Header",
+      "addParameter": "Add Parameter",
+      "confirm": "Confirm Create",
+      "errors": {
+        "nameRequired": "Please enter tool name",
+        "invalidName": "Tool name can only contain letters, numbers, underscores and hyphens",
+        "descriptionRequired": "Please enter tool description",
+        "endpointRequired": "Please enter API endpoint"
+      },
+      "success": {
+        "title": "Added Successfully",
+        "message": "HTTP tool {{name}} has been added"
+      },
+      "error": {
+        "title": "Add Failed",
+        "message": "Failed to add HTTP tool"
+      }
+    },
+    "editHttpToolModal": {
+      "title": "Edit HTTP Tool",
+      "subtitle": "Update external API endpoint configuration",
+      "save": "Save Changes",
+      "success": {
+        "title": "Updated Successfully",
+        "message": "HTTP tool {{name}} has been updated"
+      },
+      "error": {
+        "title": "Update Failed",
+        "message": "Failed to update HTTP tool"
+      }
+    },
+    "editToolModal": {
+      "title": "Edit Tool",
+      "subtitle": "Modify MCP tool connection configuration",
+      "fields": {
+        "name": "Tool Name",
+        "description": "Tool Description",
+        "transportType": "Transport Type",
+        "endpoint": "Endpoint",
+        "toolType": "Tool Type"
+      },
+      "placeholders": {
+        "name": "e.g., weather-api",
+        "description": "Brief description of the tool's functionality",
+        "endpoint": "e.g., https://api.example.com/tool"
+      },
+      "hints": {
+        "toolTypeReadonly": "Tool type cannot be modified"
+      },
+      "errors": {
+        "nameRequired": "Please enter tool name",
+        "invalidName": "Tool name can only contain letters, numbers, underscores and hyphens",
+        "endpointRequired": "Please enter endpoint"
+      },
+      "success": {
+        "title": "Updated Successfully",
+        "message": "{{name}} has been successfully updated"
+      },
+      "save": "Save Changes",
+      "error": {
+        "title": "Update Failed",
+        "message": "Failed to update tool, please try again later"
+      }
+    },
+    "selectModal": {
+      "title": "Select Tools",
+      "searchPlaceholder": "Search tools...",
+      "loading": "Loading tools...",
+      "loadFailedDesc": "Unable to load tool list, please try again later",
+      "retryFailedTitle": "Retry Failed",
+      "retryFailedDesc": "Unable to load tool list, please check your network connection",
+      "noMatch": "No matching tools found",
+      "configTool": "Configure Tool",
+      "manageTools": "Manage Tools",
+      "confirmSelection": "Confirm Selection ({{count}})"
+    },
+    "config": {
+      "title": "Tool Configuration",
+      "info": "Tool Information",
+      "parameters": "Configuration Parameters",
+      "noParams": "This tool has no configurable parameters",
+      "placeholders": {
+        "array": "Separate multiple values with commas",
+        "required": "Required",
+        "optional": "Optional"
+      },
+      "validation": {
+        "required": "This field is required",
+        "number": "Please enter a valid number"
+      },
+      "save": "Save Configuration"
+    }
+  },
   "platforms": {
     "list": {
       "title": "Platforms",
@@ -2743,7 +2745,69 @@
       "label": "Discord"
     },
     "slack": {
-      "label": "Slack"
+      "label": "Slack",
+      "header": {
+        "title": "{{name}} Configuration",
+        "subtitle": "Configure Slack Bot credentials and security settings."
+      },
+      "buttons": {
+        "delete": "Delete",
+        "deleting": "Deleting...",
+        "enable": "Enable",
+        "disable": "Disable",
+        "enabling": "Enabling...",
+        "disabling": "Disabling...",
+        "save": "Save",
+        "saving": "Saving..."
+      },
+      "form": {
+        "name": "Platform Name",
+        "namePlaceholder": "Enter platform name",
+        "botToken": "Bot Token",
+        "botTokenPlaceholder": "xoxb-...",
+        "botTokenHint": "Get the Bot User OAuth Token from the 'OAuth & Permissions' page of your Slack App.",
+        "appToken": "App Token (Socket Mode)",
+        "appTokenPlaceholder": "xapp-...",
+        "appTokenHint": "Generate in 'Basic Information' -> 'App-Level Tokens' (requires connections:write scope).",
+        "signingSecret": "Signing Secret (Optional)",
+        "signingSecretPlaceholder": "Secret for verifying request origin",
+        "signingSecretHint": "Get from 'Basic Information' -> 'App Credentials' to enhance security."
+      },
+      "guide": {
+        "title": "Slack Bot Configuration Guide",
+        "overview": "Quick Overview",
+        "overviewText": "Complete these steps: ① Create Slack App -> ② Enable Socket Mode & get App Token -> ③ Configure Bot permissions & event subscriptions -> ④ Install to workspace & get Bot Token.",
+        "step1Title": "1️⃣ Create Slack App",
+        "step1Item1": "Visit <a class=\"text-blue-600 hover:underline\" href=\"https://api.slack.com/apps\" target=\"_blank\" rel=\"noreferrer\">api.slack.com/apps</a> and click 'Create New App'.",
+        "step1Item2": "Select 'From scratch', enter App name and select target workspace.",
+        "step1Item3": "Set display name in 'App Home' and ensure 'Messages Tab' is enabled.",
+        "step2Title": "2️⃣ Enable Socket Mode",
+        "step2Item1": "Click 'Socket Mode' in the left menu and turn it on.",
+        "step2Item2": "Generate an App-Level Token as prompted, ensuring it includes the <code>connections:write</code> scope.",
+        "step2Item3": "Copy the generated <code>xapp-...</code> Token and paste it into the 'App Token' field on the left.",
+        "step3Title": "3️⃣ Configure Permissions & Events",
+        "step3Item1": "Add required scopes (e.g., chat:write, im:history) to 'Bot Token Scopes' in 'OAuth & Permissions'.",
+        "step3Item2": "Enable events in 'Event Subscriptions' and add <code>message.im</code> and <code>app_mention</code>.",
+        "step4Title": "4️⃣ Installation & Integration",
+        "step4Item1": "Click 'Install to Workspace' and complete authorization.",
+        "step4Item2": "Copy the 'Bot User OAuth Token' (xoxb-...) and paste it into the 'Bot Token' field on the left.",
+        "step4Item3": "Once saved, your AI assistant will be ready to respond on Slack.",
+        "docsLink": "Official Slack API Documentation"
+      },
+      "dialog": {
+        "deleteTitle": "Confirm Delete",
+        "deleteMessage": "Are you sure you want to delete this Slack Bot platform? This action cannot be undone.",
+        "confirmDelete": "Delete",
+        "cancel": "Cancel"
+      },
+      "messages": {
+        "saveSuccess": "Saved successfully",
+        "saveSuccessMessage": "Slack Bot configuration updated",
+        "deleteSuccess": "Deleted successfully",
+        "deleteSuccessMessage": "Slack Bot platform deleted",
+        "disabled": "Platform disabled",
+        "enabled": "Platform enabled"
+      }
     },
     "teams": {
       "label": "Microsoft Teams"

@@ -62,6 +62,14 @@ class ChatCompletionRequest(BaseSchema):
         description="额外数据，会随消息一起转发到 WuKongIM",
         examples=[{"source": "web", "page": "/product/123"}]
     )
+    visitor_name: Optional[str] = Field(
+        None,
+        description="访客昵称/姓名"
+    )
+    visitor_avatar: Optional[str] = Field(
+        None,
+        description="访客头像URL"
+    )
     msg_type: Optional[int] = Field(
         1,
         description="消息类型：1-文本，2-图片，3-文件，4-语音，5-视频",

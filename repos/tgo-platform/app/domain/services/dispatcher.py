@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.db.models import Platform
 from app.domain.entities import NormalizedMessage, ChatCompletionRequest
 from app.domain.ports import TgoApiClient, SSEManager, PlatformAdapter
-from app.domain.services.adapters import SimpleStdoutAdapter, EmailAdapter, WeComAdapter, WeComBotAdapter, FeishuBotAdapter, DingTalkBotAdapter, TelegramAdapter
+from app.domain.services.adapters import SimpleStdoutAdapter, EmailAdapter, WeComAdapter, WeComBotAdapter, FeishuBotAdapter, DingTalkBotAdapter, TelegramAdapter, SlackAdapter
 
 
 def _expected_output_for(ptype: str) -> str | None:
@@ -140,6 +140,16 @@ async def select_adapter_for_target(msg: NormalizedMessage, platform: Platform) 
         if not (bot_token and chat_id):
             return SimpleStdoutAdapter()
         return TelegramAdapter(bot_token=bot_token, chat_id=chat_id)
+    if ptype == "slack":
+        cfg = platform.config or {}
+        # Get slack context which contains channel for reply
+        sc = ((msg.extra or {}).get("slack") or {})
+        bot_token = sc.get("bot_token") or cfg.get("bot_token") or ""
+        channel = sc.get("channel") or ""
+        thread_ts = sc.get("thread_ts")  # Optional: reply in thread
+        if not (bot_token and channel):
+            return SimpleStdoutAdapter()
+        return SlackAdapter(bot_token=bot_token, channel=channel, thread_ts=thread_ts)
     return SimpleStdoutAdapter()
 
 

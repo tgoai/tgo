@@ -273,12 +273,22 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
     platform, project = chat_service.validate_platform_and_project(req.api_key, db)
 
     # 2) Get or create visitor (handles status reset if CLOSED)
-    visitor = await get_or_create_visitor(
+    visitor, visitor_changed = await get_or_create_visitor(
         db=db,
         platform=platform,
         platform_open_id=req.from_uid,
-        nickname=req.from_uid,
+        nickname=req.visitor_name,
+        avatar_url=req.visitor_avatar,
     )
+
+    if visitor_changed:
+        # Notify visitor profile updated - need to build channel_id first
+        channel_id_for_update = build_visitor_channel_id(visitor.id)
+        await wukongim_client.send_visitor_profile_updated(
+            visitor_id=str(visitor.id),
+            channel_id=channel_id_for_update,
+            channel_type=CHANNEL_TYPE_CUSTOMER_SERVICE,
+        )
 
     # 3) Prepare correlation and session IDs
     if req.channel_id:
@@ -386,7 +396,8 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
                 yield chat_service.sse_format({"event_type": "error", "data": error_data})
             return StreamingResponse(no_staff_error_gen(), media_type="text/event-stream")
 
-    # 5) Check AI disabled status
+    # 5) Check AI disabled status (removed auto-recovery logic - should only be triggered by explicit staff action or platform setting change)
+    # 5.1) Check AI disabled status
     ai_disabled = chat_service.is_ai_disabled(platform, visitor)
     
     # 6) If AI is disabled, return appropriate response
@@ -397,7 +408,11 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
             and getattr(platform, "ai_mode", None) == "assist"
         )
         event_type = "assist_mode" if is_assist_mode else "ai_disabled"
-        message = "Human service requested, AI is in assist mode" if is_assist_mode else "AI responses are disabled for this visitor/platform"
+        message = (
+            "Human service requested, AI is in assist mode (requires staff response)" 
+            if is_assist_mode 
+            else "AI responses are disabled for this visitor/platform (check platform settings)"
+        )
         
         error_data = {
             "success": False,
@@ -896,11 +911,21 @@ async def chat_completion_openai_compatible(
     )
 
     # 3) Get or create visitor (handles status reset if CLOSED)
-    visitor = await get_or_create_visitor(
+    visitor, visitor_changed = await get_or_create_visitor(
         db=db,
         platform=platform,
         platform_open_id=platform_open_id,
+        nickname=req.user,
     )
+    
+    if visitor_changed:
+        # Notify visitor profile updated - need to build channel_id first
+        channel_id_for_update = build_visitor_channel_id(visitor.id)
+        await wukongim_client.send_visitor_profile_updated(
+            visitor_id=str(visitor.id),
+            channel_id=channel_id_for_update,
+            channel_type=CHANNEL_TYPE_CUSTOMER_SERVICE,
+        )
 
     # 4) Prepare correlation and session IDs
     client_msg_no = f"openai_{uuid4().hex}"
@@ -982,7 +1007,11 @@ async def chat_completion_openai_compatible(
             and getattr(platform, "ai_mode", None) == "assist"
         )
         status_code = status.HTTP_202_ACCEPTED if is_assist_mode else status.HTTP_403_FORBIDDEN
-        detail = "Human service requested, AI is in assist mode" if is_assist_mode else "AI responses are disabled for this visitor/platform"
+        detail = (
+            "Human service requested, AI is in assist mode (requires staff response)" 
+            if is_assist_mode 
+            else "AI responses are disabled for this visitor/platform (check platform settings)"
+        )
         raise HTTPException(
             status_code=status_code,
             detail=detail

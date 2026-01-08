@@ -27,6 +27,7 @@ from app.domain.services.listeners.wukongim_listener import WuKongIMChannelListe
 from app.domain.services.listeners.feishu_listener import FeishuChannelListener
 from app.domain.services.listeners.dingtalk_listener import DingTalkChannelListener
 from app.domain.services.listeners.telegram_listener import TelegramChannelListener
+from app.domain.services.listeners.slack_listener import SlackChannelListener
 
 
 
@@ -84,11 +85,20 @@ async def lifespan(app: FastAPI):
         sse_manager=app.state.sse_manager,
     )
 
+    # Start Slack Bot consumer (uses Socket Mode WebSocket)
+    app.state.slack_listener = SlackChannelListener(
+        session_factory=SessionLocal,
+        normalizer=normalizer,
+        tgo_api_client=app.state.tgo_api_client,
+        sse_manager=app.state.sse_manager,
+    )
+
     app.state.wukongim_listener_task = asyncio.create_task(app.state.wukongim_listener.start())
     app.state.feishu_listener_task = asyncio.create_task(app.state.feishu_listener.start())
     app.state.dingtalk_listener_task = asyncio.create_task(app.state.dingtalk_listener.start())
     app.state.telegram_listener_task = asyncio.create_task(app.state.telegram_listener.start())
     app.state.wecom_listener_task = asyncio.create_task(app.state.wecom_listener.start())
+    app.state.slack_listener_task = asyncio.create_task(app.state.slack_listener.start())
 
 
     try:
@@ -101,12 +111,14 @@ async def lifespan(app: FastAPI):
         await app.state.feishu_listener.stop()
         await app.state.dingtalk_listener.stop()
         await app.state.telegram_listener.stop()
+        await app.state.slack_listener.stop()
         app.state.email_listener_task.cancel()
         app.state.wecom_listener_task.cancel()
         app.state.wukongim_listener_task.cancel()
         app.state.feishu_listener_task.cancel()
         app.state.dingtalk_listener_task.cancel()
         app.state.telegram_listener_task.cancel()
+        app.state.slack_listener_task.cancel()
         with suppress(asyncio.CancelledError):
             await app.state.email_listener_task
         with suppress(asyncio.CancelledError):
@@ -119,6 +131,8 @@ async def lifespan(app: FastAPI):
             await app.state.dingtalk_listener_task
         with suppress(asyncio.CancelledError):
             await app.state.telegram_listener_task
+        with suppress(asyncio.CancelledError):
+            await app.state.slack_listener_task
         await app.state.tgo_api_client.aclose()
 
 app = FastAPI(lifespan=lifespan, docs_url="/v1/docs", redoc_url="/v1/redoc")
@@ -143,3 +157,6 @@ app.include_router(messages.router, tags=["messages"])
 app.include_router(platforms_v1.router, tags=["platforms"])
 app.include_router(callbacks_v1.router, tags=["callbacks"])
 
+# Internal API for hot-reloading
+from app.api.v1 import internal as internal_v1
+app.include_router(internal_v1.router, tags=["internal"])

@@ -1979,7 +1979,69 @@
       "label": "Discord"
     },
     "slack": {
-      "label": "Slack"
+      "label": "Slack",
+      "header": {
+        "title": "{{name}} 配置",
+        "subtitle": "配置 Slack Bot 对接所需的凭据与安全设置。"
+      },
+      "buttons": {
+        "delete": "删除",
+        "deleting": "删除中…",
+        "enable": "启用",
+        "disable": "禁用",
+        "enabling": "启用中…",
+        "disabling": "禁用中…",
+        "save": "保存",
+        "saving": "保存中…"
+      },
+      "form": {
+        "name": "平台名称",
+        "namePlaceholder": "请输入平台名称",
+        "botToken": "Bot Token",
+        "botTokenPlaceholder": "xoxb-...",
+        "botTokenHint": "可在 Slack App 的「OAuth & Permissions」页面获取 Bot User OAuth Token。",
+        "appToken": "App Token（Socket Mode）",
+        "appTokenPlaceholder": "xapp-...",
+        "appTokenHint": "在「Basic Information」→「App-Level Tokens」中生成（需包含 connections:write 权限）。",
+        "signingSecret": "Signing Secret（可选）",
+        "signingSecretPlaceholder": "验证请求来源的安全密钥",
+        "signingSecretHint": "可在「Basic Information」→「App Credentials」中获取，用于增强安全性。"
+      },
+      "guide": {
+        "title": "Slack Bot 配置指南",
+        "overview": "快速概览",
+        "overviewText": "完成以下步骤：①创建 Slack App → ②启用 Socket Mode 并获取 App Token → ③配置 Bot 权限与事件订阅 → ④安装到工作区并获取 Bot Token。",
+        "step1Title": "1️⃣ 创建 Slack App",
+        "step1Item1": "访问 <a class=\"text-blue-600 hover:underline\" href=\"https://api.slack.com/apps\" target=\"_blank\" rel=\"noreferrer\">api.slack.com/apps</a> 并点击「Create New App」。",
+        "step1Item2": "选择「From scratch」，输入 App 名称并选择目标工作区。",
+        "step1Item3": "在「App Home」设置显示名称，并确保开启了「Messages Tab」。",
+        "step2Title": "2️⃣ 启用 Socket Mode",
+        "step2Item1": "在左侧菜单点击「Socket Mode」并开启开关。",
+        "step2Item2": "按提示生成 App-Level Token，并确保包含 <code>connections:write</code> 权限。",
+        "step2Item3": "复制生成的 <code>xapp-...</code> Token 并填入左侧「App Token」字段。",
+        "step3Title": "3️⃣ 配置权限与事件订阅",
+        "step3Item1": "在「OAuth & Permissions」中的「Bot Token Scopes」添加所需权限（如 chat:write, im:history 等）。",
+        "step3Item2": "在「Event Subscriptions」开启事件订阅，并添加 <code>message.im</code> 和 <code>app_mention</code>。",
+        "step4Title": "4️⃣ 安装与集成",
+        "step4Item1": "点击「Install to Workspace」并完成授权。",
+        "step4Item2": "复制「Bot User OAuth Token」(xoxb-...) 并填入左侧「Bot Token」字段。",
+        "step4Item3": "保存配置后，您的 AI 助手即可在 Slack 中响应消息。",
+        "docsLink": "Slack API 官方文档"
+      },
+      "dialog": {
+        "deleteTitle": "确认删除",
+        "deleteMessage": "确定要删除此 Slack Bot 平台吗？此操作不可撤销。",
+        "confirmDelete": "删除",
+        "cancel": "取消"
+      },
+      "messages": {
+        "saveSuccess": "保存成功",
+        "saveSuccessMessage": "Slack 机器人配置已更新",
+        "deleteSuccess": "删除成功",
+        "deleteSuccessMessage": "Slack 机器人平台已删除",
+        "disabled": "平台已禁用",
+        "enabled": "平台已启用"
+      }
     },
     "teams": {
       "label": "Microsoft Teams"

@@ -498,6 +498,10 @@ async def enable_platform(
     if platform.type == "telegram":
         await _setup_telegram_webhook(platform)
 
+    # Notify tgo-platform to start Slack Socket Mode handler
+    if platform.type == "slack":
+        await _notify_slack_platform_reload(platform)
+
     logger.info("Platform %s enabled by user %s", str(platform.id), current_user.username)
     return _build_platform_response(platform, language=x_user_language)
 
@@ -528,6 +532,10 @@ async def disable_platform(
     # Delete Telegram webhook when platform is disabled
     if platform.type == "telegram":
         await _delete_telegram_webhook(platform)
+
+    # Notify tgo-platform to stop Slack Socket Mode handler
+    if platform.type == "slack":
+        await _notify_slack_platform_stop(str(platform.id))
 
     platform.is_active = False
     platform.updated_at = datetime.utcnow()
@@ -612,6 +620,51 @@ async def _delete_telegram_webhook(platform: Platform) -> None:
             str(platform.id), str(e)
         )
 
+
+async def _notify_slack_platform_reload(platform: Platform) -> None:
+    """Notify tgo-platform to start Slack Socket Mode handler for a platform."""
+    platform_base_url = settings.PLATFORM_BASE_URL if hasattr(settings, 'PLATFORM_BASE_URL') else "http://tgo-platform:8003"
+    url = f"{platform_base_url.rstrip('/')}/internal/slack/reload"
+    
+    config = platform.config or {}
+    payload = {
+        "platform_id": str(platform.id),
+        "project_id": str(platform.project_id),
+        "api_key": platform.api_key,
+        "bot_token": config.get("bot_token", ""),
+        "app_token": config.get("app_token", ""),
+        "signing_secret": config.get("signing_secret", ""),
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json=payload)
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("success"):
+                    logger.info("Slack platform %s reload triggered successfully", str(platform.id))
+                else:
+                    logger.warning("Slack platform %s reload returned failure: %s", str(platform.id), result.get("message"))
+            else:
+                logger.warning("Failed to notify tgo-platform for Slack reload: %s", response.text)
+    except Exception as e:
+        logger.warning("Error notifying tgo-platform for Slack reload: %s", str(e))
+
+
+async def _notify_slack_platform_stop(platform_id: str) -> None:
+    """Notify tgo-platform to stop Slack Socket Mode handler for a platform."""
+    platform_base_url = settings.PLATFORM_BASE_URL if hasattr(settings, 'PLATFORM_BASE_URL') else "http://tgo-platform:8003"
+    url = f"{platform_base_url.rstrip('/')}/internal/slack/stop/{platform_id}"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url)
+            if response.status_code == 200:
+                result = response.json()
+                logger.info("Slack platform %s stop triggered: %s", platform_id, result.get("message"))
+            else:
+                logger.warning("Failed to notify tgo-platform for Slack stop: %s", response.text)
+    except Exception as e:
+        logger.warning("Error notifying tgo-platform for Slack stop: %s", str(e))
 
 
 @router.post("/{platform_id}/enable-ai", response_model=PlatformResponse)

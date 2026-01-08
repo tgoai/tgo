@@ -219,7 +219,7 @@ class TelegramChannelListener:
             "from_display_name": " ".join(filter(None, [
                 from_user.get("first_name"),
                 from_user.get("last_name"),
-            ])) or from_user.get("username") or str(from_user.get("id", "")),
+            ])) or from_user.get("username"),
             "chat_id": str(chat.get("id", "")),
             "chat_type": chat.get("type", "private"),
             "content": content,
@@ -286,7 +286,7 @@ class TelegramChannelListener:
         msg_data: dict[str, Any],
     ) -> tuple[Any | None, str | None, str | None]:
         """Visitor retrieval/registration with cache-first approach."""
-        display_name: str | None = msg_data.get("from_display_name") or msg_data.get("from_username") or msg_data["from_user"]
+        display_name: str | None = msg_data.get("from_display_name") or msg_data.get("from_username")
         avatar_url: str | None = None
         visitor = None
 

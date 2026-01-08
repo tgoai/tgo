@@ -339,3 +339,50 @@ class TelegramInbox(Base):
     )
 
 
+class SlackInbox(Base):
+    """Inbound Slack messages stored for async processing pipeline.
+
+    Stores messages received from Slack Socket Mode for two-stage processing.
+    The channel_id is used for replying to messages via chat.postMessage API.
+    """
+
+    __tablename__ = "pt_slack_inbox"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Associations
+    platform_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("pt_platforms.id", ondelete="CASCADE"), index=True, nullable=False)
+
+    # Sender info
+    slack_user_id: Mapped[str] = mapped_column(String(255), nullable=False)  # Slack user ID (U...)
+
+    # Channel context
+    channel_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)  # Channel or DM ID
+
+    # Message identity
+    ts: Mapped[str] = mapped_column(String(50), nullable=False)  # Slack message timestamp (unique ID)
+    thread_ts: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Thread timestamp for threaded replies
+
+    # Message content
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)  # Message text
+    files: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # File attachments metadata
+
+    # AI response
+    ai_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Timestamps
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Processing status
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+    __table_args__ = (
+        UniqueConstraint("platform_id", "channel_id", "ts", name="uq_slack_inbox_platform_channel_ts"),
+        Index("ix_slack_inbox_platform_status", "platform_id", "status"),
+        Index("ix_slack_inbox_status_fetched", "status", "fetched_at"),
+    )
+

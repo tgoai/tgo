@@ -12,6 +12,7 @@ import EmailPlatformConfig from '@/components/platforms/EmailPlatformConfig';
 import DouyinPlatformConfig from '@/components/platforms/DouyinPlatformConfig';
 import CustomPlatformConfig from '@/components/platforms/CustomPlatformConfig';
 import TelegramPlatformConfig from '@/components/platforms/TelegramPlatformConfig';
+import SlackPlatformConfig from '@/components/platforms/SlackPlatformConfig';
 
 /**
  * Platform Configuration page component
@@ -131,6 +132,10 @@ const PlatformConfigPage: React.FC = () => {
   // Telegram
   if ((platform.type as any) === 'telegram') {
     return <TelegramPlatformConfig platform={platform} />;
+  }
+  // Slack
+  if ((platform.type as any) === 'slack') {
+    return <SlackPlatformConfig platform={platform} />;
   }
 
   // Fallback to generic/placeholder config for other types

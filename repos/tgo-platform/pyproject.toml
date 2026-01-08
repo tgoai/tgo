@@ -18,6 +18,9 @@ redis = ">=5,<6"
 alembic = ">=1.13,<2"
 greenlet = "^3.2.4"
 cryptography = ">=43.0.0"
+slack-bolt = ">=1.18,<2.0"
+slack-sdk = ">=3.21,<4.0"
+requests = ">=2.31.0,<3.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.4,<9.0"
