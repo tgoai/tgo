@@ -104,29 +104,36 @@ class AgnoTeamBuilder:
     ) -> Dict[str, Any]:
         """Build the kwargs dict for Team instantiation."""
         self._logger.debug("Building team kwargs", team_model=str(team_model))
+
+        # Extract config and merge with defaults
+        config = context.team.config or {}
+
         return {
             "members": members,
             "name": context.team.name or "Supervisor Coordination Team",
-            "role": "Coordinator",
+            "role": config.get("role", "Coordinator"),
             "description": context.team.instruction,
             "instructions":  settings.supervisor_runtime.team_instructions,
             "user_id": context.user_id,
             "session_id": context.session_id,
             "model": team_model,
             "additional_context": context.system_message,
-            "determine_input_for_members": True,
-            "delegate_task_to_all_members": False,
+            "determine_input_for_members": config.get("determine_input_for_members", True),
+            "delegate_task_to_all_members": config.get("delegate_to_all_members", False),
             "expected_output": context.expected_output,
-            "add_datetime_to_context": True,
-            "markdown": True,
-            "respond_directly": False, # 是否直接返回成员的回答，不进行额外的汇总。当为True时，会直接返回成员的回答，不进行额外的汇总。当为False时，会先汇总成员的回答，再返回。
-            "stream_member_events": True,
-            "share_member_interactions": False,
-            "show_members_responses": False,
+            "add_datetime_to_context": config.get("add_datetime_to_context", True),
+            "add_location_to_context": config.get("add_location_to_context", False),
+            "timezone_identifier": config.get("timezone_identifier"),
+            "markdown": config.get("markdown", True),
+            "respond_directly": config.get("respond_directly", False),
+            "stream_member_events": config.get("stream_member_events", True),
+            "share_member_interactions": config.get("share_member_interactions", False),
+            "show_members_responses": config.get("show_members_responses", False),
+            "tool_call_limit": config.get("tool_call_limit"),
             "enable_user_memories": context.enable_memory,
             "add_memories_to_context": context.enable_memory,
-            "add_history_to_context": True,
-            "num_history_runs": 5,
+            "add_history_to_context": config.get("add_history_to_context", True),
+            "num_history_runs": config.get("num_history_runs", 5),
             "metadata": {"team_id": str(context.team.id)},
         }
 
@@ -357,4 +364,11 @@ class AgnoTeamBuilder:
             workflow=workflow_config,
             enable_memory=context.enable_memory,
             provider_credentials=provider_credentials,
+            markdown=combined.get("markdown"),
+            add_datetime_to_context=combined.get("add_datetime_to_context"),
+            add_location_to_context=combined.get("add_location_to_context"),
+            timezone_identifier=combined.get("timezone_identifier"),
+            show_tool_calls=combined.get("show_tool_calls"),
+            tool_call_limit=combined.get("tool_call_limit"),
+            num_history_runs=combined.get("num_history_runs"),
         )

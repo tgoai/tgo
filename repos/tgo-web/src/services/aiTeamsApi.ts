@@ -1,5 +1,5 @@
 import { BaseApiService } from './base/BaseApiService';
-import type { Agent } from '@/types';
+import type { Agent, TeamAdvancedConfig } from '@/types';
 
 // Team response from API
 export interface TeamResponse {
@@ -10,6 +10,7 @@ export interface TeamResponse {
   expected_output: string | null;
   session_id: string | null;
   is_default: boolean;
+  config?: TeamAdvancedConfig | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -28,6 +29,7 @@ export interface TeamUpdateRequest {
   expected_output?: string | null;
   session_id?: string | null;
   is_default?: boolean | null;
+  config?: TeamAdvancedConfig | null;
 }
 
 class AITeamsApiService extends BaseApiService {

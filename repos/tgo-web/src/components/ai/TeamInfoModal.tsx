@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuX, LuUsers, LuSave, LuMessageSquare, LuCpu, LuInfo, LuChevronRight } from 'react-icons/lu';
+import { LuX, LuUsers, LuSave, LuMessageSquare, LuCpu, LuInfo, LuChevronRight, LuChevronDown, LuChevronUp, LuSettings } from 'react-icons/lu';
 import { Loader2, Sparkles } from 'lucide-react';
 import { aiTeamsApiService, TeamWithDetailsResponse, TeamUpdateRequest } from '@/services/aiTeamsApi';
 import { useToast } from '@/hooks/useToast';
 import { useProvidersStore } from '@/stores/providersStore';
 import AIProvidersApiService from '@/services/aiProvidersApi';
+import Toggle from '@/components/ui/Toggle';
 
 interface TeamInfoModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
   const { showSuccess, showError } = useToast();
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -26,6 +28,12 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
     model: '',
     instruction: '',
     expected_output: '',
+    // Advanced config
+    respond_directly: false,
+    num_history_runs: 5,
+    markdown: true,
+    add_datetime_to_context: true,
+    tool_call_limit: 10,
   });
 
   // Track if form has been modified
@@ -94,18 +102,26 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
     if (team) {
       // Find the matching option for the current model to get the composite value
       const matchingOption = llmOptions.find(opt => opt.modelName === team.model);
+      const config = team.config || {};
+      
       setFormData({
         name: team.name || '',
         model: matchingOption?.value || team.model || '', // Use composite value if found
         instruction: team.instruction || '',
         expected_output: team.expected_output || '',
+        // Advanced config
+        respond_directly: config.respond_directly ?? false,
+        num_history_runs: config.num_history_runs ?? 5,
+        markdown: config.markdown ?? true,
+        add_datetime_to_context: config.add_datetime_to_context ?? true,
+        tool_call_limit: config.tool_call_limit ?? 10,
       });
       setSelectedProviderId(matchingOption?.providerId || null);
       setIsDirty(false);
     }
   }, [team, llmOptions]);
 
-  const handleInputChange = (field: keyof typeof formData, value: string) => {
+  const handleInputChange = (field: keyof typeof formData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setIsDirty(true);
     
@@ -145,6 +161,15 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
       if (formData.expected_output !== (team.expected_output || '')) {
         updateData.expected_output = formData.expected_output || null;
       }
+
+      // Always include config if dirty (or we can diff it too)
+      updateData.config = {
+        respond_directly: formData.respond_directly,
+        num_history_runs: formData.num_history_runs,
+        markdown: formData.markdown,
+        add_datetime_to_context: formData.add_datetime_to_context,
+        tool_call_limit: formData.tool_call_limit,
+      };
 
       await aiTeamsApiService.updateTeam(team.id, updateData);
       showSuccess(
@@ -284,6 +309,101 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
                     {t('team.modal.instructionHint', '💡 此指令作为团队全局背景，将整合工具调用、工作流执行及知识库能力，应用于所有成员以实现高效协作。')}
                   </p>
                 </div>
+              </div>
+
+              {/* Advanced Configuration */}
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+                  className="flex items-center justify-between w-full px-6 py-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-blue-500/50 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <LuSettings className={`w-5 h-5 ${isAdvancedOpen ? 'text-blue-500' : 'text-gray-400'} transition-colors`} />
+                    <span className="font-bold text-gray-700 dark:text-gray-300">
+                      {t('team.config.advanced', '高级配置')}
+                    </span>
+                  </div>
+                  {isAdvancedOpen ? (
+                    <LuChevronUp className="w-5 h-5 text-gray-400" />
+                  ) : (
+                    <LuChevronDown className="w-5 h-5 text-gray-400" />
+                  )}
+                </button>
+
+                {isAdvancedOpen && (
+                  <div className="px-2 py-2 space-y-6 animate-in slide-in-from-top-2 duration-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Respond Directly */}
+                      <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+                        <div>
+                          <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('config.respondDirectly', '直接响应')}</p>
+                          <p className="text-xs text-gray-500">{t('config.respondDirectlyDesc', '跳过成员回答汇总，直接返回回答')}</p>
+                        </div>
+                        <Toggle
+                          checked={formData.respond_directly}
+                          onChange={(checked) => handleInputChange('respond_directly', checked)}
+                        />
+                      </div>
+
+                      {/* Markdown */}
+                      <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+                        <div>
+                          <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('config.markdown', 'Markdown 格式')}</p>
+                          <p className="text-xs text-gray-500">{t('config.markdownDesc', '使用 Markdown 格式化输出内容')}</p>
+                        </div>
+                        <Toggle
+                          checked={formData.markdown}
+                          onChange={(checked) => handleInputChange('markdown', checked)}
+                        />
+                      </div>
+
+                      {/* Add Datetime */}
+                      <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+                        <div>
+                          <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('config.addDatetime', '添加日期时间')}</p>
+                          <p className="text-xs text-gray-500">{t('config.addDatetimeDesc', '在上下文中包含当前日期时间')}</p>
+                        </div>
+                        <Toggle
+                          checked={formData.add_datetime_to_context}
+                          onChange={(checked) => handleInputChange('add_datetime_to_context', checked)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* History Runs */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
+                          {t('config.numHistoryRuns', '历史会话轮数')}
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={20}
+                          value={formData.num_history_runs}
+                          onChange={(e) => handleInputChange('num_history_runs', parseInt(e.target.value) || 0)}
+                          className="w-full px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                        />
+                      </div>
+
+                      {/* Tool Call Limit */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
+                          {t('config.toolCallLimit', '工具调用限制')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={50}
+                          value={formData.tool_call_limit}
+                          onChange={(e) => handleInputChange('tool_call_limit', parseInt(e.target.value) || 0)}
+                          className="w-full px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : (

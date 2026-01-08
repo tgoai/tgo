@@ -115,7 +115,11 @@ export const useAIStore = create<AIState>()(
           tools: [],
           toolConfigs: {},
           knowledgeBases: [],
-          workflows: []
+          workflows: [],
+          markdown: true,
+          add_datetime_to_context: true,
+          tool_call_limit: 10,
+          num_history_runs: 5,
         },
         createAgentErrors: {},
 
@@ -307,7 +311,11 @@ export const useAIStore = create<AIState>()(
             tools: [],
             toolConfigs: {},
             knowledgeBases: [],
-            workflows: []
+            workflows: [],
+            markdown: true,
+            add_datetime_to_context: true,
+            tool_call_limit: 10,
+            num_history_runs: 5,
           },
           createAgentErrors: {}
         }, false, 'resetCreateAgentForm'),

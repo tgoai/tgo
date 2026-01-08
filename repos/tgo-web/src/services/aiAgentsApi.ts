@@ -190,6 +190,10 @@ export class AIAgentsTransformUtils {
       is_default: false, // Default to false
       config: {
         profession: formData.profession,
+        markdown: formData.markdown,
+        add_datetime_to_context: formData.add_datetime_to_context,
+        tool_call_limit: formData.tool_call_limit,
+        num_history_runs: formData.num_history_runs,
       },
       team_id: null, // Optional - can be set later if needed
       tools: tools,
@@ -237,6 +241,13 @@ export class AIAgentsTransformUtils {
       collections: collections,
       agentTools: tools,
       workflows: (apiAgent as any).workflows || [],
+      config: {
+        profession: apiAgent.config?.profession,
+        markdown: apiAgent.config?.markdown,
+        add_datetime_to_context: apiAgent.config?.add_datetime_to_context,
+        tool_call_limit: apiAgent.config?.tool_call_limit,
+        num_history_runs: apiAgent.config?.num_history_runs,
+      },
     };
   }
 
@@ -331,6 +342,10 @@ export class AIAgentsTransformUtils {
       config: {
         profession: agent.role,
         capabilities: agent.capabilities,
+        markdown: agent.config?.markdown,
+        add_datetime_to_context: agent.config?.add_datetime_to_context,
+        tool_call_limit: agent.config?.tool_call_limit,
+        num_history_runs: agent.config?.num_history_runs,
       },
       tools: tools,
       collections: collections,

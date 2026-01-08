@@ -71,7 +71,7 @@ class Agent(BaseModel):
     name: str = Field(..., description="Agent name")
     instruction: Optional[str] = Field(None, description="Agent system instruction")
     model: str = Field(..., description="LLM model name")
-    config: Dict[str, Any] = Field(default_factory=dict, description="Agent configuration")
+    config: Dict[str, Any] = Field(default_factory=dict, description="Agent configuration (temperature, max_tokens, markdown, etc.)")
     team_id: Optional[str] = Field(None, description="Associated team ID")
     tools: List[AgentTool] = Field(default_factory=list, description="Agent tools")
     collections: List[AgentCollection] = Field(default_factory=list, description="Agent collections")
@@ -120,6 +120,7 @@ class Team(BaseModel):
     model: Optional[str] = Field(None, description="Team's default LLM model")
     instruction: Optional[str] = Field(None, description="Team system prompt/instructions")
     expected_output: Optional[str] = Field(None, description="Expected output format")
+    config: Dict[str, Any] = Field(default_factory=dict, description="Team configuration")
     llm_provider_credentials: Optional[LLMProviderCredentials] = Field(
         default=None,
         description="Resolved LLM provider credentials for this team",

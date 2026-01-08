@@ -35,6 +35,28 @@ export type PlatformStatus = 'connected' | 'pending' | 'unconfigured' | 'disable
  */
 export type PlatformAIMode = 'auto' | 'assist' | 'off';
 
+/**
+ * Team 高级配置 (agno 框架参数)
+ */
+export interface TeamAdvancedConfig {
+  respond_directly?: boolean;        // 直接响应，跳过成员回答汇总
+  num_history_runs?: number;         // 历史会话轮数限制 (1-20)
+  markdown?: boolean;                // 是否使用 markdown 格式输出
+  add_datetime_to_context?: boolean; // 是否添加日期时间到上下文
+  tool_call_limit?: number;          // 单次运行工具调用次数限制
+}
+
+/**
+ * Agent 高级配置 (agno 框架参数)
+ */
+export interface AgentAdvancedConfig {
+  profession?: string;               // 职业/角色 (UI 字段)
+  markdown?: boolean;                // 是否使用 markdown 格式输出
+  add_datetime_to_context?: boolean; // 是否添加日期时间到上下文
+  tool_call_limit?: number;          // 单次运行工具调用次数限制
+  num_history_runs?: number;         // 历史会话轮数限制
+}
+
 export enum PlatformType {
   WEBSITE = "website",
   WECHAT = "wechat",
@@ -119,6 +141,7 @@ export interface Agent {
   collections?: AICollectionResponse[]; // Full collection objects from API
   agentTools?: AgentToolResponse[]; // Full tool objects from API
   workflows?: any[]; // Full workflow objects from API
+  config?: AgentAdvancedConfig; // 高级配置
 }
 
 export type AgentStatus = 'active' | 'inactive' | 'training' | 'error';
@@ -134,6 +157,12 @@ export interface CreateAgentFormData {
   toolConfigs: Record<string, Record<string, any>>; // 工具配置
   knowledgeBases: string[];
   workflows: string[]; // 工作流ID列表
+  // 高级配置
+  markdown?: boolean;
+  add_datetime_to_context?: boolean;
+  show_tool_calls?: boolean;
+  tool_call_limit?: number;
+  num_history_runs?: number;
 }
 
 // 表单验证错误类型
@@ -249,7 +278,7 @@ export interface AgentCreateRequest {
   instruction?: string | null;
   model: string; // pure model name (e.g., 'gpt-4o'), no provider prefix
   is_default?: boolean;
-  config?: Record<string, any> | null;
+  config?: AgentAdvancedConfig | null;
   team_id?: string | null;
   ai_provider_id?: string | null; // AI provider UUID (credentials)
   tools?: AgentToolCreateRequest[] | null;
@@ -263,7 +292,7 @@ export interface AgentUpdateRequest {
   instruction?: string | null;
   model?: string | null; // pure model name (no provider prefix)
   is_default?: boolean | null;
-  config?: Record<string, any> | null;
+  config?: AgentAdvancedConfig | null;
   team_id?: string | null;
   ai_provider_id?: string | null; // AI provider UUID (credentials)
   tools?: AgentToolCreateRequest[] | null;

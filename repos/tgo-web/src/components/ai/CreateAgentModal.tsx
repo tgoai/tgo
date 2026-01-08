@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { X, Save, RotateCcw, Bot, Wrench, FolderOpen, XCircle, User, Briefcase, GitBranch, Sparkles, Layout, ChevronRight } from 'lucide-react';
+import { X, Save, RotateCcw, Bot, Wrench, FolderOpen, XCircle, User, Briefcase, GitBranch, Sparkles, Layout, ChevronRight, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useAIStore } from '@/stores';
@@ -8,6 +8,7 @@ import { useProjectToolsStore } from '@/stores/projectToolsStore';
 
 import { useToast } from '@/hooks/useToast';
 import { transformAiToolResponseList } from '@/utils/projectToolsTransform';
+import Toggle from '@/components/ui/Toggle';
 // import { generateDefaultAvatar } from '@/utils/avatarUtils';
 import SectionHeader from '@/components/ui/SectionHeader';
 
@@ -139,6 +140,8 @@ const CreateAgentModal: React.FC = () => {
 
   // Workflow selection modal state
   const [showWorkflowSelectionModal, setShowWorkflowSelectionModal] = useState(false);
+
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   // Workflow store
   const { workflows, loadWorkflows } = useWorkflowStore();
@@ -505,6 +508,87 @@ const CreateAgentModal: React.FC = () => {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Advanced Configuration Section */}
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+                  className="flex items-center justify-between w-full px-6 py-4 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-all group shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <Settings className={`w-5 h-5 ${isAdvancedOpen ? 'text-blue-600' : 'text-gray-400'} transition-colors`} />
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
+                      {t('agents.config.advanced', '高级配置')}
+                    </h3>
+                  </div>
+                  {isAdvancedOpen ? (
+                    <ChevronUp className="w-5 h-5 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                  )}
+                </button>
+
+                {isAdvancedOpen && (
+                  <div className="p-6 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-6 animate-in slide-in-from-top-2 duration-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Markdown */}
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-50 dark:border-gray-700">
+                        <div>
+                          <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('config.markdown', 'Markdown 格式')}</p>
+                          <p className="text-xs text-gray-500">{t('config.markdownDesc', '使用 Markdown 格式化输出内容')}</p>
+                        </div>
+                        <Toggle
+                          checked={!!createAgentFormData.markdown}
+                          onChange={(checked) => handleInputChange('markdown', checked)}
+                        />
+                      </div>
+
+                      {/* Add Datetime */}
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-50 dark:border-gray-700">
+                        <div>
+                          <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('config.addDatetime', '添加日期时间')}</p>
+                          <p className="text-xs text-gray-500">{t('config.addDatetimeDesc', '在上下文中包含当前日期时间')}</p>
+                        </div>
+                        <Toggle
+                          checked={!!createAgentFormData.add_datetime_to_context}
+                          onChange={(checked) => handleInputChange('add_datetime_to_context', checked)}
+                        />
+                      </div>
+
+                      {/* History Runs */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
+                          {t('config.numHistoryRuns', '历史会话轮数')}
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={20}
+                          value={createAgentFormData.num_history_runs}
+                          onChange={(e) => handleInputChange('num_history_runs', parseInt(e.target.value) || 0)}
+                          className="w-full px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                        />
+                      </div>
+
+                      {/* Tool Call Limit */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
+                          {t('config.toolCallLimit', '工具调用限制')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={50}
+                          value={createAgentFormData.tool_call_limit}
+                          onChange={(e) => handleInputChange('tool_call_limit', parseInt(e.target.value) || 0)}
+                          className="w-full px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 资源关联 Section */}

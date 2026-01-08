@@ -196,6 +196,15 @@ class TeamCreateRequest(BaseSchema):
         default=False,
         description="Whether this should be the default team (only one per project)"
     )
+    config: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Team configuration (respond_directly, num_history_runs, etc.)",
+        examples=[{
+            "respond_directly": False,
+            "num_history_runs": 5,
+            "markdown": True
+        }]
+    )
 
 
 class TeamUpdateRequest(BaseSchema):
@@ -232,6 +241,10 @@ class TeamUpdateRequest(BaseSchema):
     is_default: Optional[bool] = Field(
         None,
         description="Updated default status"
+    )
+    config: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Updated team configuration"
     )
 
 
@@ -270,6 +283,10 @@ class TeamResponse(BaseSchema):
     is_default: bool = Field(
         default=False,
         description="Whether this should be the default team (only one per project)"
+    )
+    config: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Team configuration"
     )
     created_at: datetime = Field(..., description="Record creation timestamp")
     updated_at: datetime = Field(..., description="Record last update timestamp")
@@ -374,10 +391,11 @@ class AgentCreateRequest(BaseSchema):
     )
     config: Optional[Dict[str, Any]] = Field(
         None,
-        description="Agent configuration (temperature, max_tokens, etc.)",
+        description="Agent configuration (temperature, max_tokens, markdown, add_datetime_to_context, etc.)",
         examples=[{
             "max_tokens": 2000,
-            "temperature": 0.7
+            "temperature": 0.7,
+            "markdown": True
         }]
     )
     team_id: Optional[UUID] = Field(
@@ -446,7 +464,7 @@ class AgentUpdateRequest(BaseSchema):
     )
     config: Optional[Dict[str, Any]] = Field(
         None,
-        description="Updated agent configuration"
+        description="Updated agent configuration (temperature, max_tokens, markdown, add_datetime_to_context, etc.)"
     )
     tools: Optional[List[AgentToolCreateRequest]] = Field(
         None,
@@ -501,10 +519,11 @@ class AgentResponse(BaseSchema):
     )
     config: Optional[Dict[str, Any]] = Field(
         None,
-        description="Agent configuration (temperature, max_tokens, etc.)",
+        description="Agent configuration (temperature, max_tokens, markdown, add_datetime_to_context, etc.)",
         examples=[{
             "max_tokens": 2000,
-            "temperature": 0.7
+            "temperature": 0.7,
+            "markdown": True
         }]
     )
     team_id: Optional[UUID] = Field(None, description="Associated team ID")

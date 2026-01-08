@@ -104,7 +104,11 @@ class AgentBuilder:
                 "additional_context": config.system_message,
                 "expected_output": config.expected_output,
                 "description": "Tools agent with MCP and RAG support",
-                "markdown": True,
+                "markdown": config.markdown if config.markdown is not None else True,
+                "add_datetime_to_context": config.add_datetime_to_context if config.add_datetime_to_context is not None else True,
+                "add_location_to_context": config.add_location_to_context if config.add_location_to_context is not None else False,
+                "timezone_identifier": config.timezone_identifier,
+                "tool_call_limit": config.tool_call_limit,
                 "telemetry": False,
                 "debug_mode": True,
                 "debug_level": 2
@@ -124,7 +128,7 @@ class AgentBuilder:
                     enable_user_memories=True,
                     add_memories_to_context=True,
                     add_history_to_context = True,  # Automatically add the persisted session history to the context
-                    num_history_runs=5, # Specify how many messages to add to the context
+                    num_history_runs=config.num_history_runs if config.num_history_runs is not None else 5, # Specify how many messages to add to the context
                 )
 
             return Agent(**agent_kwargs)

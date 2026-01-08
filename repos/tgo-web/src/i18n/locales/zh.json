@@ -73,6 +73,16 @@
     "yes": "是",
     "no": "否"
   },
+  "config": {
+    "respondDirectly": "直接响应",
+    "respondDirectlyDesc": "跳过成员回答汇总，直接返回回答",
+    "markdown": "Markdown 格式",
+    "markdownDesc": "使用 Markdown 格式化输出内容",
+      "addDatetime": "添加日期时间",
+      "addDatetimeDesc": "在上下文中包含当前日期时间",
+      "numHistoryRuns": "历史会话轮数",
+    "toolCallLimit": "工具调用限制"
+  },
   "tagInput": {
     "placeholder": "输入标签并按回车键添加",
     "removeTag": "删除标签",
@@ -908,6 +918,9 @@
   "agents": {
     "title": "AI员工团队管理",
     "subtitle": "管理您的AI员工",
+    "config": {
+      "advanced": "高级配置"
+    },
     "actions": {
       "create": "创建AI员工",
       "edit": "编辑",
@@ -1221,6 +1234,9 @@
         "empty": "暂无可用模型",
         "selectPlaceholder": "请选择模型"
       }
+    },
+    "config": {
+      "advanced": "高级配置"
     }
   },
   "auth": {

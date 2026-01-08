@@ -73,6 +73,16 @@
     "yes": "Yes",
     "no": "No"
   },
+  "config": {
+    "respondDirectly": "Respond Directly",
+    "respondDirectlyDesc": "Skip member answer aggregation and return the answer directly",
+    "markdown": "Markdown Format",
+    "markdownDesc": "Use Markdown to format output content",
+    "addDatetime": "Add Datetime",
+    "addDatetimeDesc": "Include current date and time in the context",
+    "numHistoryRuns": "History Session Runs",
+    "toolCallLimit": "Tool Call Limit"
+  },
   "tagInput": {
     "placeholder": "Enter tag and press Enter to add",
     "removeTag": "Remove tag",
@@ -591,6 +601,9 @@
   "agents": {
     "title": "Agent Team Management",
     "subtitle": "Manage your AI agents",
+    "config": {
+      "advanced": "Advanced Configuration"
+    },
     "actions": {
       "create": "Create Agent",
       "edit": "Edit",
@@ -904,6 +917,9 @@
         "empty": "No models available",
         "selectPlaceholder": "Select a model"
       }
+    },
+    "config": {
+      "advanced": "Advanced Configuration"
     }
   },
   "auth": {

@@ -9,6 +9,11 @@ export interface AgentFormState {
   toolConfigs: Record<string, Record<string, any>>;
   knowledgeBases: string[];
   workflows: string[];
+  // 高级配置
+  markdown?: boolean;
+  add_datetime_to_context?: boolean;
+  tool_call_limit?: number;
+  num_history_runs?: number;
 }
 
 export interface UseAgentFormOptions {
@@ -42,6 +47,10 @@ const defaultForm: AgentFormState = {
   toolConfigs: {},
   knowledgeBases: [],
   workflows: [],
+  markdown: true,
+  add_datetime_to_context: true,
+  tool_call_limit: 10,
+  num_history_runs: 5,
 };
 
 export function useAgentForm(options: UseAgentFormOptions = {}): UseAgentFormResult {

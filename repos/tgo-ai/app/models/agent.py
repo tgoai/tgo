@@ -76,7 +76,7 @@ class Agent(BaseModel):
     config: Mapped[Optional[dict]] = mapped_column(
         JSON,
         nullable=True,
-        comment="Agent configuration (temperature, max_tokens, etc.)",
+        comment="Agent configuration (temperature, max_tokens, markdown, add_datetime_to_context, etc.)",
     )
 
     # Relationships

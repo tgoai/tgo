@@ -70,6 +70,14 @@ class AgentConfig(BaseModel):
     system_message: Optional[str] = Field(default=None, description="自定义系统消息")
     expected_output: Optional[str] = Field(default=None, description="期望的输出格式")
 
+    # 扩展配置参数
+    markdown: Optional[bool] = Field(default=None, description="是否使用markdown格式输出")
+    add_datetime_to_context: Optional[bool] = Field(default=None, description="是否添加日期时间到上下文")
+    add_location_to_context: Optional[bool] = Field(default=None, description="是否添加位置信息到上下文")
+    timezone_identifier: Optional[str] = Field(default=None, description="时区标识")
+    tool_call_limit: Optional[int] = Field(default=None, description="单次运行工具调用次数限制")
+    num_history_runs: Optional[int] = Field(default=None, description="历史会话轮数限制")
+
     provider_credentials: Optional[LLMProviderCredentials] = Field(
         default=None,
         description="Resolved LLM provider credentials for this agent",

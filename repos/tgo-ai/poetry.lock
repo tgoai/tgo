@@ -2,21 +2,21 @@
 
 [[package]]
 name = "agno"
-version = "2.2.13"
+version = "2.3.23"
 description = "Agno: a lightweight library for building Multi-Agent Systems"
 optional = false
 python-versions = "<4,>=3.7"
 groups = ["main"]
 files = [
-    {file = "agno-2.2.13-py3-none-any.whl", hash = "sha256:3103d949737a96e4f1913393373f4f36b9c60cfa7627abd2b0f8653c7a9e88bd"},
-    {file = "agno-2.2.13.tar.gz", hash = "sha256:c927279d9957d18e554c7e18e25500f803df1791cc8730d2d313ef5f6579f0a6"},
+    {file = "agno-2.3.23-py3-none-any.whl", hash = "sha256:122c0a046e4e8706ffaab592d03921ff581941d883f0e686ac1d4742bf9c11a2"},
+    {file = "agno-2.3.23.tar.gz", hash = "sha256:3569aca16f662b13274514ede323f6cc792dd50f8f7f37739319bc83c5967446"},
 ]
 
 [package.dependencies]
 docstring-parser = "*"
 gitpython = "*"
 h11 = ">=0.16.0"
-httpx = "*"
+httpx = {version = "*", extras = ["http2"]}
 packaging = "*"
 pydantic = "*"
 pydantic-settings = "*"
@@ -35,6 +35,7 @@ anthropic = ["anthropic"]
 apify = ["apify-client"]
 arize = ["agno[opentelemetry]", "arize-phoenix", "opentelemetry-distro", "opentelemetry-exporter-otlp-proto-grpc"]
 arxiv = ["arxiv"]
+async-mongo = ["motor", "pymongo (>=4.9)"]
 async-postgres = ["asyncpg"]
 aws = ["agno-infra[aws]", "agno-infra[docker]"]
 aws-bedrock = ["aioboto3", "boto3"]
@@ -51,11 +52,11 @@ cohere = ["cohere"]
 confluence = ["atlassian-python-api"]
 cookbooks = ["email_validator", "inquirer"]
 couchbase = ["couchbase"]
-crawl4ai = ["crawl4ai"]
+crawl4ai = ["crawl4ai (>=0.6.3)"]
 csv = ["aiofiles"]
 daytona = ["daytona"]
 ddg = ["ddgs"]
-dev = ["fastapi", "mypy (==1.18.2)", "pytest", "pytest-asyncio", "pytest-cov", "pytest-mock", "ruff (==0.14.3)", "timeout-decorator", "types-aiofiles", "types-pyyaml", "uvicorn"]
+dev = ["PyJWT", "fakeredis", "fastapi", "mcp", "mypy (==1.18.2)", "openai", "pytest", "pytest-asyncio", "pytest-cov", "pytest-mock", "ruff (==0.14.3)", "timeout-decorator", "types-aiofiles", "types-pyyaml", "uvicorn"]
 docker = ["agno-infra[docker]"]
 docx = ["python-docx"]
 duckdb = ["duckdb"]
@@ -64,12 +65,12 @@ embedders = ["agno[huggingface]", "agno[vllm]"]
 evm = ["web3"]
 exa = ["exa_py"]
 fal = ["fal_client"]
-firecrawl = ["firecrawl-py"]
+firecrawl = ["firecrawl-py (==3.4.0)"]
 firestore = ["google-cloud-firestore"]
 gcs = ["google-cloud-storage"]
 github = ["PyGithub"]
 gmail = ["google-api-python-client", "google-auth-httplib2", "google-auth-oauthlib"]
-google = ["google-genai"]
+google = ["google-genai (>=1.52.0)"]
 google-bigquery = ["google-cloud-bigquery"]
 googlemaps = ["google-maps-places", "googlemaps"]
 groq = ["groq"]
@@ -79,20 +80,21 @@ infinity = ["infinity_client"]
 infra = ["agno-infra"]
 integration-tests = ["Pillow", "ddgs", "exa_py", "fastmcp", "sqlalchemy", "yfinance"]
 knowledge = ["agno[chonkie]", "agno[csv]", "agno[docx]", "agno[markdown]", "agno[pdf]", "agno[pptx]", "agno[text]"]
-lancedb = ["lancedb (>=0.24.0)", "tantivy"]
+lancedb = ["lancedb (==0.24.0)", "tantivy"]
 langfuse = ["langfuse"]
 litellm = ["litellm"]
 lmstudio = ["lmstudio"]
 markdown = ["aiofiles", "markdown", "unstructured"]
 matplotlib = ["matplotlib"]
-mcp = ["mcp"]
+mcp = ["mcp (>=1.9.2)"]
 mem0 = ["mem0ai"]
-memori = ["memorisdk"]
+memori = ["memori (>=3.0.5)"]
 meta = ["llama-api-client"]
 milvusdb = ["pymilvus (>=2.5.10)"]
 mistral = ["mistralai"]
-models = ["agno[anthropic]", "agno[aws-bedrock]", "agno[azure]", "agno[cerebras]", "agno[cohere]", "agno[google]", "agno[groq]", "agno[ibm]", "agno[infinity]", "agno[litellm]", "agno[meta]", "agno[mistral]", "agno[ollama]", "agno[openai]", "agno[portkey]"]
+models = ["agno[anthropic]", "agno[aws-bedrock]", "agno[azure]", "agno[cerebras]", "agno[cohere]", "agno[google]", "agno[groq]", "agno[ibm]", "agno[litellm]", "agno[meta]", "agno[mistral]", "agno[ollama]", "agno[openai]", "agno[portkey]"]
 mongodb = ["pymongo[srv]"]
+mysql = ["asyncmy", "pymysql"]
 neo4j = ["neo4j"]
 newspaper = ["lxml_html_clean", "newspaper4k"]
 notion = ["notion-client"]
@@ -114,23 +116,25 @@ pptx = ["python-pptx"]
 psycopg = ["psycopg", "psycopg-binary"]
 pylance = ["pylance"]
 qdrant = ["qdrant-client"]
-redis = ["redis", "redisvl"]
+redis = ["redis", "redisvl (>=0.12.1)"]
+redshift = ["redshift-connector"]
 reportlab = ["reportlab"]
 scrapegraph = ["scrapegraph-py"]
 singlestore = ["sqlalchemy"]
 sql = ["sqlalchemy"]
 sqlite = ["sqlalchemy"]
-storage = ["agno[async-postgres]", "agno[firestore]", "agno[gcs]", "agno[postgres]", "agno[redis]", "agno[sql]", "agno[sqlite]"]
+storage = ["agno[async-mongo]", "agno[async-postgres]", "agno[firestore]", "agno[gcs]", "agno[postgres]", "agno[redis]", "agno[sql]", "agno[sqlite]"]
 surrealdb = ["surrealdb (>=1.0.4)"]
 tavily = ["tavily-python"]
-tests = ["agno[agui]", "agno[cookbooks]", "agno[dev]", "agno[embedders]", "agno[knowledge]", "agno[models]", "agno[performance]", "agno[storage]", "agno[tools]", "agno[vectordbs]", "build", "twine"]
+tests = ["agno[a2a]", "agno[agui]", "agno[cookbooks]", "agno[dev]", "agno[embedders]", "agno[integration-tests]", "agno[knowledge]", "agno[models]", "agno[performance]", "agno[storage]", "agno[tools]", "agno[vectordbs]", "build", "grpcio (==1.74.0)", "twine"]
 text = ["aiofiles"]
 todoist = ["todoist-api-python"]
-tools = ["agno[agentql]", "agno[apify]", "agno[arxiv]", "agno[brave]", "agno[browserbase]", "agno[cartesia]", "agno[confluence]", "agno[crawl4ai]", "agno[ddg]", "agno[duckdb]", "agno[elevenlabs]", "agno[evm]", "agno[exa]", "agno[fal]", "agno[firecrawl]", "agno[github]", "agno[gmail]", "agno[google-bigquery]", "agno[googlemaps]", "agno[matplotlib]", "agno[mcp]", "agno[mem0]", "agno[memori]", "agno[neo4j]", "agno[newspaper]", "agno[notion]", "agno[opencv]", "agno[oxylabs]", "agno[parallel]", "agno[psycopg]", "agno[reportlab]", "agno[scrapegraph]", "agno[tavily]", "agno[todoist]", "agno[trafilatura]", "agno[valyu]", "agno[webex]", "agno[youtube]", "agno[zep]"]
+tokenizers = ["tiktoken", "tokenizers"]
+tools = ["agno[agentql]", "agno[apify]", "agno[arxiv]", "agno[browserbase]", "agno[cartesia]", "agno[confluence]", "agno[crawl4ai]", "agno[ddg]", "agno[duckdb]", "agno[elevenlabs]", "agno[evm]", "agno[exa]", "agno[fal]", "agno[firecrawl]", "agno[github]", "agno[gmail]", "agno[google-bigquery]", "agno[googlemaps]", "agno[matplotlib]", "agno[mcp]", "agno[mem0]", "agno[memori]", "agno[neo4j]", "agno[newspaper]", "agno[notion]", "agno[opencv]", "agno[oxylabs]", "agno[parallel]", "agno[psycopg]", "agno[redshift]", "agno[reportlab]", "agno[scrapegraph]", "agno[tavily]", "agno[todoist]", "agno[trafilatura]", "agno[valyu]", "agno[webex]", "agno[yfinance]", "agno[youtube]", "agno[zep]"]
 trafilatura = ["trafilatura"]
 upstash = ["upstash-vector"]
 valyu = ["valyu"]
-vectordbs = ["agno[cassandra]", "agno[chromadb]", "agno[clickhouse]", "agno[couchbase]", "agno[lancedb]", "agno[milvusdb]", "agno[mongodb]", "agno[pgvector]", "agno[pinecone]", "agno[qdrant]", "agno[singlestore]", "agno[surrealdb]", "agno[upstash]", "agno[weaviate]"]
+vectordbs = ["agno[cassandra]", "agno[chromadb]", "agno[clickhouse]", "agno[couchbase]", "agno[lancedb]", "agno[milvusdb]", "agno[mongodb]", "agno[pgvector]", "agno[pinecone]", "agno[pylance]", "agno[qdrant]", "agno[redis]", "agno[singlestore]", "agno[surrealdb]", "agno[upstash]", "agno[weaviate]"]
 weave = ["weave"]
 weaviate = ["weaviate-client"]
 webex = ["webexpythonsdk"]
@@ -327,14 +331,14 @@ files = [
 
 [[package]]
 name = "anthropic"
-version = "0.72.0"
+version = "0.75.0"
 description = "The official Python library for the anthropic API"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "anthropic-0.72.0-py3-none-any.whl", hash = "sha256:0e9f5a7582f038cab8efbb4c959e49ef654a56bfc7ba2da51b5a7b8a84de2e4d"},
-    {file = "anthropic-0.72.0.tar.gz", hash = "sha256:8971fe76dcffc644f74ac3883069beb1527641115ae0d6eb8fa21c1ce4082f7a"},
+    {file = "anthropic-0.75.0-py3-none-any.whl", hash = "sha256:ea8317271b6c15d80225a9f3c670152746e88805a7a61e14d4a374577164965b"},
+    {file = "anthropic-0.75.0.tar.gz", hash = "sha256:e8607422f4ab616db2ea5baacc215dd5f028da99ce2f022e33c7c535b29f3dfb"},
 ]
 
 [package.dependencies]
@@ -1645,6 +1649,34 @@ files = [
 ]
 
 [[package]]
+name = "h2"
+version = "4.3.0"
+description = "Pure-Python HTTP/2 protocol implementation"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "h2-4.3.0-py3-none-any.whl", hash = "sha256:c438f029a25f7945c69e0ccf0fb951dc3f73a5f6412981daee861431b70e2bdd"},
+    {file = "h2-4.3.0.tar.gz", hash = "sha256:6c59efe4323fa18b47a632221a1888bd7fde6249819beda254aeca909f221bf1"},
+]
+
+[package.dependencies]
+hpack = ">=4.1,<5"
+hyperframe = ">=6.1,<7"
+
+[[package]]
+name = "hpack"
+version = "4.1.0"
+description = "Pure-Python HPACK header encoding"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "hpack-4.1.0-py3-none-any.whl", hash = "sha256:157ac792668d995c657d93111f46b4535ed114f0c9c8d672271bbec7eae1b496"},
+    {file = "hpack-4.1.0.tar.gz", hash = "sha256:ec5eca154f7056aa06f196a557655c5b009b382873ac8d1e66e79e87535f1dca"},
+]
+
+[[package]]
 name = "httpcore"
 version = "1.0.9"
 description = "A minimal low-level HTTP client."
@@ -1752,6 +1784,7 @@ files = [
 [package.dependencies]
 anyio = "*"
 certifi = "*"
+h2 = {version = ">=3,<5", optional = true, markers = "extra == \"http2\""}
 httpcore = "==1.*"
 idna = "*"
 
@@ -1772,6 +1805,18 @@ groups = ["main"]
 files = [
     {file = "httpx_sse-0.4.1-py3-none-any.whl", hash = "sha256:cba42174344c3a5b06f255ce65b350880f962d99ead85e776f23c6618a377a37"},
     {file = "httpx_sse-0.4.1.tar.gz", hash = "sha256:8f44d34414bc7b21bf3602713005c5df4917884f76072479b21f68befa4ea26e"},
+]
+
+[[package]]
+name = "hyperframe"
+version = "6.1.0"
+description = "Pure-Python HTTP/2 framing"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "hyperframe-6.1.0-py3-none-any.whl", hash = "sha256:b03380493a519fce58ea5af42e4a42317bf9bd425596f7a0835ffce80f1a42e5"},
+    {file = "hyperframe-6.1.0.tar.gz", hash = "sha256:f630908a00854a7adeabd6382b43923a4c4cd4b821fcb527e6ab9e15382a3b08"},
 ]
 
 [[package]]
@@ -4128,4 +4173,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "228b23035d34426417ef86d9b7cabaa3dffd93c2413baa2b5dc1768367e82e12"
+content-hash = "deb47c4e9bf47c94d2178e38bdb624b45e4713f406d3fa57949d01b0e2cd1b7a"

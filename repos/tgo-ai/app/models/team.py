@@ -3,7 +3,7 @@
 import uuid
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, JSON, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -73,6 +73,12 @@ class Team(BaseModel):
         nullable=False,
         default=False,
         comment="Whether this is the default team for the project",
+    )
+
+    config: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="Team configuration (respond_directly, num_history_runs, etc.)",
     )
 
     # Relationships
