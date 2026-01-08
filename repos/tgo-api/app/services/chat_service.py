@@ -151,7 +151,7 @@ async def forward_ai_event_to_wukongim(
     """Forward AI event to WuKongIM."""
     try:
         data = event_data.get("data") or {}
-        if event_type in {"team_run_started", "agent_run_started", "workflow_run_started", "workflow_started"}:
+        if event_type in {"team_run_started"}:
             await wukongim_client.send_event(
                 channel_id=channel_id,
                 channel_type=channel_type,
@@ -161,7 +161,7 @@ async def forward_ai_event_to_wukongim(
                 from_uid=from_uid,
                 force=True,
             )
-        elif event_type in {"team_run_content", "agent_run_content", "workflow_content", "workflow_run_content"}:
+        elif event_type in {"team_run_content"}:
             # Robust extraction of content from data
             chunk_text = data.get("content") or data.get("text")
             if not chunk_text and isinstance(data, dict):
@@ -179,7 +179,7 @@ async def forward_ai_event_to_wukongim(
                     from_uid=from_uid,
                 )
                 return str(chunk_text)
-        elif event_type in {"team_run_completed", "agent_run_completed", "workflow_completed", "workflow_run_completed"}:
+        elif event_type in {"team_run_completed"}:
             await wukongim_client.send_event(
                 channel_id=channel_id,
                 channel_type=channel_type,

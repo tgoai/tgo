@@ -256,10 +256,12 @@ async def _handle_msg_notify_batch(messages: Any, db: Session) -> None:
             update_sql = text(f"""
                 UPDATE api_visitors 
                 SET {", ".join(update_parts)}
-                WHERE id = :visitor_id::uuid 
+                WHERE id = :visitor_id 
                   AND deleted_at IS NULL
             """)
             
+            # visitor_id is already a UUID object from stats grouping, 
+            # SQLAlchemy will handle the conversion
             result = db.execute(update_sql, params)
             db.commit()
             
