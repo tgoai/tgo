@@ -153,10 +153,15 @@ async def _process_msg_notify(messages: Any) -> None:
 async def _handle_msg_notify_batch(messages: Any, db: Session) -> None:
     """Handle msg.notify events to update visitor message stats in batch.
     
+    Uses raw SQL UPDATE statements to avoid long-running transactions and
+    potential deadlocks with other operations (e.g., staff assignment).
+    
     Args:
         messages: List of message notification objects from WuKongIM
         db: Database session
     """
+    from sqlalchemy import text
+    
     # Normalize input to list
     if not isinstance(messages, list):
         messages = [messages] if isinstance(messages, dict) else []
@@ -217,53 +222,62 @@ async def _handle_msg_notify_batch(messages: Any, db: Session) -> None:
     if not visitor_stats:
         return
     
-    # Fetch all relevant visitors in one query
-    visitor_ids = list(visitor_stats.keys())
-    visitors = (
-        db.query(Visitor)
-        .filter(Visitor.id.in_(visitor_ids), Visitor.deleted_at.is_(None))
-        .all()
-    )
-    
-    if not visitors:
-        logger.debug(
-            "No visitors found for msg.notify batch update",
-            extra={"visitor_ids": [str(vid) for vid in visitor_ids]}
-        )
-        return
-    
     now = datetime.utcnow()
-    updated_visitors = []
+    updated_count = 0
     
-    for visitor in visitors:
-        stats = visitor_stats.get(visitor.id)
-        if not stats:
-            continue
-        
-        visitor.last_message_at = now
-        
-        if stats["max_seq"] > 0:
-            visitor.last_message_seq = stats["max_seq"]
-        
-        if stats["client_msg_no"]:
-            visitor.last_client_msg_no = stats["client_msg_no"]
-        
-        visitor.is_last_message_from_visitor = stats["is_last_from_visitor"]
-        
-        if stats["send_count"] > 0:
-            visitor.visitor_send_count += stats["send_count"]
-        
-        updated_visitors.append({
-            "visitor_id": str(visitor.id),
-            "send_count": visitor.visitor_send_count,
-            "last_message_seq": visitor.last_message_seq,
-        })
+    # Use individual UPDATE statements to minimize lock duration and avoid deadlocks
+    # Each UPDATE is a short transaction that releases the lock immediately
+    for visitor_id, stats in visitor_stats.items():
+        try:
+            # Build dynamic UPDATE statement based on which fields need updating
+            update_parts = [
+                "last_message_at = :last_message_at",
+                "is_last_message_from_visitor = :is_last_from_visitor",
+                "updated_at = now()",
+            ]
+            params: Dict[str, Any] = {
+                "visitor_id": str(visitor_id),
+                "last_message_at": now,
+                "is_last_from_visitor": stats["is_last_from_visitor"],
+            }
+            
+            if stats["max_seq"] > 0:
+                update_parts.append("last_message_seq = :last_message_seq")
+                params["last_message_seq"] = stats["max_seq"]
+            
+            if stats["client_msg_no"]:
+                update_parts.append("last_client_msg_no = :last_client_msg_no")
+                params["last_client_msg_no"] = stats["client_msg_no"]
+            
+            if stats["send_count"] > 0:
+                update_parts.append("visitor_send_count = visitor_send_count + :send_count")
+                params["send_count"] = stats["send_count"]
+            
+            update_sql = text(f"""
+                UPDATE api_visitors 
+                SET {", ".join(update_parts)}
+                WHERE id = :visitor_id::uuid 
+                  AND deleted_at IS NULL
+            """)
+            
+            result = db.execute(update_sql, params)
+            db.commit()
+            
+            if result.rowcount > 0:
+                updated_count += 1
+                
+        except Exception as e:
+            # Rollback and log error for this visitor, continue with others
+            db.rollback()
+            logger.error(
+                f"Failed to update visitor message stats",
+                extra={"visitor_id": str(visitor_id), "error": str(e)}
+            )
     
-    if updated_visitors:
-        db.commit()
+    if updated_count > 0:
         logger.info(
-            f"Batch updated {len(updated_visitors)} visitors message stats",
-            extra={"updated_visitors": updated_visitors}
+            f"Updated {updated_count} visitors message stats",
+            extra={"total_visitors": len(visitor_stats), "updated_count": updated_count}
         )
 
 
