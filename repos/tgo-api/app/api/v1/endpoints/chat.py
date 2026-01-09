@@ -48,6 +48,8 @@ from app.schemas.chat import (
     OpenAIChatMessage,
 )
 from app.services import chat_service
+from app.core.logging import get_logger
+logger = get_logger(__name__)
 from app.services.file_service import sanitize_filename, get_safe_ascii_filename
 from app.services.chat_service import get_or_create_visitor
 from app.services.transfer_service import transfer_to_staff
@@ -299,10 +301,11 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
     channel_type = req.channel_type if req.channel_type is not None else CHANNEL_TYPE_CUSTOMER_SERVICE
     session_id = f"{channel_id_enc}@{channel_type}"
 
-    # 3.1) Resolve relative image/file URLs if present
-    if req.msg_type in {2, 3} and req.message.startswith("/"):
-        base_url = settings.API_BASE_URL.rstrip("/")
-        req.message = f"{base_url}{req.message}"
+    # 3.1) Resolve image/file URLs using storage backend
+    if req.msg_type in {2, 3}:
+        from app.services.storage import get_storage
+        storage = get_storage()
+        req.message = storage.resolve_url(req.message)
 
     # 3.2) Forward a copy of user message to WuKongIM (best-effort)
     if req.forward_user_message_to_wukongim:
@@ -604,13 +607,24 @@ async def staff_send_platform_message(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied for visitor platform")
 
     target_url = f"{settings.PLATFORM_SERVICE_URL.rstrip('/')}/v1/messages/send"
+    
+    # Resolve any media URLs in the payload before forwarding
+    payload = req.payload.copy()
+    from app.services.storage import get_storage
+    storage = get_storage()
+
+    # Common fields for media URLs in platform service payloads
+    for key in ["url", "image_url", "file_url"]:
+        if key in payload:
+            payload[key] = storage.resolve_url(payload[key])
+
     outbound_payload: Dict[str, Any] = {
         "platform_api_key": platform.api_key,
         "from_uid": f"{current_user.id}-staff",
         "platform_open_id": visitor.platform_open_id,
         "channel_id": req.channel_id,
         "channel_type": req.channel_type,
-        "payload": req.payload,
+        "payload": payload,
         "client_msg_no": req.client_msg_no or f"staff_{uuid4().hex}",
     }
 
@@ -732,41 +746,36 @@ async def chat_file_upload(
 
     date_dir = time.strftime("%Y-%m-%d")
     rel_path = f"chat/{project_id}/{channel_type}/{channel_id}/{date_dir}/{fname}"
-    base_dir = Path(settings.UPLOAD_BASE_DIR).resolve()
-    dest_path = base_dir / rel_path
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # 5) Save file in chunks
+    # 5) Read file into memory buffer and validate size
+    from io import BytesIO
+    buffer = BytesIO()
     total = 0
     try:
-        with open(dest_path, "wb") as out:
-            while True:
-                chunk = await file.read(1024 * 1024)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > max_bytes:
-                    try:
-                        out.flush()
-                        out.close()
-                    finally:
-                        try:
-                            os.unlink(dest_path)
-                        except Exception:
-                            pass
-                    raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File too large")
-                out.write(chunk)
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File too large")
+            buffer.write(chunk)
     except HTTPException:
         raise
     except Exception as e:
-        try:
-            if dest_path.exists():
-                os.unlink(dest_path)
-        except Exception:
-            pass
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"File read failed: {e}")
+    
+    buffer.seek(0)
+
+    # 6) Upload via storage backend
+    from app.services.storage import get_storage
+    storage = get_storage()
+    try:
+        file_url = await storage.upload(buffer, rel_path, mime)
+    except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"File storage failed: {e}")
 
-    # 6) Persist metadata
+    # 7) Persist metadata
     chat_file = ChatFile(
         project_id=project_id,
         channel_id=channel_id,
@@ -782,13 +791,15 @@ async def chat_file_upload(
     db.commit()
     db.refresh(chat_file)
 
-    # 7) Build response
+    # 8) Build response - use storage interface to get the appropriate access URL
+    final_url = storage.get_file_access_url(str(chat_file.id), file_url)
+    
     return ChatFileUploadResponse(
         file_id=str(chat_file.id),
         file_name=original_name,
         file_size=total,
         file_type=mime,
-        file_url=f"/v1/chat/files/{chat_file.id}",
+        file_url=final_url,
         channel_id=channel_id,
         channel_type=channel_type,
         uploaded_at=chat_file.created_at,
