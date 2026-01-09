@@ -8,7 +8,7 @@ import { ReasonCode } from 'easyjssdk'
 import { syncVisitorMessages, type WuKongIMMessage } from '../services/messageHistory'
 import { fetchChannelInfo, type ChannelInfo } from '../services/channel'
 import type { StaffInfo } from '../services/channel'
-import { uploadChatFile, readImageDimensions, makeChatFileUrl } from '../services/upload'
+import { uploadChatFile, readImageDimensions } from '../services/upload'
 import { collectVisitorSystemInfo } from '../utils/systemInfo'
 import { playNotificationSound, showBrowserNotification, requestNotificationPermission } from '../utils/notification'
 import usePlatformStore from './platformStore'
@@ -502,13 +502,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
             if (isImage) {
               const w = Math.max(1, dims?.width ?? 1)
               const h = Math.max(1, dims?.height ?? 1)
-              const fileUrl = makeChatFileUrl(st.apiBase, res.file_id)
+              const fileUrl = res.file_url
               const payload: MessagePayload = { type: 2, url: fileUrl, width: w, height: h }
               set(s => ({ messages: s.messages.map(m => m.id === id ? { ...m, payload, status: 'sending', uploadProgress: undefined, uploadError: undefined } : m) }))
               const result = await IMService.sendPayload(payload, { clientMsgNo })
               set(s => ({ messages: s.messages.map(m => m.id === id ? { ...m, status: undefined, reasonCode: (result?.reasonCode ?? ReasonCode.Unknown) as ReasonCode } : m) }))
             } else {
-              const fileUrl = makeChatFileUrl(st.apiBase, res.file_id)
+              const fileUrl = res.file_url
               const payload: MessagePayload = { type: 3, content: file.name || '[文件]', url: fileUrl, name: res.file_name || file.name, size: res.file_size ?? file.size }
               set(s => ({ messages: s.messages.map(m => m.id === id ? { ...m, payload, status: 'sending', uploadProgress: undefined, uploadError: undefined } : m) }))
               const result = await IMService.sendPayload(payload, { clientMsgNo })
@@ -559,13 +559,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (isImage) {
         const w = Math.max(1, dims?.width ?? 1)
         const h = Math.max(1, dims?.height ?? 1)
-        const fileUrl = makeChatFileUrl(st.apiBase, res.file_id)
+        const fileUrl = res.file_url
         const payload: MessagePayload = { type: 2, url: fileUrl, width: w, height: h }
         set(s => ({ messages: s.messages.map(m => m.id === messageId ? { ...m, payload, status: 'sending', uploadProgress: undefined, uploadError: undefined } : m) }))
         const result = await IMService.sendPayload(payload, { clientMsgNo })
         set(s => ({ messages: s.messages.map(m => m.id === messageId ? { ...m, status: undefined, reasonCode: (result?.reasonCode ?? ReasonCode.Unknown) as ReasonCode } : m) }))
       } else {
-        const fileUrl = makeChatFileUrl(st.apiBase, res.file_id)
+        const fileUrl = res.file_url
         const payload: MessagePayload = { type: 3, content: file.name || '[文件]', url: fileUrl, name: res.file_name || file.name, size: res.file_size ?? file.size }
         set(s => ({ messages: s.messages.map(m => m.id === messageId ? { ...m, payload, status: 'sending', uploadProgress: undefined, uploadError: undefined } : m) }))
         const result = await IMService.sendPayload(payload, { clientMsgNo })
