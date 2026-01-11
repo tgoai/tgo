@@ -43,6 +43,10 @@ import PluginsSettings from '../components/settings/PluginsSettings';
 import AboutSettings from '../components/settings/AboutSettings';
 import MarkdownTestPage from '../pages/MarkdownTestPage';
 
+// Import SaaS routes if they exist (will be resolved via Vite alias or empty default)
+// @ts-ignore
+import { saasRoutes } from 'saas-routes';
+
 /**
  * Router configuration for the application
  */
@@ -90,7 +94,14 @@ export const router = createBrowserRouter([
           { path: 'staff', element: <StaffSettings /> },
           { path: 'providers', element: <ModelProvidersSettings /> },
           { path: 'plugins', element: <PluginsSettings /> },
-          { path: 'about', element: <AboutSettings /> }
+          { path: 'about', element: <AboutSettings /> },
+          // Inject SaaS settings routes
+          ...(saasRoutes || [])
+            .filter((r: any) => r.path.startsWith('/settings/'))
+            .map((r: any) => ({
+              ...r,
+              path: r.path.replace('/settings/', '')
+            }))
         ]
       },
       {
@@ -170,7 +181,9 @@ export const router = createBrowserRouter([
       {
         path: 'test/markdown',
         element: <MarkdownTestPage />
-      }
+      },
+      // Inject other SaaS routes (that don't go into settings)
+      ...(saasRoutes || []).filter((r: any) => !r.path.startsWith('/settings/'))
     ]
       }
     ]
