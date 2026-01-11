@@ -26,6 +26,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'saas-routes': process.env.VITE_EDITION === 'saas' 
+        ? path.resolve(__dirname, '../../../saas-extensions/tgo-web-saas/src/routes.tsx')
+        : path.resolve(__dirname, './src/saas-routes.ts'),
+      'react': path.resolve(__dirname, 'node_modules/react'),
+      'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
+      'react/jsx-runtime': path.resolve(__dirname, 'node_modules/react/jsx-runtime'),
     },
   },
   build: {

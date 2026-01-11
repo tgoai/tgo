@@ -1,6 +1,7 @@
 """FastAPI application entry point for TGO Plugin Runtime."""
 
 import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,27 +11,11 @@ from app.core.logging import setup_logging, startup_log
 # Setup logging
 setup_logging()
 
-app = FastAPI(
-    title=settings.SERVICE_NAME,
-    description="Plugin Runtime Service for TGO - manages plugin connections and provides HTTP APIs",
-    version=settings.SERVICE_VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
 
-# CORS - allow all origins for internal service
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Application startup event."""
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Application lifespan manager."""
+    # Startup logic
     from app.services.socket_server import start_socket_server
     from app.services.tool_sync import setup_tool_sync
     from app.services.process_manager import process_manager
@@ -80,10 +65,9 @@ async def startup_event():
     startup_log("🎉 Plugin Runtime Service is ready!")
     startup_log("=" * 64)
 
+    yield
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Application shutdown event."""
+    # Shutdown logic
     from app.services.socket_server import stop_socket_server
     from app.services.plugin_manager import plugin_manager
     from app.services.process_manager import process_manager
@@ -91,6 +75,16 @@ async def shutdown_event():
     await plugin_manager.shutdown_all()
     await process_manager.stop()
     await stop_socket_server()
+
+
+app = FastAPI(
+    title=settings.SERVICE_NAME,
+    description="Plugin Runtime Service for TGO - manages plugin connections and provides HTTP APIs",
+    version=settings.SERVICE_VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan,
+)
 
 
 @app.get("/")
