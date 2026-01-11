@@ -462,7 +462,59 @@ class Settings(BaseSettings):
         description="Allowed MIME types for platform logo uploads",
     )
 
-    # Plugin Runtime Service Settings
+    # Storage Settings
+    STORAGE_TYPE: str = Field(
+        default="local",
+        description="Storage type: local, oss, minio",
+    )
+    
+    # Aliyun OSS Settings
+    OSS_ENDPOINT: Optional[str] = Field(
+        default=None,
+        description="Aliyun OSS endpoint (e.g., oss-cn-hangzhou.aliyuncs.com)",
+    )
+    OSS_BUCKET_NAME: Optional[str] = Field(
+        default=None,
+        description="Aliyun OSS bucket name",
+    )
+    OSS_BUCKET_URL: Optional[str] = Field(
+        default=None,
+        description="Aliyun OSS bucket URL or Custom Domain (e.g., https://bucket.oss-cn.com)",
+    )
+    OSS_ACCESS_KEY_ID: Optional[str] = Field(
+        default=None,
+        description="Aliyun OSS access key ID",
+    )
+    OSS_ACCESS_KEY_SECRET: Optional[str] = Field(
+        default=None,
+        description="Aliyun OSS access key secret",
+    )
+
+    # MinIO Settings
+    MINIO_URL: Optional[str] = Field(
+        default=None,
+        description="MinIO base URL (e.g., http://localhost:9000)",
+    )
+    MINIO_ACCESS_KEY_ID: Optional[str] = Field(
+        default=None,
+        description="MinIO access key ID",
+    )
+    MINIO_SECRET_ACCESS_KEY: Optional[str] = Field(
+        default=None,
+        description="MinIO secret access key",
+    )
+    MINIO_BUCKET_NAME: Optional[str] = Field(
+        default=None,
+        description="MinIO bucket name",
+    )
+    MINIO_UPLOAD_URL: Optional[str] = Field(
+        default=None,
+        description="MinIO upload URL (if different from MINIO_URL, e.g., for internal network)",
+    )
+    MINIO_DOWNLOAD_URL: Optional[str] = Field(
+        default=None,
+        description="MinIO download URL (if different from MINIO_URL, e.g., for public domain)",
+    )
     PLUGIN_ENABLED: bool = Field(
         default=True,
         description="Enable plugin system",
