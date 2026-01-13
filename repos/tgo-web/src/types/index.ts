@@ -327,7 +327,9 @@ export interface AgentQueryParams {
 export interface AiTool {
   id: string;
   name: string;
-  title?: string; // Display title for the tool (may be different from name)
+  title?: string; // Display title for the tool (Legacy/Fallback)
+  title_zh?: string | null;
+  title_en?: string | null;
   description: string;
   category: ToolCategory;
   status: AiToolStatus;
@@ -521,6 +523,9 @@ export interface AiToolResponse {
   id: string; // uuid
   project_id: string; // uuid
   name: string;
+  title?: string | null;
+  title_zh?: string | null;
+  title_en?: string | null;
   description: string | null;
   tool_type: ToolType; // "Tool" | "FUNCTION"
   transport_type: string | null;
@@ -665,6 +670,35 @@ export interface ToolParameter {
   required: boolean;
   description: string;
   example?: string;
+}
+
+// Model Store Types
+export interface ModelStoreItem {
+  id: string;
+  name: string;
+  title_zh?: string;
+  title_en?: string;
+  description_zh?: string;
+  description_en?: string;
+  model_type: 'chat' | 'embedding' | 'image' | 'audio';
+  input_price: number;
+  output_price: number;
+  context_window?: number;
+  provider: {
+    id: string;
+    name: string;
+    slug: string;
+    icon?: string;
+  };
+  is_installed?: boolean;
+}
+
+export interface ModelStoreCategory {
+  id: string;
+  slug: string;
+  name_zh: string;
+  name_en?: string;
+  icon?: string;
 }
 
 export interface ChatTag {

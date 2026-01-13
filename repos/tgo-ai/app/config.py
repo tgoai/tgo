@@ -88,14 +88,14 @@ class Settings(BaseSettings):
         description="Base URL for the plugin runtime service",
     )
 
-    # ToolStore Configuration
-    toolstore_service_url: str = Field(
-        default="https://toolstore.example.com",
-        description="Base URL for the ToolStore service"
+    # Store Configuration
+    store_service_url: str = Field(
+        default="https://store.example.com",
+        description="Base URL for the Store service"
     )
-    toolstore_api_key: Optional[str] = Field(
+    store_api_key: Optional[str] = Field(
         default=None,
-        description="API Key for the ToolStore service"
+        description="API Key for the Store service"
     )
 
     # Server Configuration

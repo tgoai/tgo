@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Pencil, Trash2, Copy, Check, Globe, Radio, MoreVertical, Terminal, Wrench, Package } from 'lucide-react';
 import type { AiTool } from '@/types';
 import { useTranslation } from 'react-i18next';
+import { getToolDisplayTitle } from '@/utils/projectToolsTransform';
 
 interface ToolCardProps {
   tool: AiTool;
@@ -17,7 +18,10 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, onAction, onShowToast }) => {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+
+  // Determine display title based on language
+  const displayTitle = getToolDisplayTitle(tool, i18n.language);
 
   // Extract tool data
   const toolType = tool.config?.tool_type || 'Tool';
@@ -107,8 +111,8 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, onAction, onShowToast }) => {
               <ToolIcon className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 truncate text-base" title={tool.name}>
-                {tool.name}
+              <h3 className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 truncate text-base" title={displayTitle}>
+                {displayTitle}
               </h3>
               <div className="flex items-center mt-0.5">
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${toolConfig.bgColor} ${toolConfig.color} border border-gray-100 dark:border-gray-700 flex-shrink-0`}>

@@ -94,6 +94,24 @@ export interface ModelListResponseDTO {
   is_fallback?: boolean; // True if using fallback default models
 }
 
+export interface AIModelWithProviderDTO {
+  id: string;
+  model_id: string;
+  model_name: string;
+  model_type: string;
+  provider_id: string;
+  provider_name: string;
+  provider_kind: string;
+  description?: string | null;
+  context_window?: number | null;
+  is_active: boolean;
+}
+
+export interface AIModelWithProviderListResponseDTO {
+  data: AIModelWithProviderDTO[];
+  pagination: PaginationMetadata;
+}
+
 export class AIProvidersApiService extends BaseApiService {
   protected readonly apiVersion = 'v1';
   protected readonly endpoints = {
@@ -103,17 +121,21 @@ export class AIProvidersApiService extends BaseApiService {
     PROVIDER_DISABLE: (id: string) => `/${this.apiVersion}/ai/providers/${id}/disable`,
     PROVIDER_TEST: (id: string) => `/${this.apiVersion}/ai/providers/${id}/test`,
     MODELS: `/${this.apiVersion}/ai/models`,
+    PROJECT_MODELS: `/${this.apiVersion}/ai-models`,
   } as const;
+
+  // List models for current project with provider info
+  async listProjectModels(params?: { 
+    model_type?: 'chat' | 'embedding' | null; 
+    is_active?: boolean; 
+    limit?: number; 
+    offset?: number 
+  }): Promise<AIModelWithProviderListResponseDTO> {
+    return this.get<AIModelWithProviderListResponseDTO>(this.endpoints.PROJECT_MODELS, params as any);
+  }
 
   // List providers
   async listProviders(params?: { limit?: number; offset?: number; search?: string; provider?: string | null; is_active?: boolean | null; model_type?: 'chat' | 'embedding' | null }): Promise<AIProviderListResponseDTO> {
-    // BaseApiService.buildQueryString does not support model_type; append manually when present
-    if (params && 'model_type' in params && params.model_type !== undefined && params.model_type !== null) {
-      const { model_type, ...rest } = params as any;
-      const base = this.buildUrl(this.endpoints.PROVIDERS, rest as any);
-      const url = base.includes('?') ? `${base}&model_type=${model_type}` : `${base}?model_type=${model_type}`;
-      return this.get<AIProviderListResponseDTO>(url);
-    }
     return this.get<AIProviderListResponseDTO>(this.endpoints.PROVIDERS, params as any);
   }
 
@@ -187,8 +209,17 @@ export class AIProvidersApiService extends BaseApiService {
       case 'deepseek': return 'deepseek';
       case 'baichuan': return 'baichuan';
       case 'ollama': return 'ollama';
+      case 'openai_compatible': return 'custom';
       default: return 'custom';
     }
+  }
+
+  /**
+   * Check if a backend provider key matches a frontend kind.
+   */
+  static isMatch(key: string, kind: ProviderKind): boolean {
+    if (key === 'openai_compatible' && kind === 'custom') return true;
+    return this.kindToProviderKey(kind) === key;
   }
 
   // Build config from params for backend (snake_case where sensible)

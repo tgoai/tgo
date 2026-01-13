@@ -21,6 +21,7 @@ export interface BaseQueryParams {
   // Model-specific parameters (allowing null for API compatibility)
   provider?: string | null;
   type?: string | null;
+  model_type?: string | null;
 }
 
 // Common response metadata interface
@@ -133,6 +134,9 @@ export abstract class BaseApiService {
     }
     if (params.type !== undefined && params.type !== null) {
       queryParams.append('type', params.type);
+    }
+    if (params.model_type !== undefined && params.model_type !== null) {
+      queryParams.append('model_type', params.model_type);
     }
 
     return queryParams.toString();

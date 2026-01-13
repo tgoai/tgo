@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { X, Search, ExternalLink, Wrench, Settings, RefreshCw } from 'lucide-react';
 import { useProjectToolsStore } from '@/stores/projectToolsStore';
-import { transformAiToolResponseList, searchProjectTools } from '@/utils/projectToolsTransform';
+import { transformAiToolResponseList, searchProjectTools, getToolDisplayTitle } from '@/utils/projectToolsTransform';
 import { generateDefaultAvatar } from '@/utils/avatarUtils';
 import ToolConfigModal from './ToolConfigModal';
 import { useToast } from '@/hooks/useToast';
@@ -60,7 +60,7 @@ const ToolSelectionModal: React.FC<ToolSelectionModalProps> = ({
   } = useProjectToolsStore();
 
   const { showToast } = useToast();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // Load tools when modal opens (only active tools)
   useEffect(() => {
@@ -249,8 +249,8 @@ const ToolSelectionModal: React.FC<ToolSelectionModalProps> = ({
                   filteredTools.map((tool: AiTool) => {
                     const isSelected = tempSelectedTools.includes(tool.id);
                     // Use consistent avatar generation like other components
-                    const displayName = tool.title || tool.name;
-                    const toolAvatar = generateDefaultAvatar(displayName, tool.id);
+                    const displayTitle = getToolDisplayTitle(tool, i18n.language);
+                    const toolAvatar = generateDefaultAvatar(displayTitle, tool.id);
 
                     return (
                       <div
@@ -268,7 +268,7 @@ const ToolSelectionModal: React.FC<ToolSelectionModalProps> = ({
                       </div>
                       <div>
                         <div className={`text-sm font-semibold ${isSelected ? 'text-blue-900 dark:text-blue-300' : 'text-gray-800 dark:text-gray-100'}`}>
-                          {tool.name}
+                          {displayTitle}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">{tool.short_no || tool.author}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">

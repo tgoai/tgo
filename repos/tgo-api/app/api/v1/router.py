@@ -35,7 +35,7 @@ from app.api.v1.endpoints import (
     ai_runs,
     setup,
     system,
-    toolstore,
+    store,
     utils,
 )
 
@@ -129,10 +129,10 @@ api_router.include_router(
     tags=["RAG QA Pairs"]
 )
 
-# AI Service Proxy Endpoints
+
 api_router.include_router(
     ai_models.router,
-    prefix="/ai/models",
+    prefix="/ai-models",
     tags=["AI Models"]
 )
 
@@ -232,11 +232,11 @@ api_router.include_router(
     tags=["Documentation"],
 )
 
-# ToolStore endpoints
+# Store endpoints
 api_router.include_router(
-    toolstore.router,
-    prefix="/tool-store",
-    tags=["ToolStore"],
+    store.router,
+    prefix="/store",
+    tags=["Store"],
 )
 
 # Utility endpoints

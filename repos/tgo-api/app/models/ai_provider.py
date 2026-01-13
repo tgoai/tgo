@@ -51,12 +51,6 @@ class AIProvider(Base):
         comment="Base URL for the provider API (if applicable)",
     )
 
-    available_models: Mapped[list[str]] = mapped_column(
-        JSONB,
-        nullable=False,
-        default=list,
-        comment="List of available model identifiers for this provider",
-    )
     default_model: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,
@@ -111,6 +105,7 @@ class AIProvider(Base):
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="ai_providers", lazy="select")
+    models: Mapped[List["AIModel"]] = relationship("AIModel", back_populates="ai_provider", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<AIProvider(id={self.id}, provider='{self.provider}', name='{self.name}')>"

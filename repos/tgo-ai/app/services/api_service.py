@@ -18,11 +18,11 @@ class APIServiceClient:
         self.plugin_runtime_url = settings.plugin_runtime_url
         self.timeout = 30.0
 
-    async def get_toolstore_credential(self, project_id: str) -> Optional[Dict[str, Any]]:
+    async def get_store_credential(self, project_id: str) -> Optional[Dict[str, Any]]:
         """
-        Fetch toolstore credential for a project from the internal API.
+        Fetch store credential for a project from the internal API.
         """
-        url = f"{self.internal_api_url}/toolstore/{project_id}/credential"
+        url = f"{self.internal_api_url}/store/{project_id}/credential"
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
                 response = await client.get(url)
@@ -30,7 +30,7 @@ class APIServiceClient:
                     return response.json()
                 return None
             except Exception as e:
-                logger.error(f"Error fetching toolstore credential: {e}")
+                logger.error(f"Error fetching store credential: {e}")
                 return None
 
     async def execute_plugin_tool(

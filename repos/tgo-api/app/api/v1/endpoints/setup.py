@@ -443,11 +443,26 @@ async def configure_llm(
         name=llm_data.name,
         api_key=encrypt_str(llm_data.api_key),  # Encrypt API key
         api_base_url=llm_data.api_base_url,
-        available_models=llm_data.available_models,
         default_model=llm_data.default_model,
         config=llm_data.config,
         is_active=llm_data.is_active,
     )
+
+    # Sync available_models to AIModel records
+    from app.models import AIModel
+    if llm_data.available_models:
+        for mid in llm_data.available_models:
+            model_type = "embedding" if "embedding" in mid.lower() else "chat"
+            m = AIModel(
+                provider_id=ai_provider.id,
+                provider=llm_data.provider,
+                model_id=mid,
+                model_name=mid,
+                model_type=model_type,
+                is_active=True
+            )
+            ai_provider.models.append(m)
+
     db.add(ai_provider)
 
     # Update system setup flags

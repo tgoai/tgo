@@ -3,7 +3,7 @@
  * Manage human agents/staff members
  */
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Users,
@@ -29,7 +29,6 @@ import {
 import { staffApi, StaffRole, StaffStatus, StaffUpdateRequest, VisitorAssignmentRuleResponse } from '@/services/staffApi';
 import { StaffResponse, StaffCreateRequest } from '@/services/api';
 import { useToast } from '@/hooks/useToast';
-import { useProvidersStore } from '@/stores/providersStore';
 import AIProvidersApiService from '@/services/aiProvidersApi';
 import Toggle from '@/components/ui/Toggle';
 
@@ -507,39 +506,21 @@ const StaffSettings: React.FC = () => {
   const [maxConcurrentChats, setMaxConcurrentChats] = useState(10);
   const [autoCloseHours, setAutoCloseHours] = useState(48);
 
-  // Providers store for model options
-  const { providers, loadProviders } = useProvidersStore();
   const [llmOptions, setLlmOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
-
-  // Get enabled provider keys
-  const enabledProviderKeys = useMemo(() => {
-    const enabled = (providers || []).filter((p) => p.enabled);
-    return new Set(enabled.map((p) => AIProvidersApiService.kindToProviderKey(p.kind)));
-  }, [providers]);
-
-  // Load providers on mount
-  useEffect(() => {
-    if ((providers || []).length === 0) {
-      loadProviders().catch(() => {});
-    }
-  }, [providers?.length, loadProviders]);
 
   // Fetch chat models from providers
   useEffect(() => {
     let cancelled = false;
     const fetchChatOptions = async () => {
-      if (enabledProviderKeys.size === 0) return;
       setModelsLoading(true);
       try {
         const svc = new AIProvidersApiService();
-        const res = await svc.listProviders({ is_active: true, model_type: 'chat', limit: 100, offset: 0 });
-        const options = (res.data || [])
-          .filter((p: any) => enabledProviderKeys.has(p.provider) && Array.isArray(p.available_models) && p.available_models.length > 0)
-          .flatMap((p: any) => (p.available_models || []).map((m: string) => {
-            const ui = `${p.id}:${m}`;
-            return { value: ui, label: `${m} · ${p.name || p.provider}` };
-          }));
+        const res = await svc.listProjectModels({ model_type: 'chat', is_active: true });
+        const options = (res.data || []).map((m: any) => ({
+          value: `${m.provider_id}:${m.model_id}`,
+          label: `${m.model_name} · ${m.provider_name}`,
+        }));
         if (!cancelled) {
           setLlmOptions(options);
         }
@@ -553,7 +534,7 @@ const StaffSettings: React.FC = () => {
     };
     fetchChatOptions();
     return () => { cancelled = true; };
-  }, [enabledProviderKeys]);
+  }, []);
 
   // Fetch staff list
   const fetchStaff = useCallback(async () => {

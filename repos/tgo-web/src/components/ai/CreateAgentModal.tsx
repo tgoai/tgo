@@ -22,7 +22,6 @@ import AgentKnowledgeBasesSection from '@/components/ui/AgentKnowledgeBasesSecti
 import AgentWorkflowsSection from '@/components/ui/AgentWorkflowsSection';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useAgentForm } from '@/hooks/useAgentForm';
-import { useProvidersStore } from '@/stores/providersStore';
 import AIProvidersApiService from '@/services/aiProvidersApi';
 import ProjectConfigApiService from '@/services/projectConfigApi';
 import { useAuthStore } from '@/stores/authStore';
@@ -57,12 +56,6 @@ const CreateAgentModal: React.FC = () => {
   const professionInputRef = useRef<HTMLInputElement | null>(null);
   const llmSelectRef = useRef<HTMLSelectElement | null>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  // Providers store and model options (aligned with Settings → Model Providers)
-  const { providers, loadProviders } = useProvidersStore();
-  const enabledProviderKeys = useMemo(() => {
-    const enabled = (providers || []).filter((p) => p.enabled);
-    return new Set(enabled.map((p) => AIProvidersApiService.kindToProviderKey(p.kind)));
-  }, [providers]);
 
   const [llmOptions, setLlmOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [llmLoading, setLlmLoading] = useState(false);
@@ -71,31 +64,20 @@ const CreateAgentModal: React.FC = () => {
 
   const projectId = useAuthStore((s) => s.user?.project_id);
 
-  // Ensure providers are loaded when create modal is open
-  useEffect(() => {
-    if (!showCreateAgentModal) return;
-    if ((providers || []).length === 0) {
-      loadProviders().catch(() => {});
-    }
-  }, [showCreateAgentModal, providers?.length, loadProviders]);
-
-  // Fetch chat models from /v1/ai/providers with model_type=chat and filter by enabled providers
+  // Fetch chat models from /v1/ai-models with model_type=chat
   useEffect(() => {
     if (!showCreateAgentModal) return;
     let cancelled = false;
     const fetchChatOptions = async () => {
-      if (enabledProviderKeys.size === 0) return;
       setLlmLoading(true);
       setLlmError(null);
       try {
         const svc = new AIProvidersApiService();
-        const res = await svc.listProviders({ is_active: true, model_type: 'chat', limit: 100, offset: 0 });
-        const options = (res.data || [])
-          .filter((p: any) => enabledProviderKeys.has(p.provider) && Array.isArray(p.available_models) && p.available_models.length > 0)
-          .flatMap((p: any) => (p.available_models || []).map((m: string) => {
-            const ui = `${p.id}:${m}`;
-            return { value: ui, label: `${m} · ${p.name || p.provider}` };
-          }));
+        const res = await svc.listProjectModels({ model_type: 'chat', is_active: true });
+        const options = (res.data || []).map((m: any) => ({
+          value: `${m.provider_id}:${m.model_id}`,
+          label: `${m.model_name} · ${m.provider_name}`,
+        }));
         if (!cancelled) {
           setLlmOptions(options);
         }
@@ -107,7 +89,7 @@ const CreateAgentModal: React.FC = () => {
     };
     fetchChatOptions();
     return () => { cancelled = true; };
-  }, [showCreateAgentModal, enabledProviderKeys, t]);
+  }, [showCreateAgentModal, t]);
 
   // Preselect default model from project AI config if available (only when create modal is open)
   useEffect(() => {

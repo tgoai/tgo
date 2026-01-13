@@ -24,7 +24,6 @@ import AgentWorkflowsSection from '@/components/ui/AgentWorkflowsSection';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useAgentForm } from '@/hooks/useAgentForm';
 import { useProjectToolsStore } from '@/stores/projectToolsStore';
-import { useProvidersStore } from '@/stores/providersStore';
 import AIProvidersApiService from '@/services/aiProvidersApi';
 
 interface EditAgentModalProps {
@@ -47,13 +46,6 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
   const { showToast } = useToast();
   const { t } = useTranslation();
 
-  // Providers + model options consistent with Settings → Model Providers
-  const { providers, loadProviders } = useProvidersStore();
-  const enabledProviderKeys = useMemo(() => {
-    const enabled = (providers || []).filter((p) => p.enabled);
-    return new Set(enabled.map((p) => AIProvidersApiService.kindToProviderKey(p.kind)));
-  }, [providers]);
-
   const [llmOptions, setLlmOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [llmLoading, setLlmLoading] = useState(false);
   const [llmError, setLlmError] = useState<string | null>(null);
@@ -61,27 +53,17 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    if ((providers || []).length === 0) {
-      loadProviders().catch(() => {});
-    }
-  }, [isOpen, providers?.length, loadProviders]);
-
-  useEffect(() => {
-    if (!isOpen) return;
     let cancelled = false;
     const fetchChatOptions = async () => {
-      if (enabledProviderKeys.size === 0) return;
       setLlmLoading(true);
       setLlmError(null);
       try {
         const svc = new AIProvidersApiService();
-        const res = await svc.listProviders({ is_active: true, model_type: 'chat', limit: 100, offset: 0 });
-        const options = (res.data || [])
-          .filter((p: any) => enabledProviderKeys.has(p.provider) && Array.isArray(p.available_models) && p.available_models.length > 0)
-          .flatMap((p: any) => (p.available_models || []).map((m: string) => {
-            const ui = `${p.id}:${m}`;
-            return { value: ui, label: `${m} · ${p.name || p.provider}` };
-          }));
+        const res = await svc.listProjectModels({ model_type: 'chat', is_active: true });
+        const options = (res.data || []).map((m: any) => ({
+          value: `${m.provider_id}:${m.model_id}`,
+          label: `${m.model_name} · ${m.provider_name}`,
+        }));
         if (!cancelled) {
           setLlmOptions(options);
         }
@@ -93,7 +75,7 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
     };
     fetchChatOptions();
     return () => { cancelled = true; };
-  }, [isOpen, enabledProviderKeys, t]);
+  }, [isOpen, t]);
 
   // Agent data state
   const [agent, setAgent] = useState<Agent | null>(null);

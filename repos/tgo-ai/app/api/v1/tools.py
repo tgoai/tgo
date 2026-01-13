@@ -27,6 +27,9 @@ router = APIRouter(prefix="/tools", tags=["tools"])
 class PluginToolCreate(BaseModel):
     """Schema for registering a plugin tool."""
     name: str = Field(..., description="Tool name (e.g., 'plugin:com.tgo.ticket:create_ticket')")
+    title: Optional[str] = Field(None, description="Tool title (Legacy/Fallback)")
+    title_zh: Optional[str] = Field(None, description="Tool title (Chinese)")
+    title_en: Optional[str] = Field(None, description="Tool title (English)")
     description: Optional[str] = Field(None, description="Tool description")
     tool_type: str = Field(default="MCP", description="Tool type (usually MCP)")
     transport_type: str = Field(default="plugin", description="Transport type (plugin)")
@@ -63,13 +66,7 @@ async def create_tool(
 ) -> ToolResponse:
     """Create a new tool for the specified project."""
     tool = Tool(
-        project_id=tool_in.project_id,
-        name=tool_in.name,
-        description=tool_in.description,
-        tool_type=tool_in.tool_type,
-        transport_type=tool_in.transport_type,
-        endpoint=tool_in.endpoint,
-        config=tool_in.config,
+        **tool_in.model_dump(exclude_none=True)
     )
 
     db.add(tool)
@@ -162,6 +159,9 @@ async def register_plugin_tool(
     
     if existing_tool:
         # Update existing tool
+        existing_tool.title = tool_in.title
+        existing_tool.title_zh = tool_in.title_zh
+        existing_tool.title_en = tool_in.title_en
         existing_tool.description = tool_in.description
         existing_tool.transport_type = tool_in.transport_type
         existing_tool.endpoint = tool_in.endpoint
@@ -169,14 +169,10 @@ async def register_plugin_tool(
     else:
         # Create new tool
         tool = Tool(
-            project_id=project_id,
-            name=tool_in.name,
-            description=tool_in.description,
-            tool_type=ToolType.MCP,
-            transport_type=tool_in.transport_type,
-            endpoint=tool_in.endpoint,
-            config=tool_in.config,
+            **tool_in.model_dump(exclude_none=True)
         )
+        if not tool.tool_type:
+            tool.tool_type = ToolType.MCP
         db.add(tool)
 
     await db.commit()

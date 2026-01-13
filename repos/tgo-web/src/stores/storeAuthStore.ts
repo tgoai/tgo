@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { STORAGE_KEYS } from '@/constants';
-import { toolStoreApi } from '@/services/toolStoreApi';
-import { projectApi } from '@/services/projectApi';
+import { storeApi } from '@/services/storeApi';
+import apiClient from '@/services/api';
 import type { ToolStoreUser, LoginFormData } from '@/types';
 
-interface ToolStoreAuthState {
+interface StoreAuthState {
   isAuthenticated: boolean;
   accessToken: string | null;
   refreshToken: string | null;
@@ -17,11 +17,11 @@ interface ToolStoreAuthState {
   exchangeCode: (code: string, codeVerifier: string) => Promise<void>;
   logout: () => void;
   refreshAccessToken: () => Promise<void>;
-  bindToProject: (projectId: string) => Promise<void>;
+  bindToProject: () => Promise<void>;
   clearError: () => void;
 }
 
-export const useToolStoreAuthStore = create<ToolStoreAuthState>()(
+export const useStoreAuthStore = create<StoreAuthState>()(
   persist(
     (set, get) => ({
       isAuthenticated: false,
@@ -34,7 +34,7 @@ export const useToolStoreAuthStore = create<ToolStoreAuthState>()(
       login: async (credentials: LoginFormData) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await toolStoreApi.login({
+          const response = await storeApi.login({
             username: credentials.email,
             password: credentials.password,
           });
@@ -58,7 +58,7 @@ export const useToolStoreAuthStore = create<ToolStoreAuthState>()(
       exchangeCode: async (code: string, codeVerifier: string) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await toolStoreApi.exchangeCode(code, codeVerifier);
+          const response = await storeApi.exchangeCode(code, codeVerifier);
           set({
             isAuthenticated: true,
             accessToken: response.access_token,
@@ -78,7 +78,7 @@ export const useToolStoreAuthStore = create<ToolStoreAuthState>()(
       logout: () => {
         const { refreshToken } = get();
         if (refreshToken) {
-          toolStoreApi.logout(refreshToken).catch(console.error);
+          storeApi.logout(refreshToken).catch(console.error);
         }
         set({
           isAuthenticated: false,
@@ -99,7 +99,7 @@ export const useToolStoreAuthStore = create<ToolStoreAuthState>()(
         if (!refreshToken) return;
 
         try {
-          const response = await toolStoreApi.refreshToken(refreshToken);
+          const response = await storeApi.refreshToken(refreshToken);
           set({
             accessToken: response.access_token,
             refreshToken: response.refresh_token,
@@ -115,15 +115,12 @@ export const useToolStoreAuthStore = create<ToolStoreAuthState>()(
         }
       },
 
-      bindToProject: async (projectId: string) => {
-        const { user } = get();
-        if (!user || !user.api_key) return;
+      bindToProject: async () => {
+        const { accessToken } = get();
+        if (!accessToken) return;
 
-        await projectApi.bindToolStoreCredential(projectId, {
-          toolstore_user_id: user.id,
-          toolstore_email: user.email,
-          api_key: user.api_key,
-          refresh_token: get().refreshToken || undefined,
+        await apiClient.post('/v1/store/bind', {
+          access_token: accessToken,
         });
       },
 

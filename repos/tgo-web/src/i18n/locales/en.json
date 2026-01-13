@@ -71,7 +71,9 @@
     "unknown": "Unknown",
     "required": "Required",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "enabled": "Enabled",
+    "advancedOptions": "Advanced Options"
   },
   "config": {
     "respondDirectly": "Respond Directly",
@@ -455,6 +457,34 @@
       "tip": "Tip: Notification feature requires browser permission. If you denied the permission request, you need to manually allow notifications for this site in your browser settings."
     },
     "models": {
+      "modelStore": "Model Store",
+      "store": {
+        "title": "Model Store",
+        "subtitle": "Discover and install world-class AI models",
+        "searchPlaceholder": "Search models, providers or features...",
+        "categories": {
+          "all": "All Models",
+          "chat": "Chat",
+          "embedding": "Embedding",
+          "image": "Image",
+          "audio": "Audio"
+        },
+        "install": "Get Started",
+        "installing": "Installing...",
+        "installed": "Installed",
+        "uninstall": "Stop Using",
+        "details": "Model Details",
+        "provider": "Provider",
+        "price": "Price",
+        "inputPrice": "Input Price (per 1M tokens)",
+        "outputPrice": "Output Price (per 1M tokens)",
+        "contextWindow": "Context Window",
+        "noResults": "No models found",
+        "noResultsDesc": "Try searching with different keywords or switch categories",
+        "installSuccess": "Model synced successfully",
+        "installSuccessMessage": "Model \"{{name}}\" has been synced to your project",
+        "fetchFailed": "Failed to fetch store models"
+      },
       "defaults": {
         "title": "Default Models",
         "description": "Select the required global default models for LLM and Embedding.",
@@ -496,7 +526,12 @@
       "subtitle": "Manage access configs for AI providers: keys, secure proxy, model lists and defaults.",
       "docs": "View Docs",
       "add": "Add Provider",
+      "addCustom": "Custom Config",
+      "fromStore": "Get from Store",
       "addTitle": "Add Provider",
+      "edit": "Edit Provider",
+      "storeModel": "Store Model",
+      "emptyTitle": "Start Your AI Journey",
       "enableButton": "Enable",
       "updateButton": "Update",
       "defaultName": "New Provider",
@@ -560,9 +595,10 @@
       "selectDefaultModel": "Please add models first",
       "test": {
         "ok": "Connection succeeded",
-        "failed": "Connection failed"
+        "failed": "Connection failed",
+        "saveFirst": "Please save before testing"
       },
-      "testButton": "Test Connection",
+      "testButton": "Test",
       "badges": {
         "default": "Default"
       },
@@ -578,7 +614,7 @@
       "createModelOption": "Create",
       "confirmDeleteTitle": "Delete Provider",
       "confirmDeleteMsg": "Are you sure you want to delete this provider configuration? This action cannot be undone.",
-      "empty": "No providers configured yet. Click \u201cAdd Provider\u201d in the top-right to get started."
+      "empty": "No providers configured yet. Click \"Get from Store\" or \"Custom Config\" to get started."
     }
   },
   "about": {
@@ -984,7 +1020,8 @@
     "visitors": "Visitors",
     "knowledge": "Knowledge Base",
     "channels": "Platform Management",
-    "settings": "Settings"
+    "settings": "Settings",
+    "store": "App Store"
   },
   "workflow": {
     "title": "Workflows",
@@ -1002,16 +1039,9 @@
       "noResults": "No matching workflows found",
       "noResultsDesc": "Try adjusting your search keywords or filters"
     },
-    "modal": {
-      "delete": {
-        "title": "Delete Workflow",
-        "message": "Are you sure you want to delete workflow \"{{name}}\"? This action cannot be undone."
-      }
-    },
     "addWorkflow": "Add Workflow",
     "viewWorkflow": "View Workflow",
     "listTitle": "Workflow List",
-    "noDescription": "No description",
     "nodes": "nodes",
     "lastUpdated": "Updated",
     "searchPlaceholder": "Search workflows...",
@@ -1176,7 +1206,6 @@
       "variable_hint": "final_response",
       "template_hint": "Hello, the result is: {{api_1.body}}",
       "expression_hint": "{{variable}} === 'value'",
-      "classifier_hint": "Select upstream variable, e.g. {{input_1.query}}",
       "raw_hint": "Enter raw content...",
       "api_hint": "https://api.example.com",
       "input_name": "Name",
@@ -2289,7 +2318,54 @@
       "loginSuccess": "Login Successful",
       "loginSuccessDesc": "You can now install and manage store tools.",
       "loginFailed": "Login Failed",
-      "cancelInstall": "Not Now"
+      "loginSyncDesc": "Once logged in, this window will automatically sync your status.",
+      "loginSecurityDesc": "To ensure your account security, we will open the login page in a new window.",
+      "logout": "Logout",
+      "balance": "Balance",
+      "popupBlocked": "Pop-up window blocked by browser, please allow pop-ups and try again",
+      "cancelInstall": "Not Now",
+      "model": {
+        "title": "Model Store",
+        "subtitle": "Access top global models, pay-as-you-go, no need to manage multiple API keys",
+        "searchPlaceholder": "Search model name, provider or capabilities...",
+        "fetchFailed": "Failed to fetch store models",
+        "initLoginFailed": "Failed to initiate login process",
+        "missingVerifier": "Missing local verification key, please try again",
+        "invalidCode": "Invalid or expired authorization code",
+        "usageNotice": "Once enabled, it will be available on the TGO platform, with real-time billing based on actual Token consumption.",
+        "noResults": "No matching models found",
+        "noResultsDesc": "Try searching for other keywords or switch categories",
+        "allModels": "All Models",
+        "installing": "Installing...",
+        "installStep": {
+          "verify": "Verifying credentials",
+          "sync": "Syncing model",
+          "done": "Installation complete"
+        },
+        "error": {
+          "notBound": "Please login to Store account first"
+        },
+        "installSuccess": "Model Installation Successful",
+        "installSuccessMessage": "Model \"{{name}}\" has been successfully synced to your project",
+        "uninstallSuccess": "Model Deactivation Successful",
+        "uninstallSuccessMessage": "Model \"{{name}}\" has been removed from your project",
+        "priceInput": "Input Price",
+        "priceOutput": "Output Price",
+        "perMillionTokens": "per 1M tokens",
+        "contextWindow": "Context Window",
+        "capabilities": "Capabilities",
+        "startUsing": "Start Using Now",
+        "stopUsing": "Stop Using",
+        "available": "Available",
+        "installed": "Enabled",
+        "notInstalled": "Not Enabled",
+        "backToList": "Back to List",
+        "details": "Model Details",
+        "provider": "Provider",
+        "type": "Model Type",
+        "documentation": "Provider API Docs",
+        "loading": "Searching for the world's most advanced AI models..."
+      }
     },
     "newTool": "New Tool",
     "selectModal": {
@@ -2513,18 +2589,6 @@
         "title": "Update Failed",
         "message": "Failed to update tool, please try again later"
       }
-    },
-    "selectModal": {
-      "title": "Select Tools",
-      "searchPlaceholder": "Search tools...",
-      "loading": "Loading tools...",
-      "loadFailedDesc": "Unable to load tool list, please try again later",
-      "retryFailedTitle": "Retry Failed",
-      "retryFailedDesc": "Unable to load tool list, please check your network connection",
-      "noMatch": "No matching tools found",
-      "configTool": "Configure Tool",
-      "manageTools": "Manage Tools",
-      "confirmSelection": "Confirm Selection ({{count}})"
     },
     "config": {
       "title": "Tool Configuration",
@@ -3129,58 +3193,6 @@
         "disabled": "Platform disabled",
         "enabled": "Platform enabled"
       }
-    },
-    "custom": {
-      "label": "Custom",
-      "title": "Custom Platform Config",
-      "subtitle": "Configure API info and callback URLs for third-party integration.",
-      "configSection": "Configuration",
-      "platformName": "Platform Name",
-      "platformNamePlaceholder": "Please enter platform name",
-      "integration": {
-        "title": "API Integration Info",
-        "guide": "Integration Guide",
-        "chatApi": "Chat API (Send messages to TGO)",
-        "endpoint": "Endpoint",
-        "authentication": "Authentication",
-        "authDesc": "Add platform API key in request header:",
-        "requiredParams": "Required Parameters",
-        "messagesDesc": "Array of messages, compatible with OpenAI ChatGPT API",
-        "userDesc": "Unique identifier for third-party platform user (Required)",
-        "simpleExample": "Simple Example",
-        "responseHandling": "Response Handling",
-        "responseHandlingDesc": "After calling the chat API, the TGO system will return the AI assistant's reply. The third-party platform needs to send this reply back to the corresponding user. The response format is compatible with the OpenAI ChatGPT API, supporting both streaming and non-streaming responses.",
-        "callbackApi": "Callback API (Receive service replies)",
-        "callbackConfig": "Configure Callback URL",
-        "callbackConfigDesc": "Set your callback URL in the field on the left. The system will POST to this address when a service reply is generated.",
-        "requestFormat": "Request Format",
-        "fieldDescriptions": "Field Descriptions",
-        "messageIdDesc": "Unique message ID",
-        "callbackUserDesc": "Third-party user ID (matches the 'user' field in chat API)",
-        "contentDesc": "Content of the service reply",
-        "timestampDesc": "Message timestamp (ISO 8601 format)",
-        "responseRequirement": "Response Requirement",
-        "responseRequirementDesc": "Ensure the callback URL is publicly accessible and returns HTTP 200 for successful receipt."
-      },
-      "chatUrl": "Chat API URL",
-      "chatUrlHint": "Third-party programs call this URL to send messages.",
-      "apiKey": "API Key",
-      "apiKeyHint": "Authenticate using X-Platform-API-Key in request headers.",
-      "callbackUrl": "Callback URL",
-      "callbackUrlHint": "System pushes messages to this URL when service replies",
-      "callbackUrlPlaceholder": "https://your-domain.com/webhook/callback",
-      "notAvailable": "N/A",
-      "saveSuccess": "Saved Successfully",
-      "disabled": "Platform disabled",
-      "enabled": "Platform enabled",
-      "confirmRegenerate": "Are you sure you want to regenerate the API key? The old key will immediately become invalid.",
-      "regenerated": "API key has been regenerated",
-      "deleted": "Platform deleted",
-      "deleteTitle": "Delete Platform",
-      "deleteMessage": "Are you sure you want to delete platform \"{{name}}\"? This action cannot be undone.",
-      "copied": "{{label}} copied to clipboard",
-      "invalidUrl": "Invalid URL format",
-      "invalidUrlHint": "Please enter a valid HTTP/HTTPS address"
     },
     "email": {
       "label": "Email",

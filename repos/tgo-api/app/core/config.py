@@ -299,14 +299,14 @@ class Settings(BaseSettings):
         gt=0,
     )
 
-    # ToolStore settings
-    TOOLSTORE_SERVICE_URL: str = Field(
+    # Store settings
+    STORE_SERVICE_URL: str = Field(
         default="http://localhost:8095",
-        description="URL of the ToolStore service"
+        description="URL of the Store service"
     )
-    TOOLSTORE_TIMEOUT: int = Field(
+    STORE_TIMEOUT: int = Field(
         default=30,
-        description="Timeout for ToolStore service requests in seconds"
+        description="Timeout for Store service requests in seconds"
     )
 
     # WuKongIM Service settings

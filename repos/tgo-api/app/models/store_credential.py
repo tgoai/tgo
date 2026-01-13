@@ -8,10 +8,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
 
-class ToolStoreCredential(Base):
-    """ToolStore credentials for a project."""
+class StoreCredential(Base):
+    """Store credentials for a project."""
 
-    __tablename__ = "api_toolstore_credentials"
+    __tablename__ = "api_store_credentials"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     project_id: Mapped[UUID] = mapped_column(
@@ -21,15 +21,15 @@ class ToolStoreCredential(Base):
         comment="Associated project ID"
     )
     
-    toolstore_user_id: Mapped[str] = mapped_column(
+    store_user_id: Mapped[str] = mapped_column(
         String(255), 
         nullable=False,
-        comment="User ID in the ToolStore"
+        comment="User ID in the Store"
     )
-    toolstore_email: Mapped[str] = mapped_column(
+    store_email: Mapped[str] = mapped_column(
         String(255), 
         nullable=False,
-        comment="Email associated with the ToolStore account"
+        comment="Email associated with the Store account"
     )
     
     # Encrypted fields

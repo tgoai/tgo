@@ -30,6 +30,7 @@ from app.models.visitor_waiting_queue import (
     URGENCY_PRIORITY_MAP,
 )
 from app.models.channel_memory_clearance import ChannelMemoryClearance, ClearanceUserType
+from app.models.store_credential import StoreCredential
 
 __all__ = [
     # Models
@@ -64,6 +65,7 @@ __all__ = [
     "VisitorWaitingQueue",
     "URGENCY_PRIORITY_MAP",
     "ChannelMemoryClearance",
+    "StoreCredential",
     # Enums
     "PlatformType",
     "StaffRole",

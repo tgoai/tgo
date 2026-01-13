@@ -1,326 +1,90 @@
-import React, { useMemo, useState, useContext, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useContext, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiCpu, FiPlus, FiEdit2, FiTrash2, FiEye, FiEyeOff, FiLoader, FiHelpCircle } from 'react-icons/fi';
+import { FiCpu, FiLoader } from 'react-icons/fi';
+import { Sparkles, Settings, Zap } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import Toggle from '@/components/ui/Toggle';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import SectionCard from '@/components/ui/SectionCard';
-import SectionHeader from '@/components/ui/SectionHeader';
 import Select from '@/components/ui/Select';
-
-import { useProvidersStore, type ModelProviderConfig, type ProviderKind } from '@/stores/providersStore';
+import SectionCard from '@/components/ui/SectionCard';
+import { useProvidersStore, type ModelProviderConfig } from '@/stores/providersStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useAppSettingsStore } from '@/stores/appSettingsStore';
 import { ToastContext } from '@/components/ui/ToastContainer';
 import AIProvidersApiService from '@/services/aiProvidersApi';
 import ProjectConfigApiService from '@/services/projectConfigApi';
-import { useAuthStore } from '@/stores/authStore';
-import UIBadge from '@/components/ui/Badge';
-
-
-import { useAppSettingsStore } from '@/stores/appSettingsStore';
-// Provider options will be constructed inside the component with i18n labels/hints to avoid hardcoded text.
-
-type ModelType = 'chat' | 'embedding';
-type Draft = Omit<ModelProviderConfig, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; modelType?: ModelType };
-
-const emptyDraft = (t: (k: string, d: string)=>string): Draft => ({
-  kind: 'openai',
-  name: t('settings.providers.defaultName', '新提供商'),
-  apiKey: '',
-  apiBaseUrl: 'https://api.openai.com/v1',
-  models: [],
-  defaultModel: '',
-  enabled: true,
-  params: { azure: { apiVersion: '2024-02-15-preview' } },
-  modelType: 'chat'
-});
-
-
-const FieldRow: React.FC<{ label: string; required?: boolean; children: React.ReactNode }>
-  = ({ label, required, children }) => (
-  <div className="grid grid-cols-12 items-center gap-3 py-2">
-    <label className="col-span-3 text-sm text-gray-600 dark:text-gray-300">
-      {label}{required && <span className="text-red-500 dark:text-red-400">*</span>}
-    </label>
-    <div className="col-span-9">{children}</div>
-  </div>
-);
-
+import ModelStoreModal from '@/components/ai/ModelStoreModal';
+import { ToolToastProvider } from '@/components/ai/ToolToastProvider';
+import ProviderCard from './ProviderCard';
+import ProviderConfigModal from './ProviderConfigModal';
 
 const ModelProvidersSettings: React.FC = () => {
   const { t } = useTranslation();
   const toast = useContext(ToastContext);
-  const { providers, isLoading, loadProviders, addProvider, updateProvider, removeProvider } = useProvidersStore();
+  const { providers, isLoading, loadProviders, removeProvider } = useProvidersStore();
+  const projectId = useAuthStore(s => s.user?.project_id);
+  const { setDefaultLlmModel, setDefaultEmbeddingModel } = useAppSettingsStore();
 
-  const [editingId, setEditingId] = useState<string | 'new' | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [reveal, setReveal] = useState<Record<string, boolean>>({});
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [showModelStore, setShowModelStore] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<ModelProviderConfig | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
-  const [modelsLoading, setModelsLoading] = useState<boolean>(false);
-  // Models combobox state
-  const [isModelsOpen, setIsModelsOpen] = useState(false);
-  const [modelsQuery, setModelsQuery] = useState('');
-  const [modelOptions, setModelOptions] = useState<Array<{ id: string; name?: string }>>([]);
-  const modelsBoxRef = useRef<HTMLDivElement | null>(null);
+
   // Global default models UI state
   const [chatOptions, setChatOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [embeddingOptions, setEmbeddingOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [llmSelection, setLlmSelection] = useState<string>('');
   const [embSelection, setEmbSelection] = useState<string>('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [embLoading, setEmbLoading] = useState(false);
+  const [isSavingDefaults, setIsSavingDefaults] = useState(false);
 
-  const {
-    defaultLlmModel,
-    defaultEmbeddingModel,
-    setDefaultLlmModel,
-    setDefaultEmbeddingModel,
-
-  } = useAppSettingsStore();
-
-  // Track last auto-filled name to avoid overriding custom user input
-  const autoNameRef = useRef<string | null>(null);
-
-  // Embedding help tooltip state
-  const [showEmbeddingHelp, setShowEmbeddingHelp] = useState(false);
-  const embeddingHelpRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!isModelsOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (modelsBoxRef.current && !modelsBoxRef.current.contains(e.target as Node)) {
-        setIsModelsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [isModelsOpen]);
-
-  // Close embedding help tooltip when clicking outside
-  useEffect(() => {
-    if (!showEmbeddingHelp) return;
-    const onDoc = (e: MouseEvent) => {
-      if (embeddingHelpRef.current && !embeddingHelpRef.current.contains(e.target as Node)) {
-        setShowEmbeddingHelp(false);
-      }
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [showEmbeddingHelp]);
-
-  // Reset options when provider kind changes in the current draft
-  useEffect(() => {
-    setModelOptions([]);
-    setModelsQuery('');
-    setIsModelsOpen(false);
-  }, [draft?.kind]);
-
-  const ensureFetchModelOptions = async (kind: ProviderKind, apiKey?: string, apiBaseUrl?: string) => {
-    try {
-      setModelsLoading(true);
-      const service = new AIProvidersApiService();
-      const providerKey = AIProvidersApiService.kindToProviderKey(kind);
-      
-      // Build request body for POST /v1/ai/models
-      const requestBody: { provider: string; api_key?: string; api_base_url?: string; config?: Record<string, any> } = {
-        provider: providerKey,
-      };
-      
-      // Include api_key if provided (allows fetching actual models from provider)
-      if (apiKey?.trim()) {
-        requestBody.api_key = apiKey.trim();
-      }
-      
-      // Include api_base_url if provided
-      if (apiBaseUrl?.trim()) {
-        requestBody.api_base_url = apiBaseUrl.trim();
-      }
-      
-      // For Azure, include config with deployment info if available
-      if (kind === 'azure' && draft?.params?.azure) {
-        requestBody.config = {
-          deployment: draft.params.azure.deployment,
-          resource: draft.params.azure.resource,
-          api_version: draft.params.azure.apiVersion,
-        };
-      }
-      
-      const res = await service.listModels(requestBody);
-      // Response uses ModelListResponse format: { provider, models: ModelInfo[], is_fallback }
-      const opts = (res.models || []).map((m: any) => ({ id: m.id, name: m.name })).filter((o: any) => o.id);
-      setModelOptions(opts);
-    } catch (e: any) {
-      toast?.showToast('error', t('settings.providers.fetchModels.failed', '获取模型失败'), e?.message);
-    } finally {
-      setModelsLoading(false);
-    }
-  };
-
-
-  const providerOptions: Array<{ value: ProviderKind; label: string; hint?: string }> = useMemo(() => [
-    { value: 'openai', label: t('settings.providers.provider.openai', 'OpenAI'), hint: 'https://api.openai.com/v1' },
-    { value: 'azure', label: t('settings.providers.provider.azure', 'Azure OpenAI'), hint: 'https://{resource}.openai.azure.com' },
-    { value: 'qwen', label: t('settings.providers.provider.qwen', '通义千问 (DashScope)'), hint: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
-    { value: 'moonshot', label: t('settings.providers.provider.moonshot', '月之暗面 (Kimi)'), hint: 'https://api.moonshot.cn/v1' },
-    { value: 'deepseek', label: t('settings.providers.provider.deepseek', 'DeepSeek'), hint: 'https://api.deepseek.com/v1' },
-    { value: 'ollama', label: t('settings.providers.provider.ollama', 'Ollama'), hint: 'http://localhost:11434' },
-    { value: 'custom', label: t('settings.providers.provider.custom', '自定义'), hint: t('settings.providers.placeholders.baseUrl.custom', '自定义 Base URL') },
-  ], [t]);
+  // Track initialization to avoid infinite loops
+  const isInitialized = React.useRef(false);
 
   useEffect(() => {
     loadProviders().catch(() => {});
   }, [loadProviders]);
 
-  const providerLabel = (kind: ProviderKind) => providerOptions.find(o => o.value === kind)?.label || kind;
-
-  const startAdd = () => {
-    setEditingId('new');
-    const d = emptyDraft(t);
-    setDraft(d);
-    autoNameRef.current = d.name || '';
-  };
-
-  const startAddEmbedding = () => {
-    setEditingId('new');
-    const d = emptyDraft(t);
-    // Set to embedding mode with default embedding model
-    d.modelType = 'embedding';
-    d.kind = 'openai';
-    d.models = ['text-embedding-3-small'];
-    d.defaultModel = 'text-embedding-3-small';
-    setDraft(d);
-    autoNameRef.current = d.name || '';
-  };
-
-  const startEdit = (p: ModelProviderConfig) => {
-    setEditingId(p.id);
-    setDraft({ ...p });
-    autoNameRef.current = null; // do not auto-fill name in edit mode
-  };
-
-  const cancelEdit = () => { setEditingId(null); setDraft(null); };
-
-  const saveDraft = async () => {
-    if (!draft) return;
-    // basic validation
-    if (!draft.apiKey?.trim() && (editingId === 'new' || !draft.id)) {
-      toast?.showToast('warning', t('settings.providers.validate.apiKey', '请输入 API Key'));
-      return;
-    }
-    if (draft.kind === 'azure' && !draft.params?.azure?.deployment) {
-      toast?.showToast('warning', t('settings.providers.validate.azureDeployment', '请输入 Azure 部署名称'));
-      return;
-    }
-
-    try {
-      if (editingId === 'new' || !draft.id) {
-        const models = (draft.models || []).map(m => m.trim()).filter(Boolean);
-        const defaultModel = draft.defaultModel && models.includes(draft.defaultModel.trim())
-          ? draft.defaultModel.trim()
-          : (models[0] || '');
-        await addProvider({
-          kind: draft.kind,
-          name: draft.name?.trim() || providerLabel(draft.kind),
-          apiKey: draft.apiKey.trim(),
-          apiBaseUrl: draft.apiBaseUrl?.trim(),
-          models,
-          defaultModel,
-          enabled: !!draft.enabled,
-          params: draft.params,
-        });
-        setEditingId(null); setDraft(null);
-        toast?.showToast('success', t('settings.providers.toast.added', '已添加提供商'));
-      } else {
-        const models = (draft.models || []).map(m => m.trim()).filter(Boolean);
-        const defaultModel = draft.defaultModel && models.includes(draft.defaultModel.trim())
-          ? draft.defaultModel.trim()
-          : (models[0] || '');
-        await updateProvider(draft.id, {
-          kind: draft.kind,
-          name: draft.name?.trim() || providerLabel(draft.kind),
-          apiKey: (draft.apiKey || '').trim(),
-          apiBaseUrl: draft.apiBaseUrl?.trim(),
-          models,
-          defaultModel,
-          enabled: !!draft.enabled,
-          params: draft.params,
-        });
-        setEditingId(null); setDraft(null);
-        toast?.showToast('success', t('settings.providers.toast.saved', '已保存修改'));
-      }
-    } catch (e: any) {
-      toast?.showToast('error', t('common.saveFailed', '保存失败'), e?.message);
-    }
-  };
-
-  const onDelete = async (id: string) => {
-    setDeleting(null);
-    try {
-      await removeProvider(id);
-      toast?.showToast('success', t('settings.providers.toast.deleted', '已删除提供商'));
-    } catch (e: any) {
-      toast?.showToast('error', t('common.deleteFailed', '删除失败'), e?.message);
-    }
-  };
-
-  // ===== Global Default Models logic =====
-  // Sync UI selections from persisted store
-  // Sync UI selections from persisted store
+  // Load project-level AI defaults
   useEffect(() => {
-    setLlmSelection(defaultLlmModel || '');
-    setEmbSelection(defaultEmbeddingModel || '');
-  }, [defaultLlmModel, defaultEmbeddingModel]);
-
-  const projectId = useAuthStore(s => s.user?.project_id);
-  // Load project-level AI defaults from backend and reflect
-  useEffect(() => {
-    if (!projectId) return;
-    let cancelled = false;
-    (async () => {
+    if (!projectId || isInitialized.current) return;
+    
+    const fetchConfig = async () => {
       try {
         const svc = new ProjectConfigApiService();
         const conf = await svc.getAIConfig(projectId);
-        if (cancelled) return;
         const llm = conf.default_chat_provider_id && conf.default_chat_model
           ? `${conf.default_chat_provider_id}:${conf.default_chat_model}`
           : '';
         const emb = conf.default_embedding_provider_id && conf.default_embedding_model
           ? `${conf.default_embedding_provider_id}:${conf.default_embedding_model}`
           : '';
+        
         setLlmSelection(llm);
         setEmbSelection(emb);
         setDefaultLlmModel(llm || null);
         setDefaultEmbeddingModel(emb || null);
+        isInitialized.current = true;
       } catch (err: any) {
         toast?.showToast('error', t('common.loadFailed', '加载失败'), err?.message);
       }
-    })();
-    return () => { cancelled = true; };
-  }, [projectId]);
+    };
 
-  // Enabled provider keys for filtering models (maps ProviderKind to provider key used by models)
-  const enabledProviderKeys = useMemo(() => {
-    const enabled = providers.filter(p => p.enabled);
-    return new Set(enabled.map(p => AIProvidersApiService.kindToProviderKey(p.kind)));
-  }, [providers]);
-
-  // Lazy load options on first open
-  const [chatLoaded, setChatLoaded] = useState(false);
-  const [embLoaded, setEmbLoaded] = useState(false);
-  const [chatLoading, setChatLoading] = useState(false);
-  const [embLoading, setEmbLoading] = useState(false);
+    fetchConfig();
+  }, [projectId, setDefaultLlmModel, setDefaultEmbeddingModel, toast, t]); // Kept dependencies but added Ref guard
 
   const ensureFetchChatOptions = async () => {
-    // Only prevent concurrent requests, but always refresh data on each click
     if (chatLoading) return;
     setChatLoading(true);
     try {
       const svc = new AIProvidersApiService();
-      const res = await svc.listProviders({ is_active: true, model_type: 'chat', limit: 100, offset: 0 });
-      const normalize = (list: any[]) =>
-        (list || [])
-          .filter((p: any) => enabledProviderKeys.has(p.provider) && Array.isArray(p.available_models) && p.available_models.length > 0)
-          .flatMap((p: any) => (p.available_models || []).map((m: string) => ({ value: `${p.id}:${m}`, label: `${m} · ${p.name || p.provider}` })));
-      setChatOptions(normalize(res.data || []));
-      setChatLoaded(true);
+      const res = await svc.listProjectModels({ model_type: 'chat', is_active: true });
+      const opts = (res.data || []).map((m: any) => ({ 
+        value: `${m.provider_id}:${m.model_id}`, 
+        label: `${m.model_name} · ${m.provider_name}` 
+      }));
+      setChatOptions(opts);
     } catch (err: any) {
       toast?.showToast('error', t('common.loadFailed', '加载失败'), err?.message);
     } finally {
@@ -329,18 +93,16 @@ const ModelProvidersSettings: React.FC = () => {
   };
 
   const ensureFetchEmbeddingOptions = async () => {
-    // Only prevent concurrent requests, but always refresh data on each click
     if (embLoading) return;
     setEmbLoading(true);
     try {
       const svc = new AIProvidersApiService();
-      const res = await svc.listProviders({ is_active: true, model_type: 'embedding', limit: 100, offset: 0 });
-      const normalize = (list: any[]) =>
-        (list || [])
-          .filter((p: any) => enabledProviderKeys.has(p.provider) && Array.isArray(p.available_models) && p.available_models.length > 0)
-          .flatMap((p: any) => (p.available_models || []).map((m: string) => ({ value: `${p.id}:${m}`, label: `${m} · ${p.name || p.provider}` })));
-      setEmbeddingOptions(normalize(res.data || []));
-      setEmbLoaded(true);
+      const res = await svc.listProjectModels({ model_type: 'embedding', is_active: true });
+      const opts = (res.data || []).map((m: any) => ({ 
+        value: `${m.provider_id}:${m.model_id}`, 
+        label: `${m.model_name} · ${m.provider_name}` 
+      }));
+      setEmbeddingOptions(opts);
     } catch (err: any) {
       toast?.showToast('error', t('common.loadFailed', '加载失败'), err?.message);
     } finally {
@@ -348,668 +110,239 @@ const ModelProvidersSettings: React.FC = () => {
     }
   };
 
-
-	  // If backend returned saved selections, proactively load options so labels can display after refresh
-	  useEffect(() => {
-    if (enabledProviderKeys.size === 0) return;
-
-	    if (llmSelection && !chatLoaded && !chatLoading) {
-	      // Trigger lazy load for chat options to show the selected label
-	      void ensureFetchChatOptions();
-	    }
-	  }, [llmSelection, chatLoaded, chatLoading, enabledProviderKeys]);
-
-
-
-	  useEffect(() => {
-    if (enabledProviderKeys.size === 0) return;
-
-	    if (embSelection && !embLoaded && !embLoading) {
-	      // Trigger lazy load for embedding options to show the selected label
-	      void ensureFetchEmbeddingOptions();
-	    }
-	  }, [embSelection, embLoaded, embLoading, enabledProviderKeys]);
-
-  // Options have been normalized and pre-filtered by enabled providers
-  const filteredChatModels = chatOptions;
-  const filteredEmbeddingModels = embeddingOptions;
-
   const onSaveDefaults = async () => {
-    // Require both selections (LLM and Embedding)
-    if (!llmSelection || !embSelection) {
-      toast?.showToast('error', t('settings.models.toast.required', '请同时设置默认 LLM 和默认 Embedding 模型'));
-      return;
-    }
-    if (!projectId) {
-      toast?.showToast('error', t('common.saveFailed', '保存失败'), t('common.noProject', '缺少项目上下文'));
-      return;
-    }
+    if (!projectId) return;
+    setIsSavingDefaults(true);
+    try {
     const parse = (v: string) => {
       const i = v.indexOf(':');
-      if (i <= 0) return null;
-      return { providerId: v.slice(0, i), model: v.slice(i + 1) } as const;
-    };
-    const chat = llmSelection ? parse(llmSelection) : null;
-    const emb = embSelection ? parse(embSelection) : null;
-    if (!chat || !emb) {
-      // Either invalid or empty
-      toast?.showToast('error', t('settings.models.toast.required', '请同时设置默认 LLM 和默认 Embedding 模型'));
-      return;
-    }
-    try {
+        if (i <= 0) return { providerId: null, model: null };
+        return { providerId: v.slice(0, i), model: v.slice(i + 1) };
+      };
+      const chat = parse(llmSelection);
+      const emb = parse(embSelection);
       const svc = new ProjectConfigApiService();
       await svc.upsertAIConfig(projectId, {
-        default_chat_provider_id: chat ? chat.providerId : null,
-        default_chat_model: chat ? chat.model : null,
-        default_embedding_provider_id: emb ? emb.providerId : null,
-        default_embedding_model: emb ? emb.model : null,
+        default_chat_provider_id: chat.providerId,
+        default_chat_model: chat.model,
+        default_embedding_provider_id: emb.providerId,
+        default_embedding_model: emb.model,
       });
       setDefaultLlmModel(llmSelection || null);
       setDefaultEmbeddingModel(embSelection || null);
       toast?.showToast('success', t('settings.models.toast.saved', '默认模型已保存'));
     } catch (err: any) {
       toast?.showToast('error', t('common.saveFailed', '保存失败'), err?.message);
+    } finally {
+      setIsSavingDefaults(false);
     }
   };
 
-  const testConnection = async (p: ModelProviderConfig) => {
+  const handleDelete = async (id: string) => {
+    setDeletingId(null);
+    try {
+      await removeProvider(id);
+      toast?.showToast('success', t('settings.providers.toast.deleted', '已删除提供商'));
+    } catch (e: any) {
+      toast?.showToast('error', t('common.deleteFailed', '删除失败'), e?.message);
+    }
+  };
+
+  const handleTest = async (p: ModelProviderConfig) => {
     setTestingId(p.id);
     try {
-      // use backend test endpoint to avoid CORS and keep key server-side
       const svc = new AIProvidersApiService();
       const res = await svc.testProvider(p.id);
-      const ok = Boolean((res as any).ok ?? (res as any).success ?? true);
-      if (ok) {
+      if ((res as any).ok ?? (res as any).success ?? true) {
         toast?.showToast('success', t('settings.providers.test.ok', '连接成功'));
       } else {
-        const detail = (res as any)?.details?.error?.message
-          || (res as any)?.error?.message
-          || (res as any)?.message
-          || (res as any)?.detail
-          || undefined;
-        toast?.showToast('error', t('settings.providers.test.failed', '连接失败'), detail, 6000);
+        toast?.showToast('error', t('settings.providers.test.failed', '连接失败'));
       }
     } catch (err: any) {
-      const detail = err?.data?.details?.error?.message || err?.data?.error?.message || err?.message || String(err);
-      toast?.showToast('error', t('settings.providers.test.failed', '连接失败'), detail, 6000);
+      toast?.showToast('error', t('settings.providers.test.failed', '连接失败'), err?.message);
     } finally {
       setTestingId(null);
     }
   };
 
+  const sortedProviders = useMemo(() => 
+    providers.slice().sort((a, b) => Number(b.enabled) - Number(a.enabled)), 
+    [providers]
+  );
 
-  // models combobox will auto-fetch on focus/open; removed the old manual fetch button
-
-
-  const renderEditForm = (d: Draft, idForState: string) => {
-    const selected = providerOptions.find(o => o.value === d.kind);
-    const isEmbeddingMode = d.modelType === 'embedding';
     return (
-      <div className="mt-4 space-y-4">
-        {/* Model Type Selector - Only show for new providers */}
-        {editingId === 'new' && (
-          <FieldRow label={t('settings.providers.fields.modelType', '模型类型')} required>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setDraft({ ...d, modelType: 'chat', models: [], defaultModel: '' })}
-                className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
-                  !isEmbeddingMode
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
-                }`}
-              >
-                {t('settings.providers.modelType.chat', '聊天模型')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  // 切换到嵌入模型时，如果当前提供商不支持嵌入，则默认选择 openai
-                  const supportedKind = (d.kind === 'openai' || d.kind === 'qwen') ? d.kind : 'openai';
-                  const defaultModel = supportedKind === 'openai' ? 'text-embedding-3-small' : 'text-embedding-v4';
-                  setDraft({ ...d, modelType: 'embedding', kind: supportedKind, models: [defaultModel], defaultModel });
-                }}
-                className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
-                  isEmbeddingMode
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
-                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
-                }`}
-              >
-                {t('settings.providers.modelType.embedding', '嵌入模型')}
-              </button>
-            </div>
-          </FieldRow>
-        )}
-
-        <FieldRow label={t('settings.providers.fields.kind', '提供商')} required>
-          <Select
-            value={d.kind}
-            onChange={(value) => {
-              const kind = value as ProviderKind;
-              const next: Draft = { ...d, kind };
-              // 根据提供商类型自动填充 Base URL（使用 providerOptions.hint）；自定义则置空
-              const selectedOpt = providerOptions.find(o => o.value === kind);
-              const defaultBaseUrl = kind === 'custom' ? '' : (selectedOpt?.hint || '');
-              // 新建时或当前值为空时才自动填充；编辑模式下已有值不覆盖
-              if (editingId === 'new' || !(d.apiBaseUrl || '').trim()) {
-                next.apiBaseUrl = defaultBaseUrl;
-              }
-              // 切换提供商类型时清空已选择的模型，避免不匹配
-              next.models = [];
-              next.defaultModel = '';
-
-              // 自动填充名称：仅在新建模式下，且当前名称为空或为之前的默认值时
-              if (editingId === 'new') {
-                const currentName = (d.name || '').trim();
-                const prevAuto = autoNameRef.current || '';
-                const defaultName = t('settings.providers.defaultName', '新提供商') as string;
-                const shouldAutofill = !currentName || currentName === prevAuto || currentName === providerLabel(d.kind) || currentName === defaultName;
-                if (shouldAutofill) {
-                  const label = providerLabel(kind);
-                  next.name = label;
-                  autoNameRef.current = label;
-                }
-              }
-
-              // 嵌入模型：根据提供商自动填充默认模型名称
-              if (isEmbeddingMode) {
-                if (kind === 'openai') {
-                  next.models = ['text-embedding-3-small'];
-                  next.defaultModel = 'text-embedding-3-small';
-                } else if (kind === 'qwen') {
-                  next.models = ['text-embedding-v4'];
-                  next.defaultModel = 'text-embedding-v4';
-                }
-              }
-
-              setDraft(next);
-            }}
-            options={
-              (isEmbeddingMode
-                ? providerOptions.filter(o => o.value === 'openai' || o.value === 'qwen')
-                : providerOptions
-              ).map(o => ({ value: o.value, label: o.label }))
-            }
-            placeholder={t('settings.providers.fields.selectProvider', '选择提供商')}
-          />
-        </FieldRow>
-
-        {/* Name field - hide for embedding mode */}
-        {!isEmbeddingMode && (
-          <FieldRow label={t('settings.providers.fields.name', '名称/别名')}>
-            <input
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={d.name}
-              onChange={(e) => setDraft({ ...d, name: e.target.value })}
-              placeholder={providerLabel(d.kind)}
-            />
-          </FieldRow>
-        )}
-
-        {/* Connection section header - hide for embedding mode */}
-        {!isEmbeddingMode && (
-          <div className="pt-1 text-xs font-medium text-gray-700 dark:text-gray-200 border-t border-gray-100 dark:border-gray-700 mt-2">
-            {t('settings.providers.groups.connection', '认证与连接')}
-          </div>
-        )}
-
-        {/* Base URL field - show before API Key for chat mode, hide for embedding mode */}
-        {!isEmbeddingMode && (
-          <FieldRow label={t('settings.providers.fields.baseUrl', 'API Base URL')} required={d.kind !== 'ollama'}>
-            <input
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={d.apiBaseUrl || ''}
-              onChange={(e) => setDraft({ ...d, apiBaseUrl: e.target.value })}
-              placeholder={selected?.hint}
-            />
-          </FieldRow>
-        )}
-
-        {/* API Key field */}
-        <FieldRow label={t('settings.providers.fields.apiKey', 'API Key')} required>
-          <div className="flex items-center gap-2">
-            <input
-              type={reveal[idForState] ? 'text' : 'password'}
-              className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={d.apiKey || ''}
-              onChange={(e) => setDraft({ ...d, apiKey: e.target.value })}
-              placeholder={d.hasApiKey && d.apiKeyMasked ? (t('settings.providers.placeholders.apiKeyMasked', `已配置：${d.apiKeyMasked}，留空则不更新`) as string) : (t('settings.providers.placeholders.apiKey', '粘贴密钥') as string)}
-            />
-            <button
-              type="button"
-              onClick={() => setReveal((s) => ({ ...s, [idForState]: !s[idForState] }))}
-              className="p-2 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              title={reveal[idForState] ? t('common.hide', '隐藏') : t('common.show', '显示')}
-            >
-              {reveal[idForState] ? <FiEyeOff /> : <FiEye />}
-            </button>
-          </div>
-        </FieldRow>
-
-        {/* Azure configuration - hide for embedding mode */}
-        {d.kind === 'azure' && !isEmbeddingMode && (
-          <div className="grid grid-cols-12 gap-3">
-            <div className="col-span-12 md:col-span-4">
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">{t('settings.providers.fields.azure.deployment', 'Deployment Name')}</label>
-              <input
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={d.params?.azure?.deployment || ''}
-                onChange={(e) => setDraft({ ...d, params: { ...d.params, azure: { ...(d.params?.azure || {}), deployment: e.target.value } } })}
-                placeholder="gpt-4o"
-              />
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('settings.providers.help.azure.deployment', 'Azure 中的部署名称，区别于模型 ID')}</div>
-            </div>
-            <div className="col-span-6 md:col-span-4">
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">{t('settings.providers.fields.azure.resource', 'Resource')}</label>
-              <input
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={d.params?.azure?.resource || ''}
-                onChange={(e) => setDraft({ ...d, params: { ...d.params, azure: { ...(d.params?.azure || {}), resource: e.target.value } } })}
-                placeholder="my-azure-resource"
-              />
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('settings.providers.help.azure.resource', 'Azure 资源名称，例如 OpenAI 服务资源名')}</div>
-            </div>
-            <div className="col-span-6 md:col-span-4">
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">{t('settings.providers.fields.azure.apiVersion', 'API Version')}</label>
-              <input
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={d.params?.azure?.apiVersion || '2024-02-15-preview'}
-                onChange={(e) => setDraft({ ...d, params: { ...d.params, azure: { ...(d.params?.azure || {}), apiVersion: e.target.value } } })}
-                placeholder="2024-02-15-preview"
-              />
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('settings.providers.help.azure.apiVersion', 'Azure OpenAI API 版本号，如 2024-02-15-preview')}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Embedding Model - Simple single model input */}
-        {isEmbeddingMode && (
-          <FieldRow label={t('settings.providers.fields.embeddingModel', '嵌入模型')} required>
-            <input
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={(d.models && d.models[0]) || ''}
-              onChange={(e) => {
-                const modelName = e.target.value;
-                setDraft({ ...d, models: modelName ? [modelName] : [], defaultModel: modelName || '' });
-              }}
-              placeholder={t('settings.providers.placeholders.embeddingModel', '例如：text-embedding-3-small') || '例如：text-embedding-3-small'}
-            />
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {t('settings.providers.help.embeddingModel', '输入嵌入模型的名称，如 text-embedding-3-small、text-embedding-ada-002')}
-            </div>
-          </FieldRow>
-        )}
-
-        {/* Chat Model - Full models section */}
-        {!isEmbeddingMode && (
-          <>
-            <div className="pt-1 text-xs font-medium text-gray-700 dark:text-gray-200 border-t border-gray-100 dark:border-gray-700 mt-3 mb-1">
-              {t('settings.providers.groups.modelsTitle', '模型与默认值')}
-            </div>
-
-            <FieldRow label={t('settings.providers.fields.models', '可用模型列表')}>
-          <div className="relative" ref={modelsBoxRef}>
-
-
-            <div
-              className="flex flex-wrap items-center gap-1 rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1 focus-within:ring-2 focus-within:ring-blue-500 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
-              onClick={() => { ensureFetchModelOptions(d.kind, d.apiKey, d.apiBaseUrl); setIsModelsOpen(true); }}
-            >
-              {(d.models || []).map((m, idx) => (
-                <span key={`${m}-${idx}`} className="inline-flex items-center px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                  <span className="truncate max-w-[140px]">{m}</span>
-                  <button
-                    type="button"
-                    className="ml-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const next = (d.models || []).filter(x => x !== m);
-                      const nextDefault = (d.defaultModel && next.includes(d.defaultModel)) ? d.defaultModel : (next[0] || '');
-                      setDraft({ ...d, models: next, defaultModel: nextDefault });
-                    }}
-                    aria-label={t('common.remove', '移除') || '移除'}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-              <input
-                className="flex-1 min-w-[120px] outline-none bg-transparent dark:text-gray-100 text-sm py-1"
-                value={modelsQuery}
-                onChange={(e) => setModelsQuery(e.target.value)}
-                onFocus={() => { ensureFetchModelOptions(d.kind, d.apiKey, d.apiBaseUrl); setIsModelsOpen(true); }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    const val = modelsQuery.trim();
-                    if (val) {
-                      const exists = (d.models || []).includes(val);
-                      if (!exists) {
-                        const next = [...(d.models || []), val];
-                        const nextDefault = d.defaultModel && next.includes(d.defaultModel) ? d.defaultModel : (next[0] || '');
-                        setDraft({ ...d, models: next, defaultModel: nextDefault });
-                      }
-                      setModelsQuery('');
-                    }
-                    e.preventDefault();
-                  }
-                }}
-                placeholder={t('settings.providers.placeholders.modelsSearch', '搜索或输入模型ID...') || '搜索或输入模型ID...'}
-              />
-            </div>
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {t('settings.providers.help.modelsCustom', '如果列表为空或未找到所需模型，您可以手动输入自定义模型名称')}
-            </div>
-
-
-            {isModelsOpen && (
-              <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
-                <div className="p-2">
-                  {modelsLoading ? (
-                    <div className="flex items-center text-sm text-gray-500 dark:text-gray-400"><FiLoader className="animate-spin mr-2" />{t('common.loading', '加载中...')}</div>
-                  ) : (
-                    <>
-                      {(() => {
-                        const q = modelsQuery.trim().toLowerCase();
-                        const selected = new Set(d.models || []);
-                        const list = (modelOptions || []).filter(opt => {
-                          const id = (opt.id || '').toLowerCase();
-                          const name = (opt.name || '').toLowerCase();
-                          return !q || id.includes(q) || name.includes(q);
-                        });
-                        return (
-                          <>
-                            {q && !(d.models || []).includes(modelsQuery.trim()) && !list.some(opt => opt.id === modelsQuery.trim()) && (
-                              <button
-                                type="button"
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 rounded dark:text-gray-100"
-                                onClick={() => {
-                                  const val = modelsQuery.trim();
-                                  if (!val) return;
-                                  const next = Array.from(new Set([...(d.models || []), val]));
-                                  const nextDefault = d.defaultModel && next.includes(d.defaultModel) ? d.defaultModel : (next[0] || '');
-                                  setDraft({ ...d, models: next, defaultModel: nextDefault });
-                                  setModelsQuery('');
-                                  setIsModelsOpen(false);
-                                }}
-                              >
-                                {t('settings.providers.createModelOption', '创建')} "{modelsQuery.trim()}"
-                              </button>
-                            )}
-                            {list.length === 0 && !q && (
-                              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">{t('settings.providers.fetchModels.empty', '没有可用模型')}</div>
-                            )}
-                            {list.map(opt => {
-                              const active = selected.has(opt.id);
-                              return (
-                                <button
-                                  type="button"
-                                  key={opt.id}
-                                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'dark:text-gray-100'}`}
-                                  onClick={() => {
-                                    let next = active ? (d.models || []).filter(m => m !== opt.id) : Array.from(new Set([...(d.models || []), opt.id]));
-                                    const nextDefault = d.defaultModel && next.includes(d.defaultModel) ? d.defaultModel : (next[0] || '');
-                                    setDraft({ ...d, models: next, defaultModel: nextDefault });
-                                  }}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div className="min-w-0">
-                                      <div className="truncate">{opt.id}</div>
-                                      {opt.name ? <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{opt.name}</div> : null}
-                                    </div>
-                                    {active ? <span className="text-xs text-blue-600 dark:text-blue-400">{t('common.selected', '已选择')}</span> : null}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </>
-                        );
-
-                      })()}
-                    </>
-                  )}
-                </div>
+    <ToolToastProvider>
+      <div className="p-10 space-y-12 max-w-[1600px] mx-auto">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-200 dark:shadow-none">
+                <FiCpu className="w-6 h-6" />
               </div>
-            )}
+              <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
+                {t('settings.providers.title', '模型提供商')}
+              </h2>
             </div>
-          </FieldRow>
+            <p className="text-lg text-gray-500 dark:text-gray-400 font-medium max-w-2xl leading-relaxed">
+              {t('settings.providers.subtitle', '集中管理各大 AI 提供商的访问配置：密钥、安全代理、模型清单与默认模型。')}
+            </p>
+          </div>
 
-          <FieldRow label={t('settings.providers.fields.defaultModel', '默认模型')}>
-            <Select
-              value={d.defaultModel || ''}
-              onChange={(value) => setDraft({ ...d, defaultModel: value })}
-              disabled={!d.models || d.models.length === 0}
-              options={(d.models || []).map(m => ({ value: m, label: m }))}
-              placeholder={t('settings.providers.selectDefaultModel', '请先添加模型')}
-              emptyMessage={t('settings.providers.selectDefaultModel', '请先添加模型')}
-            />
-          </FieldRow>
-          </>
-        )}
-
-        {/* Enable toggle - hide for embedding mode */}
-        {!isEmbeddingMode && (
-          <FieldRow label={t('settings.providers.enableButton', '启用')}>
-            <Toggle checked={!!d.enabled} onChange={(v) => setDraft({ ...d, enabled: v })} />
-          </FieldRow>
-        )}
-
-        <div className="flex items-center gap-2 pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">
-          <Button variant="primary" size="md" onClick={saveDraft}>{t('common.save', '保存')}</Button>
-          <Button variant="secondary" size="md" onClick={cancelEdit}>{t('common.cancel', '取消')}</Button>
-        </div>
-      </div>
-    );
-  };
-
-  const sortedProviders = useMemo(() => providers.slice().sort((a, b) => Number(b.enabled) - Number(a.enabled)), [providers]);
-
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <FiCpu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-          <h2 className="text-lg font-medium text-gray-800 dark:text-gray-100">{t('settings.providers.title', '模型提供商')}</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          {isLoading && <FiLoader className="animate-spin text-gray-400 dark:text-gray-500" />}
-          <Button variant="primary" size="md" onClick={startAdd} disabled={isLoading}>
-            <FiPlus className="mr-1" />{t('settings.providers.add', '添加提供商')}
+          <div className="flex items-center gap-4">
+            {isLoading && <FiLoader className="animate-spin text-blue-600" />}
+            <Button 
+              variant="secondary" 
+              size="lg" 
+              onClick={() => { setEditingProvider(null); setShowConfigModal(true); }}
+              className="rounded-2xl font-black px-8 py-4 bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 hover:border-blue-500 transition-all active:scale-95"
+            >
+              <Settings className="mr-2 w-5 h-5" />
+              {t('settings.providers.addCustom', '自定义配置')}
+            </Button>
+            <Button 
+              variant="primary" 
+              size="lg" 
+              onClick={() => setShowModelStore(true)}
+              className="rounded-2xl font-black px-8 py-4 shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95"
+            >
+              <Sparkles className="mr-2 w-5 h-5" />
+              {t('settings.providers.fromStore', '从商店获取模型')}
           </Button>
         </div>
       </div>
 
-      {/* 页面说明 */}
-      <div className="text-sm text-gray-600 dark:text-gray-300">
-        {t('settings.providers.subtitle', '集中管理各大 AI 提供商的访问配置：密钥、安全代理、模型清单与默认模型。')}
-      </div>
-
-
       {/* Global Default Models Card */}
-      <SectionCard>
-        <SectionHeader title={t('settings.models.defaults.title', '默认模型')} />
-        <div className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-          {t('settings.models.defaults.description', '选择全局默认的 LLM 和嵌入模型，具体页面可覆盖。')}
+        <SectionCard className="border-blue-100 dark:border-blue-900/30 bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-900/5">
+          <div className="flex flex-col md:flex-row gap-8 items-start md:items-end">
+            <div className="flex-1 space-y-6 w-full">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                  <Zap className="w-4 h-4" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  <h3 className="text-sm font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider">
+                    {t('settings.models.defaults.title', '默认模型配置')}
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-bold">
+                    {t('settings.models.defaults.description', '选择全局默认模型，Agent 可单独覆盖')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-1">
               {t('settings.models.defaults.llmLabel', '默认 LLM')}
             </label>
             <Select
               value={llmSelection}
               onChange={setLlmSelection}
+                    onOpen={ensureFetchChatOptions}
+                    isLoading={chatLoading}
               options={[
                 { value: '', label: t('settings.models.defaults.none', '未设置') },
-                ...filteredChatModels,
-              ]}
-              placeholder={t('settings.models.defaults.none', '未设置')}
-              showAddProvider={true}
-              onAddProvider={startAdd}
-              addProviderLabel={t('settings.models.defaults.addProvider', '添加供应商')}
-              emptyMessage={t('settings.models.defaults.noModels', '暂无可用模型')}
-              onOpen={ensureFetchChatOptions}
-              isLoading={chatLoading}
-              loadingText={t('common.loading', '加载中...')}
+                      ...chatOptions,
+                    ]}
+                    className="w-full"
             />
           </div>
-
-          <div>
-            <div className="flex items-center gap-1 mb-1">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-1">
                 {t('settings.models.defaults.embeddingLabel', '默认嵌入模型')}
               </label>
-              <div className="relative" ref={embeddingHelpRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowEmbeddingHelp(!showEmbeddingHelp)}
-                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  aria-label="查看推荐的嵌入模型"
-                >
-                  <FiHelpCircle className="w-4 h-4" />
-                </button>
-                {showEmbeddingHelp && (
-                  <div className="absolute left-0 top-6 z-50 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4">
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3">
-                      {t('settings.models.defaults.embeddingHelp.title', '推荐的嵌入模型')}
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                          {t('settings.models.defaults.embeddingHelp.providers.openai.name', 'OpenAI')}
-                        </div>
-                        <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1 ml-2">
-                          <li>• text-embedding-3-small</li>
-                          <li>• text-embedding-3-large</li>
-                          <li>• text-embedding-ada-002</li>
-                        </ul>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                          {t('settings.models.defaults.embeddingHelp.providers.qwen.name', '千问/DashScope')}
-                        </div>
-                        <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1 ml-2">
-                          <li>• text-embedding-v4</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
             <Select
               value={embSelection}
               onChange={setEmbSelection}
+                    onOpen={ensureFetchEmbeddingOptions}
+                    isLoading={embLoading}
               options={[
                 { value: '', label: t('settings.models.defaults.none', '未设置') },
-                ...filteredEmbeddingModels,
-              ]}
-              placeholder={t('settings.models.defaults.none', '未设置')}
-              showAddProvider={true}
-              onAddProvider={startAddEmbedding}
-              addProviderLabel={t('settings.models.defaults.addProvider', '添加供应商')}
-              emptyMessage={t('settings.models.defaults.noEmbeddingModels', '暂无可用嵌入模型')}
-              onOpen={ensureFetchEmbeddingOptions}
-              isLoading={embLoading}
-              loadingText={t('common.loading', '加载中...')}
+                      ...embeddingOptions,
+                    ]}
+                    className="w-full"
             />
           </div>
         </div>
-        <div className="mt-4 flex gap-2">
-          <Button variant="primary" size="md" onClick={onSaveDefaults}>{t('common.save', '保存')}</Button>
-        </div>
-      </SectionCard>
-
-
-      {/* 添加/编辑表单（新建） */}
-      {editingId === 'new' && draft && (
-        <SectionCard>
-          <SectionHeader icon={<FiCpu className="w-5 h-5 text-gray-600" />} title={t('settings.providers.addTitle', '新增提供商')} />
-          {renderEditForm(draft, 'new')}
-        </SectionCard>
-      )}
-
-      {/* 已配置列表 */}
-      <div className="space-y-4">
-        {sortedProviders.length === 0 && editingId !== 'new' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 p-10 text-center text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-            <div className="flex flex-col items-center gap-2">
-              <FiCpu className="w-8 h-8 text-gray-400 dark:text-gray-500" />
-              <div>{t('settings.providers.empty', '尚未配置任何模型提供商，点击右上角"添加提供商"开始。')}</div>
-              <div>
-                <Button variant="primary" size="md" onClick={startAdd}>
-                  <FiPlus className="mr-1" />{t('settings.providers.add', '添加提供商')}
-                </Button>
-              </div>
             </div>
+            <div className="w-full md:w-auto">
+              <Button 
+                variant="primary" 
+                size="md" 
+                onClick={onSaveDefaults} 
+                disabled={isSavingDefaults}
+                className="w-full md:w-auto rounded-xl font-black px-8 shadow-lg shadow-blue-200 dark:shadow-none"
+              >
+                {isSavingDefaults ? <FiLoader className="animate-spin mr-2" /> : null}
+                {t('common.save', '保存')}
+              </Button>
+            </div>
+        </div>
+        </SectionCard>
+
+        {/* Providers Grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-8">
+          {sortedProviders.length === 0 && !isLoading && (
+            <div className="col-span-full py-20 bg-gray-50 dark:bg-gray-900/50 rounded-[3rem] border-4 border-dashed border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center text-center space-y-6">
+              <div className="w-24 h-24 rounded-[2rem] bg-white dark:bg-gray-800 flex items-center justify-center text-gray-200 dark:text-gray-700 shadow-sm">
+                <FiCpu className="w-12 h-12" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-gray-900 dark:text-gray-100">
+                  {t('settings.providers.emptyTitle', '开启您的 AI 之旅')}
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 font-medium">
+                  {t('settings.providers.empty', '尚未配置任何模型提供商，点击右上角"从商店获取"或"自定义配置"开始。')}
+                </p>
+            </div>
+              <Button 
+                variant="primary" 
+                size="lg" 
+                onClick={() => setShowModelStore(true)}
+                className="rounded-2xl font-black px-10 py-4 shadow-xl shadow-blue-200 dark:shadow-none"
+              >
+                {t('settings.providers.fromStore', '从商店获取模型')}
+              </Button>
           </div>
         )}
 
         {sortedProviders.map((p) => (
-          <SectionCard key={p.id} className="transition-shadow hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <span className="text-base font-medium text-gray-800 dark:text-gray-100">{p.name || providerLabel(p.kind)}</span>
-                  <UIBadge variant={p.enabled ? 'success' : 'secondary'} size="md">{p.enabled ? t('settings.providers.enableButton', '启用') : t('common.disabled', '禁用')}</UIBadge>
-                  {p.defaultModel ? (
-                    <span className="inline-flex items-center px-2 py-0.5 text-xs rounded-md border bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700">
-                      {t('settings.providers.badges.default', '默认')}: {p.defaultModel}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-3">
-                  <span>{t('settings.providers.fields.kind', '提供商')}: {providerLabel(p.kind)}</span>
-                  {p.apiBaseUrl && <span className="truncate max-w-[320px]">{t('settings.providers.baseUrl', 'Base URL')}: {p.apiBaseUrl}</span>}
-                  <span className="text-gray-300 dark:text-gray-600">·</span>
-                  <span>{t('settings.providers.updateButton', '更新')}: {p.updatedAt ? new Date(p.updatedAt).toLocaleString() : '-'}</span>
-                </div>
-                {(p.models && p.models.length > 0) && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {p.models.map((m) => (
-                      <span key={m} className={`px-2 py-0.5 text-[11px] rounded border ${p.defaultModel===m ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700' : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600'}`}>
-                        {m}{p.defaultModel===m ? ` · ${t('settings.providers.badges.default', '默认')}` : ''}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 pl-3 md:pl-4 border-l border-gray-100 dark:border-gray-700">
-                <Button variant="secondary" size="sm" onClick={() => testConnection(p)} disabled={testingId === p.id}>
-                  {testingId === p.id ? <FiLoader className="animate-spin mr-1" /> : null}
-                  {t('settings.providers.testButton', '测试连接')}
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => startEdit(p)}>
-                  <FiEdit2 className="mr-1" />{t('common.edit', '编辑')}
-                </Button>
-                <Button variant="danger" size="sm" onClick={() => setDeleting(p.id)}>
-                  <FiTrash2 className="mr-1" />{t('common.delete', '删除')}
-                </Button>
-              </div>
-            </div>
-
-            {editingId === p.id && draft && draft.id === p.id && (
-              <div className="pt-2 border-t border-gray-200 dark:border-gray-700 mt-4">
-                {renderEditForm(draft as Draft, p.id)}
-              </div>
-            )}
-          </SectionCard>
+            <ProviderCard
+              key={p.id}
+              provider={p}
+              onEdit={(prov) => { setEditingProvider(prov); setShowConfigModal(true); }}
+              onDelete={(id) => setDeletingId(id)}
+              onTest={handleTest}
+              isTesting={testingId === p.id}
+            />
         ))}
       </div>
 
+        {/* Modals */}
+        <ProviderConfigModal
+          isOpen={showConfigModal}
+          onClose={() => { setShowConfigModal(false); setEditingProvider(null); }}
+          editingProvider={editingProvider}
+        />
+
       <ConfirmDialog
-        isOpen={!!deleting}
+          isOpen={!!deletingId}
         title={t('settings.providers.confirmDeleteTitle', '删除提供商')}
         message={t('settings.providers.confirmDeleteMsg', '确定要删除该提供商配置吗？此操作不可撤销。')}
         confirmText={t('common.delete', '删除')!}
         cancelText={t('common.cancel', '取消')!}
         confirmVariant="danger"
-        onConfirm={() => deleting && onDelete(deleting)}
-        onCancel={() => setDeleting(null)}
+          onConfirm={() => deletingId && handleDelete(deletingId)}
+          onCancel={() => setDeletingId(null)}
+        />
+
+        <ModelStoreModal 
+          isOpen={showModelStore} 
+          onClose={() => setShowModelStore(false)} 
       />
     </div>
+    </ToolToastProvider>
   );
 };
 
 export default ModelProvidersSettings;
-

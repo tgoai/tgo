@@ -58,3 +58,20 @@ class AIModelListParams(BaseSchema):
 class AIModelListResponse(PaginatedResponse):
     data: list[AIModelResponse] = Field(..., description="List of AI models")
 
+
+class AIModelWithProvider(BaseSchema):
+    id: UUID
+    model_id: str
+    model_name: str
+    model_type: str
+    provider_id: UUID
+    provider_name: str
+    provider_kind: str
+    description: Optional[str] = None
+    context_window: Optional[int] = None
+    is_active: bool
+
+
+class AIModelWithProviderListResponse(PaginatedResponse):
+    data: list[AIModelWithProvider] = Field(..., description="List of AI models with provider info")
+

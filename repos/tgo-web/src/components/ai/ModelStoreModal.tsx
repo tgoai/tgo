@@ -1,59 +1,60 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { X, Search, Filter, Loader2, Sparkles, Brain, Wrench, Bot, Puzzle, Package, Grid3X3, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Search, Filter, Loader2, Sparkles, Brain, Grid3X3, LogOut, Cpu, Database, Image, Mic } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import ToolStoreCard from './ToolStoreCard';
-import ToolStoreDetail from './ToolStoreDetail';
+import ModelStoreCard from './ModelStoreCard';
+import ModelStoreDetail from './ModelStoreDetail';
 import StoreLoginModal from './StoreLoginModal';
 import { storeApi } from '@/services/storeApi';
-import { useProjectToolsStore } from '@/stores/projectToolsStore';
+import { useProvidersStore } from '@/stores/providersStore';
 import { useStoreAuthStore } from '@/stores/storeAuthStore';
 import { useToast } from './ToolToastProvider';
-import type { ToolStoreItem, ToolStoreCategory } from '@/types';
+import type { ModelStoreItem, ModelStoreCategory } from '@/types';
 
-interface ToolStoreModalProps {
+interface ModelStoreModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
+const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedTool, setSelectedTool] = useState<ToolStoreItem | null>(null);
+  const [selectedModel, setSelectedModel] = useState<ModelStoreItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [installStep, setInstallStep] = useState<'idle' | 'verify' | 'sync' | 'done'>('idle');
   const [loading, setLoading] = useState(true);
-  const [tools, setTools] = useState<ToolStoreItem[]>([]);
-  const [categories, setCategories] = useState<ToolStoreCategory[]>([]);
+  const [models, setModels] = useState<ModelStoreItem[]>([]);
+  const [installedModelNames, setInstalledModelNames] = useState<string[]>([]);
+  const [categories, setCategories] = useState<ModelStoreCategory[]>([]);
   const [_total, setTotal] = useState(0);
 
-  const { aiTools, loadTools } = useProjectToolsStore();
+  const { loadProviders } = useProvidersStore();
   const { isAuthenticated, user, bindToProject, logout } = useStoreAuthStore();
   const { i18n } = useTranslation();
   const currentLang = i18n.language.startsWith('zh') ? 'zh' : 'en';
 
-  // Load categories from Tool Store API
+  // Load categories from Model Store API
   const fetchCategories = async () => {
     try {
-      const data = await storeApi.getToolCategories();
-      const mappedCategories: ToolStoreCategory[] = [
+      const data = await storeApi.getModelCategories();
+      const mappedCategories: ModelStoreCategory[] = [
         { 
           id: 'all', 
           slug: 'all', 
-          name_zh: '全部工具', 
-          name_en: 'All Tools', 
-          icon: 'Grid3X3', 
-          label: '全部工具' 
+          name_zh: t('store.model.allModels'), 
+          name_en: 'All Models', 
+          icon: 'Grid3X3'
         },
         ...data.map((cat: any) => ({
           id: cat.id,
           slug: cat.slug,
           name_zh: cat.name_zh,
           name_en: cat.name_en,
-          icon: cat.icon || 'Package',
-          label: cat.name_zh
+          icon: cat.icon || 'Cpu'
         }))
       ];
       setCategories(mappedCategories);
@@ -62,22 +63,32 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  // Load tools from Tool Store API
-  const fetchTools = async () => {
+  // Load models from Model Store API
+  const fetchModels = async () => {
     setLoading(true);
     try {
-      const data = await storeApi.getTools({
-        category: selectedCategory === 'all' ? undefined : selectedCategory,
-        search: searchQuery || undefined,
-      });
+      // Fetch models from store and installed models from local API in parallel
+      const [data, installedNames] = await Promise.all([
+        storeApi.getModels({
+          category: selectedCategory === 'all' ? undefined : selectedCategory,
+          search: debouncedSearchQuery || undefined,
+        }),
+        storeApi.getInstalledModels()
+      ]);
       
-      // 前端简单增强搜索，如果后端不支持多语言搜索的话
-      // 实际上后端 ilike 应该支持中文了
-      setTools(data?.items || []);
+      setInstalledModelNames(installedNames || []);
+      
+      // Override is_installed status with local source of truth
+      const mergedModels = (data?.items || []).map((m: any) => ({
+        ...m,
+        is_installed: installedNames.includes(m.name)
+      }));
+
+      setModels(mergedModels);
       setTotal(data?.total || 0);
     } catch (error) {
-      console.error('Failed to fetch tools from store:', error);
-      showToast('error', t('common.error'), t('tools.store.fetchFailed', '获取商店工具失败'));
+      console.error('Failed to fetch models from store:', error);
+      showToast('error', t('common.error'), t('tools.store.model.fetchFailed'));
     } finally {
       setLoading(false);
     }
@@ -90,34 +101,42 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
   }, [isOpen]);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
     if (isOpen) {
-      fetchTools();
+      fetchModels();
     }
-  }, [isOpen, selectedCategory, searchQuery]);
+  }, [isOpen, selectedCategory, debouncedSearchQuery]);
 
-  // Check if a tool is already installed in the project
-  const installedToolNames = useMemo(() => {
-    return new Set(aiTools.map(t => t.name.toLowerCase()));
-  }, [aiTools]);
-
-  const handleToolClick = async (tool: ToolStoreItem) => {
-    // 先显示基础信息
-    setSelectedTool(tool);
+  const handleModelClick = async (model: ModelStoreItem) => {
+    // Initial selection based on current item
+    setSelectedModel({
+      ...model,
+      is_installed: installedModelNames.includes(model.name)
+    });
     setIsDetailOpen(true);
     
-    // 异步加载完整详情 (包括 methods 等)
+    // Asynchronously fetch full details if needed
     try {
-      const fullTool = await storeApi.getTool(tool.id);
-      if (fullTool) {
-        setSelectedTool(fullTool);
+      const fullModel = await storeApi.getModel(model.id);
+      if (fullModel) {
+        setSelectedModel({
+          ...fullModel,
+          is_installed: installedModelNames.includes(fullModel.name)
+        });
       }
     } catch (error) {
-      console.error('Failed to fetch tool detail:', error);
+      console.error('Failed to fetch model detail:', error);
     }
   };
 
-  const handleInstall = async (e: React.MouseEvent | ToolStoreItem, toolInput?: ToolStoreItem) => {
-    const tool = toolInput || (e as ToolStoreItem);
+  const handleInstall = async (e: React.MouseEvent | ModelStoreItem, modelInput?: ModelStoreItem) => {
+    const model = modelInput || (e as ModelStoreItem);
     if (e && (e as React.MouseEvent).stopPropagation) {
       (e as React.MouseEvent).stopPropagation();
     }
@@ -128,28 +147,51 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
       return;
     }
 
-    if (installedToolNames.has(tool.name.toLowerCase())) {
-      showToast('info', t('tools.store.installed', '已安装'), t('tools.store.installSuccessMessage', { name: tool.name }));
-      return;
-    }
-
-    setInstallingId(tool.id);
+    setInstallingId(model.id);
+    setInstallStep('verify');
     
     try {
-      // 1. 确保凭证已绑定到项目
+      // 1. Ensure credentials are bound to project
       await bindToProject();
+      setInstallStep('sync');
 
-      // 2. 在工具商店安装
-      await storeApi.installTool(tool.id);
+      if (model.is_installed) {
+        // Uninstall
+        await storeApi.uninstallModel(model.id);
+        showToast('success', t('tools.store.model.uninstallSuccess'), t('tools.store.model.uninstallSuccessMessage', { name: model.title_zh || model.name }));
+      } else {
+        // Install
+        await storeApi.installModel(model.id);
+        showToast('success', t('tools.store.model.installSuccess'), t('tools.store.model.installSuccessMessage', { name: model.title_zh || model.name }));
+      }
       
-      showToast('success', t('tools.store.installSuccess', '安装成功'), t('tools.store.installSuccessMessage', { name: tool.name }));
+      setInstallStep('done');
       
-      // Refresh installed tools list
-      await loadTools(false);
-    } catch (error) {
-      showToast('error', t('common.error', '错误'), t('common.saveFailed', '保存失败'));
+      // Update local state based on operation
+      const modelName = model.name;
+      setInstalledModelNames(prev => {
+        if (model.is_installed) {
+          return prev.filter(name => name !== modelName);
+        } else {
+          return [...prev, modelName];
+        }
+      });
+
+      // Update models list state for UI feedback
+      setModels(prev => prev.map(m => m.id === model.id ? { ...m, is_installed: !m.is_installed } : m));
+      
+      if (selectedModel?.id === model.id) {
+        setSelectedModel(prev => prev ? { ...prev, is_installed: !prev.is_installed } : null);
+      }
+
+      // Refresh local providers list
+      await loadProviders();
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail || error.message || t('common.saveFailed');
+      showToast('error', t('common.error'), errorMsg);
     } finally {
       setInstallingId(null);
+      setInstallStep('idle');
     }
   };
 
@@ -177,20 +219,20 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
-                  {t('tools.toolStore', '工具商店')}
+                  {t('tools.store.model.title')}
                 </h2>
               </div>
 
               <nav className="space-y-1">
-                {categories.map((cat: ToolStoreCategory) => {
-                  const IconComponent = ({
+                {categories.map((cat: ModelStoreCategory) => {
+                  const IconComponent = cat.icon ? ({
                     Grid3X3,
                     Brain,
-                    Wrench,
-                    Bot,
-                    Puzzle,
-                    Package
-                  } as any)[cat.icon] || Filter;
+                    Cpu,
+                    Database,
+                    Image,
+                    Mic
+                  } as any)[cat.icon] || Filter : Filter;
 
                   const displayName = currentLang === 'zh' ? cat.name_zh : (cat.name_en || cat.name_zh);
 
@@ -221,7 +263,7 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                 <input 
                   type="text"
-                  placeholder={t('tools.store.searchPlaceholder', '搜索工具、作者或标签...')}
+                  placeholder={t('tools.store.model.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 bg-gray-100 dark:bg-gray-800 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 rounded-2xl text-sm font-medium transition-all outline-none"
@@ -235,7 +277,7 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
                     onClick={() => setShowLoginModal(true)}
                     className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all"
                   >
-                    {t('tools.store.loginNow', '立即登录')}
+                    {t('tools.store.loginNow')}
                   </button>
                 ) : (
                   <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-800">
@@ -244,7 +286,7 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
                         {user?.name || user?.email}
                       </div>
                       <div className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">
-                        Balance: ${user?.credits?.toFixed(2)}
+                        {t('tools.store.balance')}: ${user?.credits?.toFixed(2)}
                       </div>
                     </div>
                     <div className="relative group">
@@ -256,7 +298,7 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
                         className="absolute top-full right-0 mt-2 p-2 bg-white dark:bg-gray-800 shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex items-center gap-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 whitespace-nowrap z-50"
                       >
                         <LogOut className="w-3.5 h-3.5" />
-                        退出登录
+                        {t('tools.store.logout')}
                       </button>
                     </div>
                   </div>
@@ -271,31 +313,33 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
               </div>
             </header>
 
-            {/* Tool Grid */}
+            {/* Model Grid */}
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
               <div className="max-w-[1200px] mx-auto">
                 {loading ? (
                   <div className="flex flex-col items-center justify-center h-[500px] gap-4">
                     <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-                    <p className="text-sm font-bold text-gray-400 animate-pulse">{t('common.loading', '加载中...')}</p>
+                    <p className="text-sm font-bold text-gray-400 animate-pulse">{t('tools.store.model.loading')}</p>
                   </div>
-                ) : !tools || tools.length === 0 ? (
+                ) : !models || models.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-[500px] text-center">
                     <div className="w-20 h-20 rounded-3xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-300 dark:text-gray-700 mb-6">
                       <Search className="w-10 h-10" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('tools.store.noResults', '未找到匹配的工具')}</h3>
-                    <p className="text-gray-500 dark:text-gray-400">{t('tools.store.noResultsDesc', '试试搜索其他关键词或切换分类')}</p>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('tools.store.model.noResults')}</h3>
+                    <p className="text-gray-500 dark:text-gray-400">{t('tools.store.model.noResultsDesc')}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    {tools.map(tool => (
-                      <ToolStoreCard 
-                        key={tool.id} 
-                        tool={tool} 
-                        onClick={handleToolClick}
-                        onInstall={handleInstall}
-                        isInstalled={installedToolNames.has(tool.name.toLowerCase())}
+                    {models.map(model => (
+                      <ModelStoreCard 
+                        key={model.id} 
+                        model={model} 
+                        onClick={handleModelClick}
+                        onInstall={(e) => handleInstall(e, model)}
+                        isInstalled={installedModelNames.includes(model.name)}
+                        installingId={installingId}
+                        installStep={installStep}
                       />
                     ))}
                   </div>
@@ -306,14 +350,15 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
         </div>
       </div>
 
-      {/* Tool Detail Panel */}
-      <ToolStoreDetail 
-        tool={selectedTool}
+      {/* Model Detail Panel */}
+      <ModelStoreDetail 
+        model={selectedModel}
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
-        onInstall={(tool) => handleInstall(tool)}
-        isInstalled={selectedTool ? installedToolNames.has(selectedTool.name.toLowerCase()) : false}
+        onInstall={(model) => handleInstall(model)}
+        isInstalled={selectedModel ? installedModelNames.includes(selectedModel.name) : false}
         installingId={installingId}
+        installStep={installStep}
       />
 
       {/* Login Modal */}
@@ -325,4 +370,4 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
   );
 };
 
-export default ToolStoreModal;
+export default ModelStoreModal;

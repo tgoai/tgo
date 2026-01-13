@@ -324,10 +324,12 @@ async def upsert_project_ai_config(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid provider for this project")
         if model_key:
             model_value = data.get(model_key)
-            if model_value and prov.available_models and model_value not in prov.available_models:
+            # Fetch available models from relation
+            available_models = [m.model_id for m in prov.models if m.deleted_at is None]
+            if model_value and available_models and model_value not in available_models:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Model '{model_value}' not in selected provider's available_models",
+                    detail=f"Model '{model_value}' not in selected provider's available models",
                 )
 
     if chat_pid:

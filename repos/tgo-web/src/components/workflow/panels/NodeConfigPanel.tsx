@@ -26,7 +26,6 @@ import {
 } from 'lucide-react';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useAIStore, useKnowledgeStore } from '@/stores';
-import { useProvidersStore } from '@/stores/providersStore';
 import { useProjectToolsStore } from '@/stores/projectToolsStore';
 import AIProvidersApiService from '@/services/aiProvidersApi';
 import { VariableInput } from '..';
@@ -58,33 +57,24 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({ node }) => {
   const { agents, loadAgents } = useAIStore();
   const { aiTools, loadTools } = useProjectToolsStore();
   const { knowledgeBases, fetchKnowledgeBases } = useKnowledgeStore();
-  const { providers, loadProviders } = useProvidersStore();
 
   // Model loading logic similar to EditAgentModal
   const [llmOptions, setLlmOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [llmLoading, setLlmLoading] = useState(false);
   const [llmError, setLlmError] = useState<string | null>(null);
 
-  const enabledProviderKeys = React.useMemo(() => {
-    const enabled = (providers || []).filter((p) => p.enabled);
-    return new Set(enabled.map((p) => AIProvidersApiService.kindToProviderKey(p.kind)));
-  }, [providers]);
-
   useEffect(() => {
     let cancelled = false;
     const fetchChatOptions = async () => {
-      if (enabledProviderKeys.size === 0) return;
       setLlmLoading(true);
       setLlmError(null);
       try {
         const svc = new AIProvidersApiService();
-        const res = await svc.listProviders({ is_active: true, model_type: 'chat', limit: 100, offset: 0 });
-        const options = (res.data || [])
-          .filter((p: any) => enabledProviderKeys.has(p.provider) && Array.isArray(p.available_models) && p.available_models.length > 0)
-          .flatMap((p: any) => (p.available_models || []).map((m: string) => {
-            const ui = `${p.id}:${m}`;
-            return { value: ui, label: `${m} · ${p.name || p.provider}` };
-          }));
+        const res = await svc.listProjectModels({ model_type: 'chat', is_active: true });
+        const options = (res.data || []).map((m: any) => ({
+          value: `${m.provider_id}:${m.model_id}`,
+          label: `${m.model_name} · ${m.provider_name}`,
+        }));
         if (!cancelled) {
           setLlmOptions(options);
         }
@@ -96,7 +86,7 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({ node }) => {
     };
     fetchChatOptions();
     return () => { cancelled = true; };
-  }, [enabledProviderKeys]);
+  }, [t]);
 
   const nodes = currentWorkflow?.definition?.nodes || [];
   const edges = currentWorkflow?.definition?.edges || [];
@@ -109,12 +99,10 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({ node }) => {
     if (agents.length === 0) loadAgents().catch(() => {});
     if (aiTools.length === 0) loadTools(false).catch(() => {});
     if (knowledgeBases.length === 0) fetchKnowledgeBases().catch(() => {});
-    if (providers.length === 0) loadProviders().catch(() => {});
   }, [
     agents.length, loadAgents, 
     aiTools.length, loadTools, 
     knowledgeBases.length, fetchKnowledgeBases,
-    providers.length, loadProviders
   ]);
 
   // Sync local data when node changes

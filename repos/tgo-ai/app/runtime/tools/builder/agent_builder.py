@@ -524,16 +524,16 @@ class AgentBuilder:
         if user_id:
             headers["X-User-ID"] = user_id
         
-        # Add ToolStore API Key if applicable (Project-level key)
+        # Add Store API Key if applicable (Project-level key)
         if project_id:
-            credential = await api_service_client.get_toolstore_credential(project_id)
+            credential = await api_service_client.get_store_credential(project_id)
             if credential and credential.get("api_key"):
                 headers["X-API-Key"] = credential["api_key"]
-                self._logger.debug(f"Injected ToolStore API Key for project {project_id}")
+                self._logger.debug(f"Injected Store API Key for project {project_id}")
         
-        # Fallback to global ToolStore API Key if still not set
-        if "X-API-Key" not in headers and settings.toolstore_api_key:
-            headers["X-API-Key"] = settings.toolstore_api_key
+        # Fallback to global Store API Key if still not set
+        if "X-API-Key" not in headers and settings.store_api_key:
+            headers["X-API-Key"] = settings.store_api_key
 
         # Separate stdio commands from HTTP/SSE endpoints
         stdio_commands: List[str] = []
@@ -703,7 +703,7 @@ class AgentBuilder:
                             )
                             # SSE support in create_agno_mcp_tool would be needed, 
                             # but currently it's hardcoded to streamablehttp_client
-                            # For simplicity, we assume http for toolstore
+                            # For simplicity, we assume http for store
                             tool_func = create_agno_mcp_tool(
                                 mcp_tool=mcp_tool_obj,
                                 mcp_server_url=server_url,

@@ -50,8 +50,8 @@ class ToolExecutor:
             tools = result.scalars().all()
             for tool in tools:
                 tool_type_str = "mcp" if tool.tool_type == ToolType.MCP else "function"
-                if tool.tool_source_type == ToolSourceType.TOOLSTORE:
-                    tool_type_str = "toolstore"
+                if tool.tool_source_type == ToolSourceType.STORE:
+                    tool_type_str = "store"
                 elif tool.transport_type == "plugin":
                     tool_type_str = "plugin"
                 elif tool.transport_type == "http_webhook":
@@ -92,8 +92,8 @@ class ToolExecutor:
         try:
             if tool_type == "rag":
                 return await self._execute_rag(info["id"], args)
-            elif tool_type == "toolstore":
-                return await self._execute_toolstore(info["tool"], args)
+            elif tool_type == "store":
+                return await self._execute_store(info["tool"], args)
             elif tool_type == "mcp":
                 return await self._execute_mcp(info["tool"], args)
             elif tool_type == "plugin":
@@ -161,24 +161,24 @@ class ToolExecutor:
         except Exception as e:
             return f"<error>MCP execution failed: {str(e)}</error>"
 
-    async def _execute_toolstore(self, tool_model: Tool, args: Dict[str, Any]) -> str:
-        """Execute a tool via the ToolStore proxy."""
-        toolstore_tool_id = tool_model.toolstore_tool_id
-        if not toolstore_tool_id:
-            return "<error>ToolStore tool missing toolstore_tool_id</error>"
+    async def _execute_store(self, tool_model: Tool, args: Dict[str, Any]) -> str:
+        """Execute a tool via the Store proxy."""
+        store_tool_id = tool_model.store_resource_id
+        if not store_tool_id:
+            return "<error>Store tool missing store_resource_id</error>"
 
         try:
             # 1. 获取商店凭证
-            credential = await api_service_client.get_toolstore_credential(str(self.project_id))
+            credential = await api_service_client.get_store_credential(str(self.project_id))
             if not credential or not credential.get("api_key"):
-                return "<error>Project not bound to ToolStore. Please bind credentials first.</error>"
+                return "<error>Project not bound to Store. Please bind credentials first.</error>"
             
             api_key = credential["api_key"]
             
             # 2. 调用商店执行 API
             url = tool_model.endpoint
             if not url:
-                 return "<error>ToolStore tool missing endpoint</error>"
+                 return "<error>Store tool missing endpoint</error>"
 
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
@@ -207,8 +207,8 @@ class ToolExecutor:
                 return str(result)
 
         except Exception as e:
-            logger.error(f"ToolStore tool execution failed: {str(e)}", exc_info=True)
-            return f"<error>ToolStore execution failed: {str(e)}</error>"
+            logger.error(f"Store tool execution failed: {str(e)}", exc_info=True)
+            return f"<error>Store execution failed: {str(e)}</error>"
 
     async def _execute_plugin(self, tool_model: Tool, args: Dict[str, Any]) -> str:
         """Execute a plugin tool via the core API service proxy."""

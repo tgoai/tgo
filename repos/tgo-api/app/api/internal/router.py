@@ -6,7 +6,7 @@ These endpoints are designed for inter-service communication within the internal
 
 from fastapi import APIRouter
 
-from app.api.internal.endpoints import ai_events, users, toolstore
+from app.api.internal.endpoints import ai_events, users, store
 
 internal_router = APIRouter()
 
@@ -24,9 +24,9 @@ internal_router.include_router(
     tags=["Internal Users"]
 )
 
-# ToolStore endpoint
+# Store endpoint
 internal_router.include_router(
-    toolstore.router,
-    prefix="/toolstore",
-    tags=["Internal ToolStore"]
+    store.router,
+    prefix="/store",
+    tags=["Internal Store"]
 )

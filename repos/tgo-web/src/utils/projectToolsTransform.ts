@@ -84,6 +84,9 @@ export const transformAiToolResponse = (aiTool: AiToolResponse): AiTool => {
   return {
     id: aiTool.id,
     name: aiTool.name || '未知工具',
+    title: aiTool.title || undefined,
+    title_zh: aiTool.title_zh || undefined,
+    title_en: aiTool.title_en || undefined,
     description: aiTool.description || '暂无描述',
     category: category,
     status: isActive ? 'active' : 'inactive', // Use deleted_at to determine status
@@ -119,6 +122,16 @@ export const transformAiToolResponse = (aiTool: AiToolResponse): AiTool => {
  */
 export const transformAiToolResponseList = (aiTools: AiToolResponse[]): AiTool[] => {
   return aiTools.map(transformAiToolResponse);
+};
+
+/**
+ * Get display title for a tool based on current language
+ */
+export const getToolDisplayTitle = (tool: AiTool, language: string): string => {
+  if (language.startsWith('zh')) {
+    return tool.title_zh || tool.title || tool.name;
+  }
+  return tool.title_en || tool.title || tool.name;
 };
 
 /**

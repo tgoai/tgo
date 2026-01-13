@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuX, LuUsers, LuSave, LuMessageSquare, LuCpu, LuInfo, LuChevronRight, LuChevronDown, LuChevronUp, LuSettings } from 'react-icons/lu';
 import { Loader2, Sparkles } from 'lucide-react';
 import { aiTeamsApiService, TeamWithDetailsResponse, TeamUpdateRequest } from '@/services/aiTeamsApi';
 import { useToast } from '@/hooks/useToast';
-import { useProvidersStore } from '@/stores/providersStore';
 import AIProvidersApiService from '@/services/aiProvidersApi';
 import Toggle from '@/components/ui/Toggle';
 
@@ -39,13 +38,6 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
   // Track if form has been modified
   const [isDirty, setIsDirty] = useState(false);
 
-  // Model selection (from providers)
-  const { providers, loadProviders } = useProvidersStore();
-  const enabledProviderKeys = useMemo(() => {
-    const enabled = (providers || []).filter((p) => p.enabled);
-    return new Set(enabled.map((p) => AIProvidersApiService.kindToProviderKey(p.kind)));
-  }, [providers]);
-
   // value format: "providerId:modelName"
   const [llmOptions, setLlmOptions] = useState<Array<{ value: string; label: string; providerId: string; modelName: string }>>([]);
   const [llmLoading, setLlmLoading] = useState(false);
@@ -53,37 +45,22 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
   // Track selected provider ID separately
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
 
-  // Load providers when modal opens
-  useEffect(() => {
-    if (!isOpen) return;
-    if ((providers || []).length === 0) {
-      loadProviders();
-    }
-  }, [isOpen, providers?.length, loadProviders]);
-
   // Fetch chat models from providers
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
     const fetchChatOptions = async () => {
-      if (enabledProviderKeys.size === 0) return;
       setLlmLoading(true);
       setLlmError(null);
       try {
         const svc = new AIProvidersApiService();
-        const res = await svc.listProviders({ is_active: true, model_type: 'chat', limit: 100, offset: 0 });
-        const options = (res.data || [])
-          .filter((p: any) => enabledProviderKeys.has(p.provider) && Array.isArray(p.available_models) && p.available_models.length > 0)
-          .flatMap((p: any) => (p.available_models || []).map((m: string) => {
-            // Store providerId:modelName as value for later extraction
-            const compositeValue = `${p.id}:${m}`;
-            return { 
-              value: compositeValue, 
-              label: `${m} · ${p.name || p.provider}`,
-              providerId: p.id,
-              modelName: m
-            };
-          }));
+        const res = await svc.listProjectModels({ model_type: 'chat', is_active: true });
+        const options = (res.data || []).map((m: any) => ({ 
+          value: `${m.provider_id}:${m.model_id}`, 
+          label: `${m.model_name} · ${m.provider_name}`,
+          providerId: m.provider_id,
+          modelName: m.model_id
+        }));
         if (!cancelled) {
           setLlmOptions(options);
         }
@@ -95,7 +72,7 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
     };
     fetchChatOptions();
     return () => { cancelled = true; };
-  }, [isOpen, enabledProviderKeys, t]);
+  }, [isOpen, t]);
 
   // Update form data when team changes
   useEffect(() => {

@@ -6,6 +6,8 @@
 import React from 'react';
 import { BaseCard, createCardActions, type BaseCardItem } from '@/components/base/BaseCard';
 import type { AiTool } from '@/types';
+import { useTranslation } from 'react-i18next';
+import { getToolDisplayTitle } from '@/utils/projectToolsTransform';
 
 /**
  * Transform AiTool to BaseCardItem compatible format
@@ -42,12 +44,15 @@ const AiToolCardOptimized: React.FC<AiToolCardOptimizedProps> = ({
   showRating = false,
   className = '',
 }) => {
+  const { i18n } = useTranslation();
+  const displayTitle = getToolDisplayTitle(tool, i18n.language);
+
   // Transform AiTool to BaseCardItem format
   const cardItem: AiToolCardItem = {
     ...tool,
     // Ensure all required BaseCardItem fields are present
     name: tool.name,
-    title: tool.title,
+    title: displayTitle,
     description: tool.description,
     status: tool.status,
     author: tool.author,

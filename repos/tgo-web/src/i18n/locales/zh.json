@@ -71,7 +71,9 @@
     "unknown": "未知",
     "required": "必填",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "enabled": "已启用",
+    "advancedOptions": "高级选项"
   },
   "config": {
     "respondDirectly": "直接响应",
@@ -455,6 +457,34 @@
       "tip": "提示：通知功能需要浏览器授权。如果您拒绝了权限请求，需要在浏览器设置中手动允许本站点的通知权限。"
     },
     "models": {
+      "modelStore": "模型商店",
+      "store": {
+        "title": "模型商店",
+        "subtitle": "发现和安装全球最先进的 AI 模型",
+        "searchPlaceholder": "搜索模型、厂商或功能描述...",
+        "categories": {
+          "all": "全部模型",
+          "chat": "聊天模型",
+          "embedding": "嵌入模型",
+          "image": "图像模型",
+          "audio": "音频模型"
+        },
+        "install": "立即开始使用",
+        "installing": "正在安装...",
+        "installed": "已安装",
+        "uninstall": "停止使用",
+        "details": "模型详情",
+        "provider": "提供商",
+        "price": "价格",
+        "inputPrice": "输入价格 (每1M tokens)",
+        "outputPrice": "输出价格 (每1M tokens)",
+        "contextWindow": "上下文窗口",
+        "noResults": "未找到匹配的模型",
+        "noResultsDesc": "试试搜索其他关键词或切换分类",
+        "installSuccess": "模型同步成功",
+        "installSuccessMessage": "模型 \"{{name}}\" 已成功同步到您的项目",
+        "fetchFailed": "获取商店模型失败"
+      },
       "defaults": {
         "title": "默认模型",
         "description": "请选择全局默认的 LLM 与嵌入模型（必选）。",
@@ -496,7 +526,12 @@
       "subtitle": "集中管理各大 AI 提供商的访问配置：密钥、安全代理、模型清单与默认模型。",
       "docs": "查看文档",
       "add": "添加提供商",
+      "addCustom": "自定义配置",
+      "fromStore": "从商店获取模型",
       "addTitle": "新增提供商",
+      "edit": "编辑提供商",
+      "storeModel": "商店模型",
+      "emptyTitle": "开启您的 AI 之旅",
       "enableButton": "启用",
       "updateButton": "更新",
       "defaultName": "新提供商",
@@ -560,9 +595,10 @@
       "selectDefaultModel": "请先添加模型",
       "test": {
         "ok": "连接成功",
-        "failed": "连接失败"
+        "failed": "连接失败",
+        "saveFirst": "请先保存后再测试"
       },
-      "testButton": "测试连接",
+      "testButton": "测试",
       "badges": {
         "default": "默认"
       },
@@ -578,7 +614,7 @@
       "createModelOption": "创建",
       "confirmDeleteTitle": "删除提供商",
       "confirmDeleteMsg": "确定要删除该提供商配置吗？此操作不可撤销。",
-      "empty": "尚未配置任何模型提供商，点击右上角“添加提供商”开始。"
+      "empty": "尚未配置任何模型提供商，点击右上角“从商店获取”或“自定义配置”开始。"
     }
   },
   "comingSoon": {
@@ -1301,7 +1337,8 @@
     "visitors": "访客管理",
     "knowledge": "知识库",
     "channels": "渠道管理",
-    "settings": "设置"
+    "settings": "设置",
+    "store": "应用市场"
   },
   "workflow": {
     "title": "工作流",
@@ -1319,12 +1356,6 @@
       "noResults": "未找到匹配的工作流",
       "noResultsDesc": "请尝试调整搜索关键词或筛选条件"
     },
-    "modal": {
-      "delete": {
-        "title": "删除工作流",
-        "message": "确定要删除工作流 \"{{name}}\" 吗？此操作不可撤销。"
-      }
-    },
     "addWorkflow": "添加工作流",
     "viewWorkflow": "查看工作流",
     "listTitle": "工作流列表",
@@ -1332,7 +1363,6 @@
     "nodes": "节点",
     "lastUpdated": "更新于",
     "searchPlaceholder": "搜索工作流...",
-    "noDescription": "暂无描述",
     "palette": {
       "title": "组件库",
       "search": "搜索组件...",
@@ -1493,7 +1523,6 @@
       "variable_hint": "最终回复变量名",
       "template_hint": "您好，查询到的结果是：{{api_1.body}}",
       "expression_hint": "{{variable}} === 'value'",
-      "classifier_hint": "选择上游变量，如 {{input_1.query}}",
       "raw_hint": "输入原生内容...",
       "api_hint": "https://api.example.com",
       "input_name": "名称",
@@ -2448,58 +2477,6 @@
         "enabled": "平台已启用"
       }
     },
-    "custom": {
-      "label": "自定义",
-      "title": "自定义平台配置",
-      "subtitle": "配置第三方程序集成所需的 API 信息与回调地址。",
-      "configSection": "配置信息",
-      "platformName": "平台名称",
-      "platformNamePlaceholder": "请输入平台名称",
-      "integration": {
-        "title": "API 集成信息",
-        "guide": "集成指南",
-        "chatApi": "对话接口说明（发送消息到 TGO）",
-        "endpoint": "接口地址",
-        "authentication": "认证方式",
-        "authDesc": "在请求头中添加平台 API 密钥：",
-        "requiredParams": "必需参数",
-        "messagesDesc": "对话消息数组，格式与 OpenAI ChatGPT API 兼容",
-        "userDesc": "第三方平台的用户唯一标识（必需）",
-        "simpleExample": "简单示例",
-        "responseHandling": "响应处理",
-        "responseHandlingDesc": "调用对话接口后，TGO 系统会返回 AI 助手的回复内容。第三方平台需要将返回的回复内容发送给对应的第三方用户。响应格式与 OpenAI ChatGPT API 兼容，支持流式和非流式响应。",
-        "callbackApi": "回调接口说明（接收客服回复）",
-        "callbackConfig": "配置回调地址",
-        "callbackConfigDesc": "在左侧\"回调地址\"字段中配置您的回调 URL，当客服回复消息时，系统会向该地址发送 POST 请求。",
-        "requestFormat": "请求格式",
-        "fieldDescriptions": "字段说明",
-        "messageIdDesc": "消息唯一标识",
-        "callbackUserDesc": "第三方用户标识（与对话接口中的 user 字段对应）",
-        "contentDesc": "客服回复的消息内容",
-        "timestampDesc": "消息时间戳（ISO 8601 格式）",
-        "responseRequirement": "响应要求",
-        "responseRequirementDesc": "请确保回调地址可公网访问，并返回 HTTP 200 状态码表示接收成功。"
-      },
-      "chatUrl": "对话接口地址",
-      "chatUrlHint": "第三方程序调用此地址发送对话消息。",
-      "apiKey": "API 密钥",
-      "apiKeyHint": "在请求头中使用 X-Platform-API-Key 进行认证。",
-      "callbackUrl": "回调地址",
-      "callbackUrlHint": "当客服回复消息时，系统会将消息推送到此地址",
-      "callbackUrlPlaceholder": "https://your-domain.com/webhook/callback",
-      "notAvailable": "暂无",
-      "saveSuccess": "保存成功",
-      "disabled": "平台已禁用",
-      "enabled": "平台已启用",
-      "confirmRegenerate": "确定要重新生成 API 密钥吗？旧密钥将立即失效。",
-      "regenerated": "API 密钥已重新生成",
-      "deleted": "平台已删除",
-      "deleteTitle": "删除平台",
-      "deleteMessage": "确定要删除平台\"{{name}}\"吗？此操作无法撤销。",
-      "copied": "{{label}} 已复制到剪贴板",
-      "invalidUrl": "无效的 URL 格式",
-      "invalidUrlHint": "请输入有效的 HTTP/HTTPS 地址"
-    },
     "unknown": {
       "label": "未知平台"
     },
@@ -3207,7 +3184,54 @@
       "loginSuccess": "登录成功",
       "loginSuccessDesc": "您现在可以安装和管理商店工具了",
       "loginFailed": "登录失败",
-      "cancelInstall": "稍后再说"
+      "loginSyncDesc": "登录成功后，此窗口将自动同步您的状态。",
+      "loginSecurityDesc": "为了确保您的账户安全，我们将在新窗口中打开登录页面。",
+      "logout": "退出登录",
+      "balance": "余额",
+      "popupBlocked": "弹出窗口被浏览器拦截，请允许弹出窗口再试",
+      "cancelInstall": "稍后再说",
+      "model": {
+        "title": "模型商店",
+        "subtitle": "接入全球顶级大模型，按量计费，无需管理多方密钥",
+        "searchPlaceholder": "搜索模型名称、厂商或功能描述...",
+        "fetchFailed": "获取商店模型失败",
+        "initLoginFailed": "无法启动登录流程",
+        "missingVerifier": "本地验证密钥丢失，请重试",
+        "invalidCode": "授权码无效或已过期",
+        "usageNotice": "启用后将在 TGO 平台中可用，根据实际 Token 消耗实时扣费",
+        "noResults": "未找到匹配的模型",
+        "noResultsDesc": "试试搜索其他关键词或切换分类",
+        "allModels": "全部模型",
+        "installing": "正在安装...",
+        "installStep": {
+          "verify": "验证凭证",
+          "sync": "同步模型",
+          "done": "安装完成"
+        },
+        "error": {
+          "notBound": "请先登录商店账号"
+        },
+        "installSuccess": "模型安装成功",
+        "installSuccessMessage": "模型 \"{{name}}\" 已成功同步到您的项目",
+        "uninstallSuccess": "模型停用成功",
+        "uninstallSuccessMessage": "模型 \"{{name}}\" 已从您的项目中移除",
+        "priceInput": "输入价格",
+        "priceOutput": "输出价格",
+        "perMillionTokens": "每1M tokens",
+        "contextWindow": "上下文窗口",
+        "capabilities": "模型能力",
+        "startUsing": "立即开始使用",
+        "stopUsing": "停止使用",
+        "available": "可用",
+        "installed": "已启用",
+        "notInstalled": "未启用",
+        "backToList": "返回列表",
+        "details": "模型详情",
+        "provider": "供应商",
+        "type": "模型类型",
+        "documentation": "厂商 API 文档",
+        "loading": "正在搜寻全球最先进的 AI 模型..."
+      }
     },
     "newTool": "新工具",
     "selectModal": {
@@ -3431,18 +3455,6 @@
         "title": "更新失败",
         "message": "更新工具失败，请稍后重试"
       }
-    },
-    "selectModal": {
-      "title": "选择工具",
-      "searchPlaceholder": "搜索工具...",
-      "loading": "正在加载工具...",
-      "loadFailedDesc": "无法加载工具列表，请稍后重试",
-      "retryFailedTitle": "重试失败",
-      "retryFailedDesc": "无法加载工具列表，请检查网络连接",
-      "noMatch": "未找到匹配的工具",
-      "configTool": "配置工具",
-      "manageTools": "管理工具",
-      "confirmSelection": "确认选择 ({{count}})"
     },
     "config": {
       "title": "工具配置",

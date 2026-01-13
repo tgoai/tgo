@@ -99,7 +99,7 @@ const AgentWorkflowsSection: React.FC<AgentWorkflowsSectionProps> = ({
         <div className="text-center py-6 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
           <GitBranch className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t('workflow.empty', '暂未关联工作流')}
+            {t('workflow.empty.title', '暂未关联工作流')}
           </p>
         </div>
       )}

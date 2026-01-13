@@ -31,7 +31,7 @@ class ToolType(str, Enum):
 class ToolSourceType(str, Enum):
     """Tool source type enumeration."""
     LOCAL = "LOCAL"           # 本地配置的工具
-    TOOLSTORE = "TOOLSTORE"   # 从商店安装的工具
+    STORE = "STORE"           # 从商店安装的工具
 
 
 class Tool(BaseModel):
@@ -51,6 +51,24 @@ class Tool(BaseModel):
         String(255),
         nullable=False,
         comment="Tool name",
+    )
+
+    title: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Display title for the tool (Legacy/Fallback)",
+    )
+
+    title_zh: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Display title for the tool (Chinese)",
+    )
+
+    title_en: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Display title for the tool (English)",
     )
 
     description: Mapped[Optional[str]] = mapped_column(
@@ -83,13 +101,13 @@ class Tool(BaseModel):
         SAEnum(ToolSourceType, name="tool_source_type_enum"),
         nullable=False,
         default=ToolSourceType.LOCAL,
-        comment="Tool source (LOCAL or TOOLSTORE)",
+        comment="Tool source (LOCAL or STORE)",
     )
 
-    toolstore_tool_id: Mapped[Optional[str]] = mapped_column(
+    store_resource_id: Mapped[Optional[str]] = mapped_column(
         String(255),
         nullable=True,
-        comment="Associated ToolStore tool ID",
+        comment="Associated Store resource ID",
     )
 
     # JSONB configuration (provider- or tool-specific settings)
@@ -113,6 +131,7 @@ class Tool(BaseModel):
     __table_args__ = (
         Index("idx_tools_project_id", "project_id"),
         Index("idx_tools_name", "name"),
+        Index("idx_tools_store_resource_id", "store_resource_id"),
     )
 
     def __repr__(self) -> str:  # pragma: no cover - convenience
