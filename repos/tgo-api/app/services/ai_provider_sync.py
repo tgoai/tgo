@@ -36,6 +36,20 @@ def _provider_to_upsert(item: AIProvider) -> dict[str, Any]:
         timeout = item.config.get("timeout")
     alias = (item.name or item.provider or "").strip()[:80]
     api_key_plain = decrypt_str(item.api_key) if item.api_key else None
+    
+    # Available models for this provider
+    models = []
+    if item.models:
+        for m in item.models:
+            if m.deleted_at is None:
+                models.append({
+                    "model_id": str(m.model_id),
+                    "model_name": str(m.model_name),
+                    "model_type": str(m.model_type),
+                    "is_active": bool(m.is_active),
+                    "capabilities": dict(m.capabilities) if m.capabilities else {}
+                })
+    
     upsert: dict[str, Any] = {
         "id": str(item.id),  # required by tgo-ai LLMProviderUpsert schema
         "provider_kind": provider_kind,
@@ -47,6 +61,7 @@ def _provider_to_upsert(item: AIProvider) -> dict[str, Any]:
         "project_id": str(item.project_id),
         "alias": alias,
         "api_key": api_key_plain,
+        "models": models,
     }
     # Remove keys with None to keep payload compact
     return {k: v for k, v in upsert.items() if v is not None}

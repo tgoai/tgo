@@ -29,7 +29,7 @@ class AIProviderConfigBase(BaseSchema):
         max_length=255,
         description="Base URL for the provider API (if applicable)",
     )
-    available_models: list[str] = Field(
+    available_models: Optional[list[str]] = Field(
         default_factory=list,
         description="List of available model identifiers for this provider (max 50)",
     )
@@ -79,6 +79,10 @@ class AIProviderResponse(AIProviderConfigBase, TimestampMixin, SoftDeleteMixin):
     project_id: UUID = Field(..., description="Associated project ID")
     has_api_key: bool = Field(..., description="Whether secret is set")
     api_key_masked: Optional[str] = Field(None, description="Masked API key, only last 4 visible")
+
+    # Store metadata
+    store_resource_id: Optional[str] = Field(None, description="Store resource ID if provider is from store")
+    is_from_store: bool = Field(False, description="Whether this provider was created from store")
 
     # Sync metadata (read-only)
     last_synced_at: Optional[datetime] = Field(None, description="Last time synced to tgo-ai")

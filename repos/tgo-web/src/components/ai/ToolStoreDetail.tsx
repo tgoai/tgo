@@ -176,7 +176,7 @@ const ToolStoreDetail: React.FC<ToolStoreDetailProps> = ({
                   {t('tools.store.price', '费用')}
                 </div>
                 <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                  {(tool as any).price_per_call > 0 ? `¥${(tool as any).price_per_call} / call` : t('tools.store.free', '免费')}
+                  {tool.price_per_call && tool.price_per_call > 0 ? `¥${tool.price_per_call} / 次` : t('tools.store.free', '免费')}
                 </div>
               </div>
             </div>

@@ -171,9 +171,14 @@ export const storeApi = {
     return response.data;
   },
 
-  getModels: async (params?: { category?: string; search?: string; skip?: number; limit?: number }) => {
+  getModels: async (params?: { category?: string; provider?: string; provider_id?: string; search?: string; skip?: number; limit?: number }) => {
     const response = await storeClient.get<{ items: any[]; total: number }>('/models', { params });
     return response.data;
+  },
+
+  getModelsByProvider: async (providerId: string) => {
+    const response = await storeClient.get<{ items: any[]; total: number }>('/models', { params: { provider_id: providerId, limit: 100 } });
+    return response.data.items || [];
   },
 
   getModel: async (id: string) => {

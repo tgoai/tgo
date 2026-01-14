@@ -59,6 +59,7 @@
     "notice": "提示",
     "install": "安装",
     "installing": "正在安装...",
+    "installed": "已安装",
     "complete": "完成",
     "action": "操作",
     "separator": "、",
@@ -528,6 +529,7 @@
       "add": "添加提供商",
       "addCustom": "自定义配置",
       "fromStore": "从商店获取模型",
+      "addModelTo": "添加模型到",
       "addTitle": "新增提供商",
       "edit": "编辑提供商",
       "storeModel": "商店模型",
@@ -570,6 +572,10 @@
         "chat": "聊天模型",
         "embedding": "嵌入模型"
       },
+      "modelTypes": {
+        "chat": "对话 (Chat)",
+        "embedding": "嵌入 (Embedding)"
+      },
       "help": {
         "azure": {
           "deployment": "Azure 中的部署名称，区别于模型 ID",
@@ -583,8 +589,10 @@
         "apiKeyMasked": "已配置：{{mask}}，留空则不更新",
         "apiKey": "粘贴密钥",
         "modelsSearch": "搜索或输入模型ID...",
+        "manualModelId": "手动输入 ID 或从下方选择",
         "baseUrl": {
-          "custom": "自定义 Base URL"
+          "custom": "自定义 Base URL",
+          "default": "默认 URL"
         },
         "embeddingModel": "例如：text-embedding-3-small"
       },
@@ -3172,6 +3180,8 @@
       "verified": "官方认证",
       "noResults": "未找到匹配的工具",
       "backToList": "返回列表",
+      "price": "费用",
+      "free": "免费",
       "installSuccess": "工具安装成功",
       "installSuccessMessage": "工具 \"{{name}}\" 已成功安装到您的项目",
       "uninstallSuccess": "工具卸载成功",
@@ -3202,6 +3212,12 @@
         "noResults": "未找到匹配的模型",
         "noResultsDesc": "试试搜索其他关键词或切换分类",
         "allModels": "全部模型",
+        "types": {
+          "chat": "聊天模型",
+          "embedding": "嵌入模型",
+          "image": "图像模型",
+          "audio": "音频模型"
+        },
         "installing": "正在安装...",
         "installStep": {
           "verify": "验证凭证",

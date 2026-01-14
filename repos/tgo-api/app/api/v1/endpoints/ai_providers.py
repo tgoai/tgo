@@ -1,11 +1,11 @@
 """AI Provider (LLM Provider) management endpoints."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy import or_, and_, select, exists, func
 from sqlalchemy.orm import Session
 
@@ -21,8 +21,10 @@ from app.schemas import (
     AIProviderResponse,
     AIProviderUpdate,
 )
+from app.schemas.remote_model import RemoteModelListResponse, RemoteModelInfo
 from app.utils.crypto import decrypt_str, encrypt_str, mask_secret
 from app.services.ai_provider_sync import sync_provider_with_retry_and_update
+from app.services.store_sync import sync_uninstall_models_to_store, sync_uninstall_all_provider_models
 
 logger = get_logger("endpoints.ai_providers")
 
@@ -58,6 +60,8 @@ def _to_response(item: AIProvider, model_type: Optional[str] = None) -> AIProvid
         "deleted_at": item.deleted_at,
         "has_api_key": bool(item.api_key),
         "api_key_masked": masked,
+        "store_resource_id": str(item.store_resource_id) if item.store_resource_id else None,
+        "is_from_store": bool(item.is_from_store),
         "last_synced_at": item.last_synced_at,
         "sync_status": item.sync_status,
         "sync_error": item.sync_error,
@@ -122,7 +126,96 @@ def _build_test_request(item: AIProvider, plain_key: Optional[str]) -> tuple[str
 
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported provider: {item.provider}")
 
+def _parse_remote_models(provider: str, data: Any) -> list[RemoteModelInfo]:
+    """Parse remote API response into a list of RemoteModelInfo."""
+    models = []
+    p = provider.lower()
+
+    if p in ("openai", "gpt", "gpt-4o", "oai", "dashscope", "ali", "aliyun") or "compatible" in p:
+        # OpenAI style: { "data": [ { "id": "...", ... } ] }
+        if isinstance(data, dict) and "data" in data:
+            for m in data["data"]:
+                if isinstance(m, dict) and "id" in m:
+                    mid = m["id"]
+                    mtype = "embedding" if "embedding" in mid.lower() else "chat"
+                    models.append(RemoteModelInfo(id=mid, name=mid, model_type=mtype))
+    
+    elif p in ("anthropic", "claude"):
+        # Anthropic style: { "data": [ { "id": "...", "display_name": "..." } ] }
+        if isinstance(data, dict) and "data" in data:
+            for m in data["data"]:
+                if isinstance(m, dict) and "id" in m:
+                    models.append(RemoteModelInfo(
+                        id=m["id"], 
+                        name=m.get("display_name") or m["id"],
+                        model_type="chat"
+                    ))
+    
+    elif p in ("azure_openai", "azure-openai", "azure"):
+        # Azure style: { "value": [ { "id": "...", "model": "..." } ] }
+        if isinstance(data, dict) and "value" in data:
+            for m in data["value"]:
+                # Azure deployments often use 'id' or 'name' as the deployment name
+                mid = m.get("id") or m.get("name")
+                if mid:
+                    # Model name might be in 'model' field
+                    actual_model = m.get("model", mid)
+                    mtype = "embedding" if "embedding" in actual_model.lower() else "chat"
+                    models.append(RemoteModelInfo(id=mid, name=f"{mid} ({actual_model})", model_type=mtype))
+
+    return models
+
+
 router = APIRouter()
+
+
+@router.get("/{provider_id}/remote-models", response_model=RemoteModelListResponse)
+async def get_provider_remote_models(
+    provider_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: Staff = Depends(get_current_active_user),
+):
+    """Fetch available models from the provider's remote API using stored credentials."""
+    item = (
+        db.query(AIProvider)
+        .filter(
+            AIProvider.id == provider_id,
+            AIProvider.project_id == current_user.project_id,
+            AIProvider.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI provider not found")
+
+    plain_key = decrypt_str(item.api_key) if item.api_key else None
+    if not plain_key:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="API key is not set for this provider")
+
+    method, url, headers = _build_test_request(item, plain_key)
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.request(method, url, headers=headers)
+        
+        resp.raise_for_status()
+        remote_data = resp.json()
+        
+        models = _parse_remote_models(item.provider, remote_data)
+        
+        return RemoteModelListResponse(
+            provider=item.provider,
+            models=models,
+            is_fallback=False
+        )
+    except Exception as e:
+        logger.warning(f"Failed to fetch remote models for {provider_id}: {str(e)}")
+        # Return empty list or handle as fallback if needed
+        return RemoteModelListResponse(
+            provider=item.provider,
+            models=[],
+            is_fallback=True
+        )
 
 
 @router.get("", response_model=AIProviderListResponse, responses=LIST_RESPONSES)
@@ -273,6 +366,7 @@ async def get_ai_provider(
 async def update_ai_provider(
     provider_id: UUID,
     payload: AIProviderUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
 ) -> AIProviderResponse:
@@ -340,6 +434,7 @@ async def update_ai_provider(
 @router.delete("/{provider_id}", status_code=status.HTTP_204_NO_CONTENT, responses=DELETE_RESPONSES)
 async def delete_ai_provider(
     provider_id: UUID,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
 ) -> None:
@@ -363,6 +458,14 @@ async def delete_ai_provider(
     item.updated_at = datetime.utcnow()
 
     db.commit()
+
+    # Async uninstall all provider models from Store
+    background_tasks.add_task(
+        sync_uninstall_all_provider_models,
+        db,
+        current_user.project_id,
+        provider_id
+    )
 
     # Try to sync deletion as deactivation with retry
     try:

@@ -51,6 +51,8 @@ export interface AIProviderResponseDTO {
   deleted_at?: string | null;
   has_api_key: boolean;
   api_key_masked?: string | null;
+  store_resource_id?: string | null;
+  is_from_store?: boolean;
 }
 
 export interface AIProviderListResponseDTO {
@@ -120,6 +122,7 @@ export class AIProvidersApiService extends BaseApiService {
     PROVIDER_ENABLE: (id: string) => `/${this.apiVersion}/ai/providers/${id}/enable`,
     PROVIDER_DISABLE: (id: string) => `/${this.apiVersion}/ai/providers/${id}/disable`,
     PROVIDER_TEST: (id: string) => `/${this.apiVersion}/ai/providers/${id}/test`,
+    PROVIDER_REMOTE_MODELS: (id: string) => `/${this.apiVersion}/ai/providers/${id}/remote-models`,
     MODELS: `/${this.apiVersion}/ai/models`,
     PROJECT_MODELS: `/${this.apiVersion}/ai-models`,
   } as const;
@@ -165,6 +168,11 @@ export class AIProvidersApiService extends BaseApiService {
   // Test connection
   async testProvider(id: string): Promise<{ ok?: boolean; success?: boolean; message?: string; [k: string]: any }> {
     return this.post(this.endpoints.PROVIDER_TEST(id));
+  }
+
+  // Get remote models using stored credentials
+  async getRemoteModels(id: string): Promise<ModelListResponseDTO> {
+    return this.get<ModelListResponseDTO>(this.endpoints.PROVIDER_REMOTE_MODELS(id));
   }
 
   // List models - GET (old paginated endpoint, kept for backward compatibility if needed)

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiEye, FiEyeOff, FiLoader, FiChevronDown, FiChevronUp, FiX, FiCheck, FiPlus } from 'react-icons/fi';
+import { FiEye, FiEyeOff, FiLoader, FiChevronDown, FiChevronUp, FiX } from 'react-icons/fi';
 import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { useProvidersStore, type ModelProviderConfig, type ProviderKind } from '@/stores/providersStore';
@@ -15,9 +15,9 @@ interface ProviderConfigModalProps {
 
 type Draft = Omit<ModelProviderConfig, 'id' | 'createdAt' | 'updatedAt'> & { id?: string };
 
-const emptyDraft = (t: (k: string, d: string) => string): Draft => ({
+const emptyDraft = (defaultLabel: string): Draft => ({
   kind: 'openai',
-  name: t('settings.providers.defaultName', '新提供商'),
+  name: defaultLabel,
   apiKey: '',
   apiBaseUrl: 'https://api.openai.com/v1',
   models: [],
@@ -36,11 +36,6 @@ const ProviderConfigModal: React.FC<ProviderConfigModalProps> = ({ isOpen, onClo
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [modelsLoading, setModelsLoading] = useState(false);
-  const [modelsQuery, setModelsQuery] = useState('');
-  const [modelOptions, setModelOptions] = useState<Array<{ id: string; name?: string }>>([]);
-  const [isModelsOpen, setIsModelsOpen] = useState(false);
-  const modelsBoxRef = useRef<HTMLDivElement | null>(null);
 
   const providerOptions: Array<{ value: ProviderKind; label: string; hint?: string }> = useMemo(() => [
     { value: 'openai', label: t('settings.providers.provider.openai', 'OpenAI'), hint: 'https://api.openai.com/v1' },
@@ -48,6 +43,7 @@ const ProviderConfigModal: React.FC<ProviderConfigModalProps> = ({ isOpen, onClo
     { value: 'qwen', label: t('settings.providers.provider.qwen', '通义千问 (DashScope)'), hint: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
     { value: 'moonshot', label: t('settings.providers.provider.moonshot', '月之暗面 (Kimi)'), hint: 'https://api.moonshot.cn/v1' },
     { value: 'deepseek', label: t('settings.providers.provider.deepseek', 'DeepSeek'), hint: 'https://api.deepseek.com/v1' },
+    { value: 'baichuan', label: t('settings.providers.provider.baichuan', '百川智能'), hint: 'https://api.baichuan-ai.com/v1' },
     { value: 'ollama', label: t('settings.providers.provider.ollama', 'Ollama'), hint: 'http://localhost:11434' },
     { value: 'custom', label: t('settings.providers.provider.custom', '自定义'), hint: t('settings.providers.placeholders.baseUrl.custom', '自定义 Base URL') },
   ], [t]);
@@ -57,7 +53,9 @@ const ProviderConfigModal: React.FC<ProviderConfigModalProps> = ({ isOpen, onClo
       if (editingProvider) {
         setDraft({ ...editingProvider });
       } else {
-        setDraft(emptyDraft(t));
+        const defaultKind = 'openai';
+        const defaultLabel = providerOptions.find(o => o.value === defaultKind)?.label || 'OpenAI';
+        setDraft(emptyDraft(defaultLabel));
       }
       setIsAdvancedOpen(false);
       setRevealKey(false);
@@ -66,47 +64,7 @@ const ProviderConfigModal: React.FC<ProviderConfigModalProps> = ({ isOpen, onClo
     }
   }, [isOpen, editingProvider, t]);
 
-  useEffect(() => {
-    if (!isModelsOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (modelsBoxRef.current && !modelsBoxRef.current.contains(e.target as Node)) {
-        setIsModelsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [isModelsOpen]);
-
   const providerLabel = (kind: ProviderKind) => providerOptions.find(o => o.value === kind)?.label || kind;
-
-  const fetchModelOptions = async () => {
-    if (!draft) return;
-    try {
-      setModelsLoading(true);
-      const service = new AIProvidersApiService();
-      const providerKey = AIProvidersApiService.kindToProviderKey(draft.kind);
-      
-      const requestBody: any = { provider: providerKey };
-      if (draft.apiKey?.trim()) requestBody.api_key = draft.apiKey.trim();
-      if (draft.apiBaseUrl?.trim()) requestBody.api_base_url = draft.apiBaseUrl.trim();
-      
-      if (draft.kind === 'azure' && draft.params?.azure) {
-        requestBody.config = {
-          deployment: draft.params.azure.deployment,
-          resource: draft.params.azure.resource,
-          api_version: draft.params.azure.apiVersion,
-        };
-      }
-      
-      const res = await service.listModels(requestBody);
-      const opts = (res.models || []).map((m: any) => ({ id: m.id, name: m.name })).filter((o: any) => o.id);
-      setModelOptions(opts);
-    } catch (e: any) {
-      toast?.showToast('error', t('settings.providers.fetchModels.failed', '获取模型失败'), e?.message);
-    } finally {
-      setModelsLoading(false);
-    }
-  };
 
   const handleTest = async () => {
     if (!draft) return;
@@ -142,18 +100,13 @@ const ProviderConfigModal: React.FC<ProviderConfigModalProps> = ({ isOpen, onClo
     }
     setSaving(true);
     try {
-      const models = (draft.models || []).map(m => m.trim()).filter(Boolean);
-      const defaultModel = draft.defaultModel && models.includes(draft.defaultModel.trim())
-        ? draft.defaultModel.trim()
-        : (models[0] || '');
-
       const data = {
         kind: draft.kind,
         name: draft.name?.trim() || providerLabel(draft.kind),
         apiKey: draft.apiKey.trim(),
         apiBaseUrl: draft.apiBaseUrl?.trim(),
-        models,
-        defaultModel,
+        models: draft.models || [],
+        defaultModel: draft.defaultModel || '',
         enabled: !!draft.enabled,
         params: draft.params,
       };
@@ -294,110 +247,11 @@ const ProviderConfigModal: React.FC<ProviderConfigModalProps> = ({ isOpen, onClo
                   </div>
                 </div>
               )}
-
-              {/* Models List */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('settings.providers.fields.models')}</label>
-                <div className="relative" ref={modelsBoxRef}>
-                  <div
-                    className="flex flex-wrap items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-2xl p-2 min-h-[3rem] cursor-text focus-within:ring-2 focus-within:ring-blue-500 transition-all"
-                    onClick={() => { setIsModelsOpen(true); if (modelOptions.length === 0) fetchModelOptions(); }}
-                  >
-                    {(draft.models || []).map((m, idx) => (
-                      <span key={`${m}-${idx}`} className="inline-flex items-center gap-1 px-3 py-1 bg-white dark:bg-gray-700 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-600">
-                        {m}
-                        <button onClick={(e) => { e.stopPropagation(); setDraft({ ...draft, models: draft.models?.filter(x => x !== m) }); }} className="text-gray-400 hover:text-red-500">
-                          <FiX />
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-1 min-w-[100px]"
-                      value={modelsQuery}
-                      onChange={(e) => setModelsQuery(e.target.value)}
-                      onFocus={() => { setIsModelsOpen(true); if (modelOptions.length === 0) fetchModelOptions(); }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && modelsQuery.trim()) {
-                          const val = modelsQuery.trim();
-                          if (!draft.models?.includes(val)) {
-                            setDraft({ ...draft, models: [...(draft.models || []), val] });
-                          }
-                          setModelsQuery('');
-                          e.preventDefault();
-                        }
-                      }}
-                      placeholder={t('settings.providers.placeholders.modelsSearch')}
-                    />
-                  </div>
-
-                  {isModelsOpen && (
-                    <div className="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                      <div className="p-2 max-h-60 overflow-y-auto custom-scrollbar">
-                        {modelsLoading ? (
-                          <div className="flex items-center justify-center p-4 gap-2 text-sm text-gray-500">
-                            <FiLoader className="animate-spin" />
-                            {t('common.loading', '加载中...')}
-                          </div>
-                        ) : (
-                          <>
-                            {modelsQuery.trim() && !modelOptions.some(o => o.id === modelsQuery.trim()) && (
-                              <button
-                                onClick={() => {
-                                  if (!draft.models?.includes(modelsQuery.trim())) {
-                                    setDraft({ ...draft, models: [...(draft.models || []), modelsQuery.trim()] });
-                                  }
-                                  setModelsQuery('');
-                                  setIsModelsOpen(false);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm font-bold text-blue-600 rounded-xl transition-colors"
-                              >
-                                <FiPlus />
-                                {t('settings.providers.createModelOption', '创建')} "{modelsQuery.trim()}"
-                              </button>
-                            )}
-                            {modelOptions.filter(o => o.id.toLowerCase().includes(modelsQuery.toLowerCase())).map(opt => (
-                              <button
-                                key={opt.id}
-                                onClick={() => {
-                                  const exists = draft.models?.includes(opt.id);
-                                  setDraft({
-                                    ...draft,
-                                    models: exists ? draft.models?.filter(m => m !== opt.id) : [...(draft.models || []), opt.id]
-                                  });
-                                }}
-                                className={`w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-sm rounded-xl transition-colors ${draft.models?.includes(opt.id) ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : 'text-gray-700 dark:text-gray-300'}`}
-                              >
-                                <div className="text-left">
-                                  <div className="font-bold">{opt.id}</div>
-                                  {opt.name && <div className="text-xs opacity-50">{opt.name}</div>}
-                                </div>
-                                {draft.models?.includes(opt.id) && <FiCheck className="w-4 h-4" />}
-                              </button>
-                            ))}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-          {/* Default Model */}
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('settings.providers.fields.defaultModel')}</label>
-            <Select
-              value={draft.defaultModel || ''}
-              onChange={(val) => setDraft({ ...draft, defaultModel: val })}
-              options={(draft.models || []).map(m => ({ value: m, label: m }))}
-              disabled={!draft.models?.length}
-              placeholder={t('settings.providers.selectDefaultModel')}
-            />
-          </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
 
-    <footer className="px-8 py-6 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-4">
+        <footer className="px-8 py-6 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-4">
       <div className="flex gap-3">
         <Button variant="secondary" size="md" onClick={onClose}>{t('common.cancel')}</Button>
         <Button variant="secondary" size="md" onClick={handleTest} disabled={testing}>

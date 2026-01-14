@@ -20,6 +20,7 @@ from app.schemas.tools import ToolCreateRequest, ToolType as CoreToolType, ToolS
 from app.utils.crypto import encrypt_str, decrypt_str
 from app.services.store_client import store_client
 from app.services.ai_client import ai_client
+from app.services.ai_provider_sync import sync_provider_with_retry_and_update
 
 logger = get_logger("endpoints.store")
 
@@ -233,16 +234,22 @@ async def install_model_from_store(
             project_id=project_id,
             provider="openai_compatible",
             name=provider_name,
-            api_base_url=f"{settings.STORE_SERVICE_URL.rstrip('/')}/api/v1/execute",
+            api_base_url=f"{settings.STORE_SERVICE_URL.rstrip('/')}/api/v1",
             api_key=encrypt_str(api_key), # 加密存储商店 API Key
             is_active=True,
             default_model=local_model_id,
+            is_from_store=True,
+            store_resource_id=model_detail.provider.id
         )
         db.add(provider)
     else:
+        # 确保商店标识被更新，同时修正 Base URL
+        provider.is_from_store = True
+        provider.store_resource_id = model_detail.provider.id
+        provider.api_base_url = f"{settings.STORE_SERVICE_URL.rstrip('/')}/api/v1"
         if not provider.default_model:
             provider.default_model = local_model_id
-            db.add(provider)
+        db.add(provider)
     
     db.flush() # 确保 provider 已在数据库中
 
@@ -265,7 +272,8 @@ async def install_model_from_store(
             model_type=model_detail.model_type,
             description=model_detail.description_zh,
             is_active=True,
-            capabilities=model_detail.config.get("capabilities", {}) if model_detail.config else {}
+            capabilities=model_detail.config.get("capabilities", {}) if model_detail.config else {},
+            store_resource_id=install_in.resource_id
         )
         db.add(existing_model)
     else:
@@ -274,6 +282,7 @@ async def install_model_from_store(
         existing_model.model_type = model_detail.model_type
         existing_model.description = model_detail.description_zh
         existing_model.capabilities = model_detail.config.get("capabilities", {}) if model_detail.config else {}
+        existing_model.store_resource_id = install_in.resource_id
         db.add(existing_model)
     
     # 记录商店安装
@@ -283,6 +292,13 @@ async def install_model_from_store(
         logger.warning(f"Failed to record installation in store: {str(e)}")
     
     db.commit()
+
+    # Sync provider to tgo-ai service
+    try:
+        await sync_provider_with_retry_and_update(db, provider)
+    except Exception as e:
+        logger.warning(f"Failed to sync provider to AI service after model install: {str(e)}")
+
     return {"success": True, "model_id": local_model_id, "provider": provider_name}
 
 
@@ -356,8 +372,14 @@ async def uninstall_model_from_store(
                 )
                 provider.default_model = remaining
                 db.add(provider)
+            
+            # 记录需要同步的 Provider
+            db.commit() # 先提交模型删除
+            try:
+                await sync_provider_with_retry_and_update(db, provider)
+            except Exception as e:
+                logger.warning(f"Failed to sync provider to AI service after model uninstall: {str(e)}")
 
-    db.commit()
     return {"success": True}
 
 

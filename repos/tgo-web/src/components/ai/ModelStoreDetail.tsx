@@ -28,8 +28,18 @@ const ModelStoreDetail: React.FC<ModelStoreDetailProps> = ({
   const isInstalling = installingId === model.id;
 
   return (
-    <div className={`fixed inset-y-0 right-0 w-full sm:w-[500px] md:w-[600px] bg-white dark:bg-gray-950 shadow-2xl z-[60] transform transition-transform duration-500 ease-out flex flex-col border-l border-gray-100 dark:border-gray-800 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-      {/* Header */}
+    <>
+      {/* Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] animate-in fade-in duration-300"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Side Panel */}
+      <div className={`fixed inset-y-0 right-0 w-full sm:w-[500px] md:w-[600px] bg-white dark:bg-gray-950 shadow-2xl z-[70] transform transition-transform duration-500 ease-out flex flex-col border-l border-gray-100 dark:border-gray-800 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        {/* Header */}
       <header className="p-8 flex items-center justify-between border-b border-gray-50 dark:border-gray-900 bg-white/50 dark:bg-gray-950/50 backdrop-blur-xl">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
@@ -55,7 +65,7 @@ const ModelStoreDetail: React.FC<ModelStoreDetailProps> = ({
         <section className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
             <span className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black uppercase tracking-widest">
-              {model.model_type}
+              {t(`tools.store.model.types.${model.model_type}`, model.model_type)}
             </span>
             <span className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
               <Globe className="w-3 h-3" />
@@ -117,7 +127,7 @@ const ModelStoreDetail: React.FC<ModelStoreDetailProps> = ({
             <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 flex items-center justify-between">
               <span className="text-sm font-bold text-gray-500">{t('tools.store.model.type')}</span>
               <span className="text-sm font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider">
-                {model.model_type}
+                {t(`tools.store.model.types.${model.model_type}`, model.model_type)}
               </span>
             </div>
           </div>
@@ -188,6 +198,7 @@ const ModelStoreDetail: React.FC<ModelStoreDetailProps> = ({
         )}
       </footer>
     </div>
+    </>
   );
 };
 

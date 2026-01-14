@@ -45,7 +45,7 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
         { 
           id: 'all', 
           slug: 'all', 
-          name_zh: t('store.model.allModels'), 
+          name_zh: t('tools.store.model.allModels'), 
           name_en: 'All Models', 
           icon: 'Grid3X3'
         },
@@ -281,7 +281,10 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
                   </button>
                 ) : (
                   <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-800">
-                    <div className="text-right">
+                    <div 
+                      className="text-right cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => window.open('http://store.tgo.ai/', '_blank')}
+                    >
                       <div className="text-xs font-black text-gray-900 dark:text-gray-100 truncate max-w-[100px]">
                         {user?.name || user?.email}
                       </div>
@@ -290,7 +293,10 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
                       </div>
                     </div>
                     <div className="relative group">
-                      <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm cursor-pointer">
+                      <div 
+                        className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => window.open('http://store.tgo.ai/', '_blank')}
+                      >
                         {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase()}
                       </div>
                       <button 

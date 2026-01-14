@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiEdit2, FiTrash2, FiLoader, FiZap, FiBox, FiCheckCircle } from 'react-icons/fi';
+import { FiEdit2, FiTrash2, FiLoader, FiZap, FiBox, FiCheckCircle, FiPlus } from 'react-icons/fi';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { type ModelProviderConfig } from '@/stores/providersStore';
@@ -10,6 +10,7 @@ interface ProviderCardProps {
   onEdit: (provider: ModelProviderConfig) => void;
   onDelete: (id: string) => void;
   onTest: (provider: ModelProviderConfig) => void;
+  onAddModel: (provider: ModelProviderConfig) => void;
   isTesting: boolean;
 }
 
@@ -18,11 +19,12 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
   onEdit, 
   onDelete, 
   onTest,
+  onAddModel,
   isTesting 
 }) => {
   const { t } = useTranslation();
-  const isStore = provider.name.startsWith('Store-');
-  const displayName = isStore ? provider.name.replace('Store-', '') : provider.name;
+  const isStore = !!provider.isFromStore;
+  const displayName = provider.name;
 
   return (
     <div className="group relative bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-8 hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-500 overflow-hidden">
@@ -53,10 +55,10 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
                 {isStore ? (
                   <span className="text-purple-500">{t('settings.providers.storeModel')}</span>
                 ) : (
-                  <span>{provider.kind}</span>
+                  <span>{t(`settings.providers.provider.${provider.kind}`)}</span>
                 )}
                 <span className="text-gray-200 dark:text-gray-700">•</span>
-                <span className="truncate max-w-[200px]">{provider.apiBaseUrl || 'Default URL'}</span>
+                <span className="truncate max-w-[200px]">{provider.apiBaseUrl || t('settings.providers.placeholders.baseUrl.default', 'Default URL')}</span>
               </div>
             </div>
           </div>
@@ -74,6 +76,13 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
                 +{(provider.models?.length || 0) - 5} {t('common.more').toUpperCase()}
               </span>
             )}
+            <button 
+              onClick={() => onAddModel(provider)}
+              className="flex items-center justify-center w-6 h-6 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all border border-blue-100 dark:border-blue-800"
+              title={t('settings.providers.addModel', '添加模型')}
+            >
+              <FiPlus className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 

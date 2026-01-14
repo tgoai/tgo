@@ -16,6 +16,7 @@ import ModelStoreModal from '@/components/ai/ModelStoreModal';
 import { ToolToastProvider } from '@/components/ai/ToolToastProvider';
 import ProviderCard from './ProviderCard';
 import ProviderConfigModal from './ProviderConfigModal';
+import AddModelModal from './AddModelModal';
 
 const ModelProvidersSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -26,7 +27,9 @@ const ModelProvidersSettings: React.FC = () => {
 
   const [showModelStore, setShowModelStore] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showAddModelModal, setShowAddModelModal] = useState(false);
   const [editingProvider, setEditingProvider] = useState<ModelProviderConfig | null>(null);
+  const [addingModelToProvider, setAddingModelToProvider] = useState<ModelProviderConfig | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
 
@@ -41,38 +44,6 @@ const ModelProvidersSettings: React.FC = () => {
 
   // Track initialization to avoid infinite loops
   const isInitialized = React.useRef(false);
-
-  useEffect(() => {
-    loadProviders().catch(() => {});
-  }, [loadProviders]);
-
-  // Load project-level AI defaults
-  useEffect(() => {
-    if (!projectId || isInitialized.current) return;
-    
-    const fetchConfig = async () => {
-      try {
-        const svc = new ProjectConfigApiService();
-        const conf = await svc.getAIConfig(projectId);
-        const llm = conf.default_chat_provider_id && conf.default_chat_model
-          ? `${conf.default_chat_provider_id}:${conf.default_chat_model}`
-          : '';
-        const emb = conf.default_embedding_provider_id && conf.default_embedding_model
-          ? `${conf.default_embedding_provider_id}:${conf.default_embedding_model}`
-          : '';
-        
-        setLlmSelection(llm);
-        setEmbSelection(emb);
-        setDefaultLlmModel(llm || null);
-        setDefaultEmbeddingModel(emb || null);
-        isInitialized.current = true;
-      } catch (err: any) {
-        toast?.showToast('error', t('common.loadFailed', '加载失败'), err?.message);
-      }
-    };
-
-    fetchConfig();
-  }, [projectId, setDefaultLlmModel, setDefaultEmbeddingModel, toast, t]); // Kept dependencies but added Ref guard
 
   const ensureFetchChatOptions = async () => {
     if (chatLoading) return;
@@ -110,6 +81,44 @@ const ModelProvidersSettings: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    loadProviders().catch(() => {});
+  }, [loadProviders]);
+
+  // Load project-level AI defaults
+  useEffect(() => {
+    if (!projectId || isInitialized.current) return;
+    
+    const fetchConfig = async () => {
+      try {
+        // Fetch options first so they are available when config is set
+        await Promise.all([
+          ensureFetchChatOptions(),
+          ensureFetchEmbeddingOptions()
+        ]);
+
+        const svc = new ProjectConfigApiService();
+        const conf = await svc.getAIConfig(projectId);
+        const llm = conf.default_chat_provider_id && conf.default_chat_model
+          ? `${conf.default_chat_provider_id}:${conf.default_chat_model}`
+          : '';
+        const emb = conf.default_embedding_provider_id && conf.default_embedding_model
+          ? `${conf.default_embedding_provider_id}:${conf.default_embedding_model}`
+          : '';
+        
+        setLlmSelection(llm);
+        setEmbSelection(emb);
+        setDefaultLlmModel(llm || null);
+        setDefaultEmbeddingModel(emb || null);
+        isInitialized.current = true;
+      } catch (err: any) {
+        toast?.showToast('error', t('common.loadFailed'), err?.message);
+      }
+    };
+
+    fetchConfig();
+  }, [projectId, setDefaultLlmModel, setDefaultEmbeddingModel, toast, t]); // Kept dependencies but added Ref guard
+
   const onSaveDefaults = async () => {
     if (!projectId) return;
     setIsSavingDefaults(true);
@@ -130,9 +139,9 @@ const ModelProvidersSettings: React.FC = () => {
       });
       setDefaultLlmModel(llmSelection || null);
       setDefaultEmbeddingModel(embSelection || null);
-      toast?.showToast('success', t('settings.models.toast.saved', '默认模型已保存'));
+      toast?.showToast('success', t('settings.models.toast.saved'));
     } catch (err: any) {
-      toast?.showToast('error', t('common.saveFailed', '保存失败'), err?.message);
+      toast?.showToast('error', t('common.saveFailed'), err?.message);
     } finally {
       setIsSavingDefaults(false);
     }
@@ -142,9 +151,9 @@ const ModelProvidersSettings: React.FC = () => {
     setDeletingId(null);
     try {
       await removeProvider(id);
-      toast?.showToast('success', t('settings.providers.toast.deleted', '已删除提供商'));
+      toast?.showToast('success', t('settings.providers.toast.deleted'));
     } catch (e: any) {
-      toast?.showToast('error', t('common.deleteFailed', '删除失败'), e?.message);
+      toast?.showToast('error', t('common.deleteFailed'), e?.message);
     }
   };
 
@@ -154,12 +163,12 @@ const ModelProvidersSettings: React.FC = () => {
       const svc = new AIProvidersApiService();
       const res = await svc.testProvider(p.id);
       if ((res as any).ok ?? (res as any).success ?? true) {
-        toast?.showToast('success', t('settings.providers.test.ok', '连接成功'));
+        toast?.showToast('success', t('settings.providers.test.ok'));
       } else {
-        toast?.showToast('error', t('settings.providers.test.failed', '连接失败'));
+        toast?.showToast('error', t('settings.providers.test.failed'));
       }
     } catch (err: any) {
-      toast?.showToast('error', t('settings.providers.test.failed', '连接失败'), err?.message);
+      toast?.showToast('error', t('settings.providers.test.failed'), err?.message);
     } finally {
       setTestingId(null);
     }
@@ -312,6 +321,7 @@ const ModelProvidersSettings: React.FC = () => {
               provider={p}
               onEdit={(prov) => { setEditingProvider(prov); setShowConfigModal(true); }}
               onDelete={(id) => setDeletingId(id)}
+              onAddModel={(prov) => { setAddingModelToProvider(prov); setShowAddModelModal(true); }}
               onTest={handleTest}
               isTesting={testingId === p.id}
             />
@@ -323,6 +333,12 @@ const ModelProvidersSettings: React.FC = () => {
           isOpen={showConfigModal}
           onClose={() => { setShowConfigModal(false); setEditingProvider(null); }}
           editingProvider={editingProvider}
+        />
+
+        <AddModelModal
+          isOpen={showAddModelModal}
+          onClose={() => { setShowAddModelModal(false); setAddingModelToProvider(null); }}
+          provider={addingModelToProvider}
         />
 
       <ConfirmDialog

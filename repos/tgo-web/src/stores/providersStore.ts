@@ -32,6 +32,8 @@ export interface ModelProviderConfig {
   // backend-only metadata for display
   hasApiKey?: boolean;
   apiKeyMasked?: string | null;
+  storeResourceId?: string | null;
+  isFromStore?: boolean;
 }
 
 export interface ProvidersState {
@@ -42,6 +44,7 @@ export interface ProvidersState {
   addProvider: (data: Omit<ModelProviderConfig, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateProvider: (id: string, patch: Partial<ModelProviderConfig>) => Promise<void>;
   removeProvider: (id: string) => Promise<void>;
+  addModelToProvider: (providerId: string, models: Array<{ model_id: string; model_type: string }>) => Promise<void>;
   clearAll: () => void;
 }
 
@@ -67,6 +70,8 @@ function mapDtoToConfig(dto: AIProviderResponseDTO): ModelProviderConfig {
     updatedAt,
     hasApiKey: dto.has_api_key,
     apiKeyMasked: dto.api_key_masked ?? null,
+    storeResourceId: dto.store_resource_id ?? null,
+    isFromStore: !!dto.is_from_store,
   };
 }
 
@@ -99,7 +104,7 @@ export const useProvidersStore = create<ProvidersState>()(
           name: data.name,
           api_key: data.apiKey,
           api_base_url: data.apiBaseUrl || null,
-          available_models: models.length ? models : null,
+          available_models: models.length ? models : [],
           default_model: defaultModel || null,
           config: AIProvidersApiService.buildBackendConfig(data.kind, data.params) || null,
           is_active: !!data.enabled,
@@ -128,7 +133,7 @@ export const useProvidersStore = create<ProvidersState>()(
         if (patch.params !== undefined) payload.config = AIProvidersApiService.buildBackendConfig(nextKind, patch.params) || null;
         if (patch.enabled !== undefined) payload.is_active = !!patch.enabled;
         if (patch.models !== undefined || patch.defaultModel !== undefined) {
-          payload.available_models = models.length ? models : null;
+          payload.available_models = models.length ? models : [];
           payload.default_model = defaultModel || null;
         }
         if (patch.apiKey && patch.apiKey.trim() !== '') payload.api_key = patch.apiKey.trim();
@@ -143,6 +148,22 @@ export const useProvidersStore = create<ProvidersState>()(
       removeProvider: async (id) => {
         await svc.deleteProvider(id);
         set((state) => ({ providers: state.providers.filter(p => p.id !== id) }));
+      },
+
+      addModelToProvider: async (providerId, models) => {
+        const current = get().providers.find(p => p.id === providerId);
+        if (!current) return;
+        
+        // Fetch current model IDs (excluding deleted ones handled by backend)
+        const existingModels = current.models || [];
+        const newModelIds = models.map(m => m.model_id);
+        
+        // Merge without duplicates
+        const updatedModels = Array.from(new Set([...existingModels, ...newModelIds]));
+        
+        await get().updateProvider(providerId, {
+          models: updatedModels
+        });
       },
 
       clearAll: () => set({ providers: [] }),

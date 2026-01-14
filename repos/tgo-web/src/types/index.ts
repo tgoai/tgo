@@ -643,6 +643,7 @@ export interface ToolStoreItem {
   isInstalled?: boolean; // Whether the tool is already installed in the project
   input_schema?: Record<string, any>; // Schema from API response
   short_no?: string; // Short number/identifier from API response
+  price_per_call?: number; // Price per call from Store API
 }
 
 export interface ToolStoreCategory {

@@ -855,6 +855,7 @@ class AgentBuilder:
                 config_key="provider_credentials",
                 model_name=model_name,
             )
+       
         api_key = creds.api_key
         base_url = creds.api_base_url
         organization = creds.organization

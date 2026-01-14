@@ -39,6 +39,7 @@ class AIModel(Base):
     max_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="Maximum output tokens")
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, comment="Whether this model is enabled")
+    store_resource_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, comment="Store resource ID for models installed from store")
 
     # Relationships
     ai_provider: Mapped[Optional["AIProvider"]] = relationship("AIProvider", back_populates="models")

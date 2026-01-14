@@ -69,6 +69,19 @@ class AIProvider(Base):
         comment="Whether this provider configuration is enabled",
     )
 
+    # Store metadata
+    store_resource_id: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Store resource ID if provider is from store",
+    )
+    is_from_store: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        comment="Whether this provider was created from store",
+    )
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         nullable=False,
