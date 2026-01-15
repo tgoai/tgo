@@ -78,7 +78,7 @@ class AgnoTeamRunner:
 
     async def run(self, built_team: BuiltTeam, context: CoordinationContext) -> SupervisorRunResponse:
         start_time = time.time()
-        output = await built_team.team.run(context.message)
+        output = await built_team.team.arun(context.message)
         total_time = time.time() - start_time
 
         agent_results = self._convert_member_responses(output.member_responses, context)
