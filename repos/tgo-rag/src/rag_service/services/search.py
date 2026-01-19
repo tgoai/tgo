@@ -284,10 +284,13 @@ class SearchService:
             candidate_limit = limit * self.settings.candidate_multiplier
             
             # Multi-query retrieval for better recall
-            all_semantic_results = []
-            all_keyword_results = []
+            # We accumulate RRF scores for each unique document across all query variants and search types
+            k = self.settings.rrf_k
+            scores: Dict[UUID, float] = {}
+            docs_cache: Dict[UUID, SearchResult] = {}
+            rank_info: Dict[UUID, Dict[str, List[int]]] = {}
             
-            for q in query_variants:
+            for q_idx, q in enumerate(query_variants):
                 semantic_task = self.semantic_search(
                     query=q,
                     project_id=project_id,
@@ -307,67 +310,63 @@ class SearchService:
                 )
                 
                 semantic_res, keyword_res = await asyncio.gather(semantic_task, keyword_task)
-                all_semantic_results.extend(semantic_res.results)
-                all_keyword_results.extend(keyword_res.results)
+                
+                # Accumulate semantic results for this variant
+                for rank, result in enumerate(semantic_res.results):
+                    doc_id = result.document_id
+                    score = 1.0 / (k + rank + 1)
+                    scores[doc_id] = scores.get(doc_id, 0.0) + score
+                    
+                    if doc_id not in docs_cache:
+                        docs_cache[doc_id] = result
+                    
+                    if doc_id not in rank_info:
+                        rank_info[doc_id] = {"semantic": [], "keyword": []}
+                    rank_info[doc_id]["semantic"].append(rank + 1)
+                
+                # Accumulate keyword results for this variant
+                for rank, result in enumerate(keyword_res.results):
+                    doc_id = result.document_id
+                    score = 1.0 / (k + rank + 1)
+                    scores[doc_id] = scores.get(doc_id, 0.0) + score
+                    
+                    if doc_id not in docs_cache:
+                        docs_cache[doc_id] = result
+                        
+                    if doc_id not in rank_info:
+                        rank_info[doc_id] = {"semantic": [], "keyword": []}
+                    rank_info[doc_id]["keyword"].append(rank + 1)
             
-            # Deduplicate results while preserving order
-            seen_semantic = set()
-            unique_semantic = []
-            for r in all_semantic_results:
-                if r.document_id not in seen_semantic:
-                    seen_semantic.add(r.document_id)
-                    unique_semantic.append(r)
-            
-            seen_keyword = set()
-            unique_keyword = []
-            for r in all_keyword_results:
-                if r.document_id not in seen_keyword:
-                    seen_keyword.add(r.document_id)
-                    unique_keyword.append(r)
-            
-            # 2. RRF Fusion (configurable k parameter)
-            k = self.settings.rrf_k
-            fused_results: Dict[UUID, Tuple[float, SearchResult, Dict[str, Any]]] = {}
-            
-            # Process deduplicated semantic results
-            for rank, result in enumerate(unique_semantic):
-                doc_id = result.document_id
-                score = 1.0 / (k + rank + 1)
-                fused_results[doc_id] = (score, result, {"semantic_rank": rank + 1, "keyword_rank": None})
-            
-            # Process deduplicated keyword results
-            for rank, result in enumerate(unique_keyword):
-                doc_id = result.document_id
-                score = 1.0 / (k + rank + 1)
-                if doc_id not in fused_results:
-                    fused_results[doc_id] = (score, result, {"semantic_rank": None, "keyword_rank": rank + 1})
-                else:
-                    curr_score, res_obj, meta = fused_results[doc_id]
-                    meta["keyword_rank"] = rank + 1
-                    fused_results[doc_id] = (curr_score + score, res_obj, meta)
-            
-            # Sort by RRF score
-            sorted_by_rrf = sorted(fused_results.values(), key=lambda x: x[0], reverse=True)
+            # Sort by accumulated RRF score
+            sorted_docs = sorted(scores.items(), key=lambda x: x[1], reverse=True)
             
             # 3. Take top results with normalized scores and traceability metadata
             final_docs = []
-            if sorted_by_rrf:
-                # Normalize scores to 0-1 range (top result = 1.0)
-                max_score = sorted_by_rrf[0][0]
-                min_score = sorted_by_rrf[-1][0] if len(sorted_by_rrf) > 1 else 0
-                score_range = max_score - min_score if max_score != min_score else 1.0
+            if sorted_docs:
+                # Normalize scores to 0-1 range (top result = 1.0 if we had a range)
+                # But RRF scores are summations, so we normalize relative to the max found
+                max_rrf = sorted_docs[0][1]
+                min_rrf = sorted_docs[-1][1] if len(sorted_docs) > 1 else 0
+                rrf_range = max_rrf - min_rrf if max_rrf != min_rrf else 1.0
                 
-                for score, doc, meta in sorted_by_rrf[:limit]:
+                for doc_id, rrf_score in sorted_docs[:limit]:
+                    doc = docs_cache[doc_id]
                     # Normalize score: 0-1 range
-                    normalized_score = (score - min_score) / score_range if score_range > 0 else 1.0
+                    normalized_score = (rrf_score - min_rrf) / rrf_range if rrf_range > 0 else 1.0
                     
                     # Inject traceability metadata
                     doc.metadata = doc.metadata or {}
+                    info = rank_info[doc_id]
                     doc.metadata.update({
-                        "rrf_score_raw": round(score, 6),  # 保留原始RRF分数用于调试
-                        "semantic_rank": meta["semantic_rank"],
-                        "keyword_rank": meta["keyword_rank"]
+                        "rrf_score_raw": round(rrf_score, 6),
+                        "semantic_ranks": info["semantic"],
+                        "keyword_ranks": info["keyword"],
+                        "query_variants_count": len(query_variants)
                     })
+                    # For compatibility, set best ranks
+                    doc.metadata["semantic_rank"] = min(info["semantic"]) if info["semantic"] else None
+                    doc.metadata["keyword_rank"] = min(info["keyword"]) if info["keyword"] else None
+                    
                     doc.relevance_score = round(normalized_score, 4)
                     final_docs.append(doc)
 
@@ -375,7 +374,7 @@ class SearchService:
             search_time_ms = int((time.time() - start_time) * 1000)
             search_metadata = SearchMetadata(
                 query=query,
-                total_results=len(fused_results),
+                total_results=len(scores),
                 returned_results=len(final_docs),
                 search_time_ms=search_time_ms,
                 filters_applied=filters,

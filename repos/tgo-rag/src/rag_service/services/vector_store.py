@@ -414,21 +414,26 @@ class VectorStoreService:
             )
 
 
-            # Filter by score threshold if provided
-            if score_threshold is not None and score_threshold > 0:
-                results = [
-                    (doc, score) for doc, score in results
-                    if score >= score_threshold
-                ]
-
-            logger.debug(f"Similarity search returned {len(results)} results")
-
-            # 1- score,  the smaller, the more similar in langchain-postgres
+            # Step 1: Filter and Convert distance to similarity (1 - score)
+            # langchain-postgres returns distance (smaller is better, 0.0 is perfect)
+            # We want similarity (higher is better, 1.0 is perfect)
             new_results = []
             for doc, score in results:
                 if score is not None:
-                    new_results.append((doc, score))
+                    # Convert distance to similarity
+                    similarity = max(0.0, min(1.0, 1.0 - float(score)))
+                    
+                    # Apply threshold filtering on similarity
+                    if score_threshold is not None and score_threshold > 0:
+                        if similarity < score_threshold:
+                            continue
+                            
+                    new_results.append((doc, similarity))
 
+            # Step 2: Explicitly sort by similarity DESCENDING (highest similarity first)
+            new_results.sort(key=lambda x: x[1], reverse=True)
+
+            logger.debug(f"Similarity search returned {len(new_results)} results")
             return new_results
 
         except Exception as e:
@@ -475,15 +480,23 @@ class VectorStoreService:
                 ),
             )
 
-            # Filter by score threshold if provided
-            if score_threshold is not None and score_threshold > 0:
-                results = [(doc, score) for doc, score in results if score >= score_threshold]
-
-            # Ensure we only return entries with a numeric score
+            # Step 1: Filter and Convert distance to similarity (1 - score)
             new_results = []
             for doc, score in results:
                 if score is not None:
-                    new_results.append((doc, score))
+                    # Convert distance to similarity
+                    similarity = max(0.0, min(1.0, 1.0 - float(score)))
+                    
+                    # Apply threshold filtering on similarity
+                    if score_threshold is not None and score_threshold > 0:
+                        if similarity < score_threshold:
+                            continue
+                            
+                    new_results.append((doc, similarity))
+
+            # Step 2: Explicitly sort by similarity DESCENDING (highest similarity first)
+            new_results.sort(key=lambda x: x[1], reverse=True)
+
             return new_results
         except Exception as e:
             logger.error(f"Similarity search (per-project) failed: {str(e)}")
