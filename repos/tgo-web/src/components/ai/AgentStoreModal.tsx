@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next';
 import AgentStoreCard from './AgentStoreCard';
 import AgentStoreDetail from './AgentStoreDetail';
 import StoreLoginModal from './StoreLoginModal';
+import AgentDependencyModal from './AgentDependencyModal';
 import { storeApi } from '@/services/storeApi';
 import { useAIStore } from '@/stores';
 import { useStoreAuthStore } from '@/stores/storeAuthStore';
 import { useToast } from '@/hooks/useToast';
-import type { AgentStoreItem, AgentStoreCategory } from '@/types';
+import type { AgentStoreItem, AgentStoreCategory, AgentDependencyCheckResponse } from '@/types';
 
 interface AgentStoreModalProps {
   isOpen: boolean;
@@ -24,13 +25,15 @@ const AgentStoreModal: React.FC<AgentStoreModalProps> = ({ isOpen, onClose, onIn
   const [selectedAgent, setSelectedAgent] = useState<AgentStoreItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showDependencyModal, setShowDependencyModal] = useState(false);
+  const [dependencyData, setDependencyData] = useState<AgentDependencyCheckResponse | null>(null);
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [agents, setAgents] = useState<AgentStoreItem[]>([]);
   const [categories, setCategories] = useState<AgentStoreCategory[]>([]);
 
   const { agents: localAgents, loadAgents } = useAIStore();
-  const { isAuthenticated, user, bindToProject } = useStoreAuthStore();
+  const { isAuthenticated, user, bindToProject, verifySession, isVerifying } = useStoreAuthStore();
   const currentLang = i18n.language.startsWith('zh') ? 'zh' : 'en';
 
   // Load categories from Store API
@@ -72,7 +75,23 @@ const AgentStoreModal: React.FC<AgentStoreModalProps> = ({ isOpen, onClose, onIn
   useEffect(() => {
     if (isOpen) {
       fetchCategories();
+
+      // 如果显示已登录，主动验证一次会话有效性
+      if (isAuthenticated) {
+        verifySession();
+      }
     }
+  }, [isOpen]);
+
+  // 监听全局未授权事件
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      if (isOpen) {
+        setShowLoginModal(true);
+      }
+    };
+    window.addEventListener('store-unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('store-unauthorized', handleUnauthorized);
   }, [isOpen]);
 
   useEffect(() => {
@@ -111,10 +130,45 @@ const AgentStoreModal: React.FC<AgentStoreModalProps> = ({ isOpen, onClose, onIn
     
     try {
       await bindToProject();
+      
+      // 1. 检查依赖
+      const deps = await storeApi.checkAgentDependencies(agent.id);
+      
+      // 2. 如果有缺失依赖，显示确认弹窗
+      if (deps.missing_tools.length > 0 || deps.missing_model) {
+        setDependencyData(deps);
+        setShowDependencyModal(true);
+        setInstallingId(null); // 弹窗期间不显示全局 loading
+        return;
+      }
+      
+      // 3. 无缺失依赖，直接安装
       await storeApi.installAgent(agent.id);
       
       showSuccess(t('common.success'), t('agents.store.installSuccess', '成功招聘到一名新员工'));
       
+      await loadAgents();
+      if (onInstalled) onInstalled();
+    } catch (error) {
+      showError(t('common.error'), t('agents.store.installFailed', '招聘失败，请重试'));
+    } finally {
+      setInstallingId(null);
+    }
+  };
+
+  const handleConfirmDependencies = async (selectedToolIds: string[], installModel: boolean) => {
+    if (!dependencyData) return;
+    
+    setInstallingId(dependencyData.agent.id);
+    try {
+      await storeApi.installAgent(dependencyData.agent.id, {
+        install_tool_ids: selectedToolIds,
+        install_model: installModel
+      });
+      
+      showSuccess(t('common.success'), t('agents.store.installSuccess', '成功招聘到一名新员工'));
+      
+      setShowDependencyModal(false);
       await loadAgents();
       if (onInstalled) onInstalled();
     } catch (error) {
@@ -193,6 +247,11 @@ const AgentStoreModal: React.FC<AgentStoreModalProps> = ({ isOpen, onClose, onIn
                   >
                     {t('tools.store.loginNow', '立即登录')}
                   </button>
+                ) : isVerifying ? (
+                  <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-800 animate-pulse">
+                    <div className="w-20 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg"></div>
+                    <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800"></div>
+                  </div>
                 ) : (
                   <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-800">
                     <div className="text-right">
@@ -265,6 +324,14 @@ const AgentStoreModal: React.FC<AgentStoreModalProps> = ({ isOpen, onClose, onIn
       <StoreLoginModal 
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
+      />
+
+      <AgentDependencyModal
+        isOpen={showDependencyModal}
+        onClose={() => setShowDependencyModal(false)}
+        dependencyData={dependencyData}
+        onConfirm={handleConfirmDependencies}
+        isInstalling={installingId === (dependencyData?.agent.id)}
       />
     </div>
   );

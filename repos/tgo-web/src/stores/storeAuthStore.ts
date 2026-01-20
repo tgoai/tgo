@@ -11,12 +11,14 @@ interface StoreAuthState {
   refreshToken: string | null;
   user: ToolStoreUser | null;
   isLoading: boolean;
+  isVerifying: boolean;
   error: string | null;
 
   login: (credentials: LoginFormData) => Promise<void>;
   exchangeCode: (code: string, codeVerifier: string) => Promise<void>;
   logout: () => void;
   refreshAccessToken: () => Promise<void>;
+  verifySession: () => Promise<boolean>;
   bindToProject: () => Promise<void>;
   clearError: () => void;
 }
@@ -29,6 +31,7 @@ export const useStoreAuthStore = create<StoreAuthState>()(
       refreshToken: null,
       user: null,
       isLoading: false,
+      isVerifying: false,
       error: null,
 
       login: async (credentials: LoginFormData) => {
@@ -112,6 +115,38 @@ export const useStoreAuthStore = create<StoreAuthState>()(
             user: null,
           });
           throw error;
+        }
+      },
+
+      verifySession: async () => {
+        const { accessToken, refreshToken, logout, refreshAccessToken } = get();
+        if (!accessToken) return false;
+
+        set({ isVerifying: true });
+        try {
+          const user = await storeApi.getMe();
+          set({ user, isAuthenticated: true, isVerifying: false });
+          return true;
+        } catch (error: any) {
+          // 如果 401 且有 refresh token，尝试刷新
+          if (error.response?.status === 401 && refreshToken) {
+            try {
+              await refreshAccessToken();
+              // 刷新成功后再试一次 verify
+              const user = await storeApi.getMe();
+              set({ user, isAuthenticated: true, isVerifying: false });
+              return true;
+            } catch (refreshError) {
+              logout();
+              set({ isVerifying: false });
+              return false;
+            }
+          }
+          
+          // 其他错误或刷新失败
+          logout();
+          set({ isVerifying: false });
+          return false;
         }
       },
 

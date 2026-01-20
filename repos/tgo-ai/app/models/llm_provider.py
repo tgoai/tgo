@@ -7,13 +7,16 @@ provider record via llm_provider_id.
 from __future__ import annotations
 
 import uuid
-from typing import Optional
+from typing import Optional, List, TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Float, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
+
+if TYPE_CHECKING:
+    from app.models.llm_model import LLMModel
 
 
 class LLMProvider(BaseModel):
@@ -53,6 +56,7 @@ class LLMProvider(BaseModel):
 
     api_base_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, comment="Custom API base URL")
     api_key: Mapped[Optional[str]] = mapped_column(String(500), nullable=True, comment="API key (do NOT log)")
+    default_model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, comment="Default model identifier (e.g., gpt-4o, qwen-plus)")
     organization: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, comment="Organization/tenant id")
     timeout: Mapped[Optional[float]] = mapped_column(Float, nullable=True, comment="Request timeout seconds")
 
@@ -68,6 +72,11 @@ class LLMProvider(BaseModel):
 
     # Note: No FK relationship to ai_projects by design; project_id may refer to external projects not yet synced.
     # Note: (project_id, alias) is NOT unique - multiple providers can share the same alias within a project.
+
+    # Relationships
+    models: Mapped[List["LLMModel"]] = relationship(
+        "LLMModel", back_populates="llm_provider", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<LLMProvider(id={self.id}, project_id={self.project_id}, alias='{self.alias}', kind='{self.provider_kind}', vendor='{self.vendor}')>"

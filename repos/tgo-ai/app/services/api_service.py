@@ -13,8 +13,19 @@ class APIServiceClient:
 
     def __init__(self):
         """Initialize the API service client."""
+        # Use docker service name instead of localhost for internal communication
         self.api_base_url = settings.api_service_url
-        self.internal_api_url = f"{settings.api_service_url.replace(':8000', ':8001')}/internal"
+        
+        # Determine internal URL - Internal API always runs on port 8001 by convention
+        base = self.api_base_url.rstrip('/')
+        if ":8000" in base:
+            self.internal_api_url = f"{base.replace(':8000', ':8001')}/internal"
+        elif ":8080" in base:
+            self.internal_api_url = f"{base.replace(':8080', ':8001')}/internal"
+        else:
+            # Fallback if port is not explicitly in URL
+            self.internal_api_url = f"{base}/internal"
+            
         self.plugin_runtime_url = settings.plugin_runtime_url
         self.timeout = 30.0
 
@@ -22,16 +33,30 @@ class APIServiceClient:
         """
         Fetch store credential for a project from the internal API.
         """
-        url = f"{self.internal_api_url}/store/{project_id}/credential"
+        # Candidate internal URLs:
+        # Priority 1: SaaS combined mode (internal router mounted on main API at port 8000)
+        # Priority 2: Standard Internal API port 8001 (separate internal service)
+        # Priority 3: Configured internal_api_url as fallback
+        urls = [
+            f"http://tgo-api-saas:8000/internal/store/{project_id}/credential",
+            f"http://tgo-api-saas:8001/internal/store/{project_id}/credential",
+            f"{self.internal_api_url}/store/{project_id}/credential"
+        ]
+        
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.get(url)
-                if response.status_code == 200:
-                    return response.json()
-                return None
-            except Exception as e:
-                logger.error(f"Error fetching store credential: {e}")
-                return None
+            for url in urls:
+                # Clean up any accidental double slashes or /api/v1 prefixes
+                url = url.replace("/api/v1/internal", "/internal")
+                
+                try:
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        return response.json()
+                except Exception:
+                    continue
+            
+            logger.error(f"Failed to fetch store credential from all candidate URLs for project {project_id}")
+            return None
 
     async def execute_plugin_tool(
         self,

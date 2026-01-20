@@ -673,7 +673,12 @@ export interface AgentStoreItem {
   description_en: string | null;
   avatar_url: string | null;
   instruction: string;
-  recommended_model: string;
+  model_id?: string;
+  model?: ModelStoreItem;
+  instruction_zh?: string;
+  instruction_en?: string;
+  price_usd?: number;
+  price_cny?: number;
   default_config: Record<string, any>;
   recommended_tools: string[];
   price: number;
@@ -681,6 +686,19 @@ export interface AgentStoreItem {
   tags: string[];
   is_installed?: boolean;
   categories: AgentStoreCategory[];
+}
+
+export interface StoreToolSummary {
+  id: string;
+  name: string;
+  title_zh?: string;
+  price_per_call: number;
+}
+
+export interface AgentDependencyCheckResponse {
+  agent: AgentStoreItem;
+  missing_tools: StoreToolSummary[];
+  missing_model: ModelStoreItem | null;
 }
 
 // Tool Method Types

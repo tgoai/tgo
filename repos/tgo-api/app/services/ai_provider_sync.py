@@ -43,11 +43,17 @@ def _provider_to_upsert(item: AIProvider) -> dict[str, Any]:
         for m in item.models:
             if m.deleted_at is None:
                 models.append({
+                    "id": str(m.id),
+                    "provider_id": str(m.provider_id),
                     "model_id": str(m.model_id),
                     "model_name": str(m.model_name),
                     "model_type": str(m.model_type),
+                    "description": str(m.description) if m.description else None,
                     "is_active": bool(m.is_active),
-                    "capabilities": dict(m.capabilities) if m.capabilities else {}
+                    "capabilities": dict(m.capabilities) if m.capabilities else {},
+                    "context_window": int(m.context_window) if m.context_window is not None else None,
+                    "max_tokens": int(m.max_tokens) if m.max_tokens is not None else None,
+                    "store_resource_id": str(m.store_resource_id) if m.store_resource_id else None,
                 })
     
     upsert: dict[str, Any] = {
@@ -55,6 +61,7 @@ def _provider_to_upsert(item: AIProvider) -> dict[str, Any]:
         "provider_kind": provider_kind,
         "vendor": vendor,
         "api_base_url": item.api_base_url,
+        "default_model": item.default_model,
         "organization": org,
         "timeout": timeout,
         "is_active": bool(item.is_active),
@@ -192,6 +199,12 @@ async def sync_provider_with_retry_and_update(db, item: AIProvider) -> tuple[boo
     """
     from sqlalchemy.orm import Session  # local import to avoid header changes
     assert isinstance(db, Session)
+
+    # Ensure the item and its relationships (models) are up to date from DB
+    try:
+        db.refresh(item)
+    except Exception:
+        pass
 
     ok, err, _ = await sync_provider_with_retry(item)
     item.last_synced_at = datetime.utcnow()

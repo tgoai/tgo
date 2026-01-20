@@ -13,7 +13,7 @@ from app.api.common_responses import CREATE_RESPONSES, CRUD_RESPONSES, LIST_RESP
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.security import get_current_active_user
-from app.models import AIProvider, Staff
+from app.models import AIProvider, AIModel, Staff
 from app.schemas import (
     AIProviderCreate,
     AIProviderListParams,
@@ -44,7 +44,11 @@ def _filter_models_by_type(models: Optional[list[str]], model_type: Optional[str
 def _to_response(item: AIProvider, model_type: Optional[str] = None) -> AIProviderResponse:
     plain = decrypt_str(item.api_key) if item.api_key else None
     masked = mask_secret(plain)
-    models = _filter_models_by_type(item.available_models or [], model_type)
+    
+    # Extract model_id from models relationship
+    available_models_list = [m.model_id for m in item.models if m.deleted_at is None]
+    models = _filter_models_by_type(available_models_list, model_type)
+    
     return AIProviderResponse.model_validate({
         "id": item.id,
         "project_id": item.project_id,
@@ -249,7 +253,8 @@ async def list_ai_providers(
     filter_func = None
     if model_type:
         def check_model_type(provider: AIProvider) -> bool:
-            models = provider.available_models
+            # Check models relationship instead of available_models
+            models = [m.model_id for m in provider.models if m.deleted_at is None]
             if not isinstance(models, list) or not models:
                 # Keep empty/undefined providers in list
                 return True
@@ -319,13 +324,27 @@ async def create_ai_provider(
         name=payload.name,
         api_key=encrypt_str(payload.api_key),
         api_base_url=payload.api_base_url,
-        available_models=list(payload.available_models or []),
         default_model=payload.default_model,
         config=payload.config,
         is_active=payload.is_active,
     )
 
     db.add(item)
+    db.flush()  # To get item.id
+
+    # Create AIModel records from available_models
+    if payload.available_models:
+        for m_id in payload.available_models:
+            model_record = AIModel(
+                provider_id=item.id,
+                provider=item.provider,
+                model_id=m_id,
+                model_name=m_id,  # Use ID as name if not specified
+                model_type="embedding" if "embedding" in m_id.lower() else "chat",
+                is_active=True
+            )
+            db.add(model_record)
+
     db.commit()
     db.refresh(item)
 
@@ -402,7 +421,8 @@ async def update_ai_provider(
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider name already exists")
 
     # Validate default_model within available_models if both provided
-    new_available = data.get("available_models", item.available_models)
+    current_available = [m.model_id for m in item.models if m.deleted_at is None]
+    new_available = data.get("available_models", current_available)
     new_default = data.get("default_model", item.default_model)
     if new_default and new_available and new_default not in new_available:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="default_model must be in available_models")
@@ -412,6 +432,30 @@ async def update_ai_provider(
         raw = data.pop("api_key")
         if raw is not None and raw != "":
             item.api_key = encrypt_str(raw)
+
+    # Handle available_models update
+    if "available_models" in data:
+        new_model_ids = data.pop("available_models") or []
+        existing_models = {m.model_id: m for m in item.models if m.deleted_at is None}
+        
+        # Deactivate models not in new list
+        for m_id, m_obj in existing_models.items():
+            if m_id not in new_model_ids:
+                m_obj.deleted_at = datetime.utcnow()
+                db.add(m_obj)
+        
+        # Add new models
+        for m_id in new_model_ids:
+            if m_id not in existing_models:
+                new_model = AIModel(
+                    provider_id=item.id,
+                    provider=item.provider,
+                    model_id=m_id,
+                    model_name=m_id,
+                    model_type="embedding" if "embedding" in m_id.lower() else "chat",
+                    is_active=True
+                )
+                db.add(new_model)
 
     for field, value in data.items():
         setattr(item, field, value)
@@ -453,9 +497,16 @@ async def delete_ai_provider(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI provider not found")
 
     # Soft delete and mark inactive, then sync remote as inactive
+    now = datetime.utcnow()
     item.is_active = False
-    item.deleted_at = datetime.utcnow()
-    item.updated_at = datetime.utcnow()
+    item.deleted_at = now
+    item.updated_at = now
+    
+    # Also soft delete related models
+    for m in item.models:
+        if m.deleted_at is None:
+            m.deleted_at = now
+            db.add(m)
 
     db.commit()
 

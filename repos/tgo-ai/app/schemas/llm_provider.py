@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 from pydantic.config import ConfigDict
 from uuid import UUID
 
+from app.schemas.llm_model import LLMModelUpsert, LLMModelResponse
+
 
 def mask_api_key(value: Optional[str]) -> Optional[str]:
     if not value:
@@ -22,6 +24,7 @@ class LLMProviderBase(BaseModel):
     provider_kind: str = Field(..., description="openai | anthropic | google | openai_compatible")
     vendor: Optional[str] = Field(None, description="Vendor label, e.g. deepseek")
     api_base_url: Optional[str] = Field(None, description="Custom API base URL for compatible vendors")
+    default_model: Optional[str] = Field(None, description="Default model identifier (e.g., gpt-4o, qwen-plus)")
     organization: Optional[str] = Field(None, description="Organization/Tenant identifier")
     timeout: Optional[float] = Field(None, description="Request timeout seconds")
     is_active: bool = Field(default=True, description="Whether provider is active")
@@ -47,12 +50,14 @@ class LLMProviderUpsert(LLMProviderBase):
 
     alias: str = Field(..., min_length=1, max_length=80)
     api_key: Optional[str] = Field(None, description="API key (write-only)")
+    models: Optional[List[LLMModelUpsert]] = Field(default=None, description="Associated models to sync")
 
 
 class LLMProviderResponse(LLMProviderBase):
     id: str
     alias: str
     api_key_masked: Optional[str] = Field(None, description="Masked API key")
+    models: List[LLMModelResponse] = Field(default_factory=list)
     synced_at: datetime
     created_at: datetime
     updated_at: datetime
@@ -65,10 +70,12 @@ class LLMProviderResponse(LLMProviderBase):
             provider_kind=m.provider_kind,
             vendor=m.vendor,
             api_base_url=m.api_base_url,
+            default_model=m.default_model,
             organization=m.organization,
             timeout=m.timeout,
             is_active=m.is_active,
             api_key_masked=mask_api_key(m.api_key),
+            models=[LLMModelResponse.from_orm_model(mod) for mod in m.models] if "models" in m.__dict__ and m.models else [],
             synced_at=m.synced_at,
             created_at=m.created_at,
             updated_at=m.updated_at,

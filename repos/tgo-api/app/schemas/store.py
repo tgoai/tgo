@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 from pydantic import Field, ConfigDict
@@ -55,16 +55,37 @@ class StoreModelDetail(BaseSchema):
 class StoreAgentDetail(BaseSchema):
     id: str
     name: str
+    title: Optional[str] = None
     title_zh: str
     title_en: Optional[str] = None
+    description: Optional[str] = None
     description_zh: Optional[str] = None
     description_en: Optional[str] = None
     avatar_url: Optional[str] = None
     instruction: str
-    recommended_model: str
+    instruction_zh: Optional[str] = None
+    instruction_en: Optional[str] = None
+    model_id: Optional[str] = None
+    model: Optional[StoreModelDetail] = None
     default_config: Optional[dict] = Field(default_factory=dict)
     recommended_tools: Optional[list] = Field(default_factory=list)
     price: float
-    status: str
-    tags: Optional[list] = Field(default_factory=list)
+    price_usd: Optional[float] = 0.0
+    price_cny: Optional[float] = 0.0
     is_installed: Optional[bool] = False
+
+class StoreToolSummary(BaseSchema):
+    id: str
+    name: str
+    title_zh: Optional[str] = None
+    price_per_call: float = 0
+
+class AgentDependencyCheckResponse(BaseSchema):
+    agent: StoreAgentDetail
+    missing_tools: List[StoreToolSummary]
+    missing_model: Optional[StoreModelDetail] = None
+
+class StoreInstallAgentRequest(BaseSchema):
+    resource_id: str
+    install_tool_ids: Optional[List[str]] = Field(default_factory=list)
+    install_model: Optional[bool] = False

@@ -3,7 +3,9 @@ import apiClient from '@/services/api';
 import { 
   ToolStoreItem, 
   ToolStoreLoginResponse, 
-  ToolStoreRefreshResponse
+  ToolStoreRefreshResponse,
+  AgentStoreItem,
+  AgentDependencyCheckResponse
 } from '@/types';
 import { STORAGE_KEYS } from '@/constants';
 import type { ToolStoreCategory } from '@/types';
@@ -216,14 +218,21 @@ export const storeApi = {
     return response.data;
   },
 
-  getAgent: async (id: string) => {
-    const response = await storeClient.get<any>(`/agents/${id}`);
+  getAgent: async (id: string): Promise<AgentStoreItem> => {
+    const response = await storeClient.get<AgentStoreItem>(`/agents/${id}`);
     return response.data;
   },
 
-  installAgent: async (id: string) => {
+  checkAgentDependencies: async (id: string): Promise<AgentDependencyCheckResponse> => {
+    return await apiClient.get<AgentDependencyCheckResponse>(`/v1/store/agent/${id}/check-dependencies`);
+  },
+
+  installAgent: async (id: string, options?: { install_tool_ids?: string[], install_model?: boolean }) => {
     // 调用 TGO API 招聘员工到本地项目
-    const response = await apiClient.post<any>('/v1/store/install-agent', { resource_id: id });
+    const response = await apiClient.post<any>('/v1/store/install-agent', { 
+      resource_id: id,
+      ...options
+    });
     return response;
   },
 

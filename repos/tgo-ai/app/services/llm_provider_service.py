@@ -10,6 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.llm_provider import LLMProvider
+from app.models.llm_model import LLMModel
 
 
 class LLMProviderService:
@@ -31,19 +32,23 @@ class LLMProviderService:
 
     async def get_provider_by_id(
         self,
-        provider_id: uuid.UUID,
+        provider_id: uuid.UUID | str,
     ) -> Optional[LLMProvider]:
         """Get provider by primary key ID."""
+        if isinstance(provider_id, str):
+            provider_id = uuid.UUID(provider_id)
         stmt = select(LLMProvider).where(LLMProvider.id == provider_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def get_providers_by_alias(
         self,
-        project_id: uuid.UUID,
+        project_id: uuid.UUID | str,
         alias: str,
     ) -> List[LLMProvider]:
         """Get providers by project_id and alias (may return multiple)."""
+        if isinstance(project_id, str):
+            project_id = uuid.UUID(project_id)
         stmt = select(LLMProvider).where(
             LLMProvider.project_id == project_id,
             LLMProvider.alias == alias,
@@ -53,19 +58,25 @@ class LLMProviderService:
 
     async def upsert_provider(
         self,
-        project_id: uuid.UUID,
+        project_id: uuid.UUID | str,
         *,
-        provider_id: uuid.UUID,
+        provider_id: uuid.UUID | str,
         alias: str,
         provider_kind: str,
         vendor: Optional[str] = None,
         api_base_url: Optional[str] = None,
         api_key: Optional[str] = None,
+        default_model: Optional[str] = None,
         organization: Optional[str] = None,
         timeout: Optional[float] = None,
         is_active: bool = True,
     ) -> LLMProvider:
         """Create or update a provider by ID (primary key)."""
+        if isinstance(project_id, str):
+            project_id = uuid.UUID(project_id)
+        if isinstance(provider_id, str):
+            provider_id = uuid.UUID(provider_id)
+            
         existing = await self.get_provider_by_id(provider_id)
         now = datetime.now(timezone.utc)
 
@@ -79,6 +90,7 @@ class LLMProviderService:
             # Only overwrite api_key if provided (allows partial updates without clearing)
             if api_key is not None:
                 existing.api_key = api_key
+            existing.default_model = default_model
             existing.organization = organization
             existing.timeout = timeout
             existing.is_active = is_active
@@ -96,6 +108,7 @@ class LLMProviderService:
             vendor=vendor,
             api_base_url=api_base_url,
             api_key=api_key,
+            default_model=default_model,
             organization=organization,
             timeout=timeout,
             is_active=is_active,
@@ -138,10 +151,34 @@ class LLMProviderService:
                 vendor=payload.get("vendor"),
                 api_base_url=payload.get("api_base_url"),
                 api_key=payload.get("api_key"),
+                default_model=payload.get("default_model"),
                 organization=payload.get("organization"),
                 timeout=payload.get("timeout"),
                 is_active=payload.get("is_active", True),
             )
+            # Handle nested models sync
+            if payload.get("models") is not None:
+                from app.services.llm_model_service import LLMModelService
+                model_service = LLMModelService(self.db)
+                # Ensure each model has the correct provider_id and type conversion
+                models_to_sync = []
+                for m_payload in payload["models"]:
+                    # m_payload might be a dict or a Pydantic object depending on how it's called
+                    m_dict = m_payload if isinstance(m_payload, dict) else m_payload.model_dump()
+                    m_dict["provider_id"] = provider.id
+                    models_to_sync.append(m_dict)
+                
+                await model_service.sync_models(models_to_sync)
+                
+                # Optional: Deactivate models that are NOT in the sync payload for this provider
+                synced_model_ids = [m["id"] for m in models_to_sync]
+                await self.db.execute(
+                    update(LLMModel)
+                    .where(LLMModel.provider_id == provider.id)
+                    .where(LLMModel.id.notin_(synced_model_ids))
+                    .values(is_active=False, synced_at=datetime.now(timezone.utc))
+                )
+
             synced.append(provider)
         await self.db.commit()
         return synced

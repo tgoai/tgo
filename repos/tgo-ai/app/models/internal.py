@@ -34,6 +34,16 @@ class AgentTool(BaseModel):
         description="Base tool configuration from Tool model",
     )
 
+    @property
+    def input_schema(self) -> Dict[str, Any]:
+        """获取工具的 inputSchema，优先从 base_config 获取"""
+        if self.base_config:
+            # 支持 inputSchema 和 input_schema 两种命名
+            schema = self.base_config.get("inputSchema") or self.base_config.get("input_schema")
+            if schema:
+                return schema
+        return {"type": "object", "properties": {}}
+
     class Config:
         """Pydantic model configuration."""
         extra = "forbid"

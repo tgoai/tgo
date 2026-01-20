@@ -45,8 +45,8 @@ const AgentStoreCard: React.FC<AgentStoreCardProps> = ({ agent, onClick, onInsta
             <ShieldCheck className="w-4 h-4 text-indigo-500 flex-shrink-0" />
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center justify-between">
-            <span>{agent.recommended_model}</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${
+            <span className="truncate pr-2">{agent.model?.name || 'GPT-4o'}</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider flex-shrink-0 ${
               (agent.price || 0) > 0 
                 ? 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400' 
                 : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'

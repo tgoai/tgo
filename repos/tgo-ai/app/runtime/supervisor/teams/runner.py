@@ -12,6 +12,8 @@ from agno.agent import (
     RunContentEvent as AgentRunContentEvent,
     RunErrorEvent as AgentRunErrorEvent,
     RunStartedEvent as AgentRunStartedEvent,
+    RunPausedEvent as AgentRunPausedEvent,
+    RunContinuedEvent as AgentRunContinuedEvent,
     ToolCallCompletedEvent,
     ToolCallStartedEvent,
 )
@@ -226,6 +228,10 @@ class AgnoTeamRunner:
             self._handle_member_run_content(event, collector, built_team, workflow_events)
         elif isinstance(event, AgentRunCompletedEvent):
             self._handle_member_run_completed(event, collector, built_team, workflow_events)
+        elif isinstance(event, AgentRunPausedEvent):
+            self._handle_member_run_paused(event, collector, built_team, workflow_events)
+        elif isinstance(event, AgentRunContinuedEvent):
+            self._handle_member_run_continued(event, collector, built_team, workflow_events)
         elif isinstance(event, AgentRunErrorEvent):
             self._handle_member_run_failed(event, collector, built_team, workflow_events)
         elif isinstance(event, ToolCallStartedEvent):
@@ -448,6 +454,70 @@ class AgnoTeamRunner:
             tool_input=tool_input,
             tool_output=tool_output or self._ensure_text(getattr(event, "content", None)),
         )
+
+    def _handle_member_run_paused(
+        self,
+        event: AgentRunPausedEvent,
+        collector: StreamCollector,
+        built_team: BuiltTeam,
+        workflow_events: WorkflowEventEmitter,
+    ) -> None:
+        state = self._ensure_member_state(event, collector, built_team)
+        
+        # 1. 像内容事件一样处理 content
+        content_chunk = self._ensure_text(getattr(event, "content", ""))
+        if content_chunk:
+            workflow_events.emit_team_member_content(
+                team_id=collector.team_id,
+                team_name=collector.team_name,
+                member_id=state.member_id,
+                member_name=state.name,
+                run_id=state.run_id,
+                content_chunk=content_chunk,
+                chunk_index=state.chunk_index,
+                member_role=state.role,
+                is_final=False,
+            )
+            state.chunk_index += 1
+
+        # 2. 如果有工具调用，发射工具调用事件
+        # 这对于外部执行工具特别重要，前端可以显示“正在调用本地工具...”
+        if hasattr(event, "tools") and event.tools:
+            for tool_exec in event.tools:
+                workflow_events.emit_team_member_tool_call_started(
+                    team_id=collector.team_id,
+                    team_name=collector.team_name,
+                    member_id=state.member_id,
+                    member_name=state.name,
+                    run_id=state.run_id,
+                    tool_name=getattr(tool_exec, "tool_name", "unknown"),
+                    member_role=state.role,
+                    tool_call_id=getattr(tool_exec, "tool_call_id", None),
+                    tool_input=getattr(tool_exec, "tool_args", {}),
+                )
+
+    def _handle_member_run_continued(
+        self,
+        event: AgentRunContinuedEvent,
+        collector: StreamCollector,
+        built_team: BuiltTeam,
+        workflow_events: WorkflowEventEmitter,
+    ) -> None:
+        state = self._ensure_member_state(event, collector, built_team)
+        content_chunk = self._ensure_text(getattr(event, "content", ""))
+        if content_chunk:
+            workflow_events.emit_team_member_content(
+                team_id=collector.team_id,
+                team_name=collector.team_name,
+                member_id=state.member_id,
+                member_name=state.name,
+                run_id=state.run_id,
+                content_chunk=content_chunk,
+                chunk_index=state.chunk_index,
+                member_role=state.role,
+                is_final=False,
+            )
+            state.chunk_index += 1
 
     def _handle_member_run_failed(
         self,

@@ -9,13 +9,18 @@ import asyncio
 
 from agno.team import Team
 from agno.agent import Agent, RemoteAgent
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 from app.runtime.tools.builder.agent_builder import AgentBuilder, StoreRemoteAgent
 from app.services.api_service import api_service_client
 
 from app.config import settings
 from app.models.internal import Agent as InternalAgent
 from app.models.internal import CoordinationContext
-from app.runtime.tools.models import AgentConfig, AgentRunRequest
+from app.models.llm_provider import LLMProvider
+from app.models.project_ai_config import ProjectAIConfig
+from app.runtime.tools.models import AgentConfig, AgentRunRequest, LLMProviderCredentials
 from app.runtime.tools.config import ToolsRuntimeSettings
 from app.runtime.core.exceptions import InvalidConfigurationError
 from app.core.logging import get_logger
@@ -33,9 +38,14 @@ class BuiltTeam:
 class AgnoTeamBuilder:
     """Build agno teams from persisted supervisor entities."""
 
-    def __init__(self, settings_obj: ToolsRuntimeSettings | None = None) -> None:
+    def __init__(
+        self, 
+        settings_obj: ToolsRuntimeSettings | None = None,
+        session_factory: async_sessionmaker[AsyncSession] | None = None
+    ) -> None:
         settings_obj = settings_obj or settings.tools_runtime
         self._agent_builder = AgentBuilder(settings_obj)
+        self._session_factory = session_factory
         self._logger = get_logger(__name__)
 
     async def build_team(self, context: CoordinationContext) -> BuiltTeam:
@@ -43,7 +53,7 @@ class AgnoTeamBuilder:
         # Build team members
         members, agent_roles, agent_names = await self._build_members(context)
         # Resolve team model
-        team_model = self._resolve_team_model(context, members)
+        team_model = await self._resolve_team_model(context, members)
 
         # Build team kwargs
         team_kwargs = self._build_team_kwargs(context, members, team_model)
@@ -80,11 +90,63 @@ class AgnoTeamBuilder:
 
         return members, agent_roles, agent_names
 
-    def _resolve_team_model(
+    async def _resolve_fallback_provider(self, project_id: str) -> Optional[dict]:
+        """Fetch project default or first available LLM Provider from database."""
+        if not self._session_factory:
+            self._logger.warning("No session factory provided to TeamBuilder, cannot resolve fallback provider")
+            return None
+
+        async with self._session_factory() as session:
+            # 1. Check ProjectAIConfig for default chat configuration
+            try:
+                config = await session.get(ProjectAIConfig, uuid.UUID(project_id))
+                if config and config.default_chat_provider_id:
+                    provider = await session.get(LLMProvider, config.default_chat_provider_id)
+                    if provider and provider.is_active:
+                        return {
+                            "model": config.default_chat_model or provider.default_model or provider.alias,
+                            "credentials": LLMProviderCredentials(
+                                provider_kind=provider.provider_kind,
+                                api_key=provider.api_key,
+                                api_base_url=provider.api_base_url,
+                                organization=provider.organization,
+                                timeout=provider.timeout,
+                            )
+                        }
+            except Exception as e:
+                self._logger.warning(f"Failed to fetch ProjectAIConfig for {project_id}: {e}")
+
+            # 2. Fallback to first available Provider in the project
+            try:
+                stmt = select(LLMProvider).where(
+                    LLMProvider.project_id == uuid.UUID(project_id),
+                    LLMProvider.is_active == True
+                ).limit(1)
+                result = await session.execute(stmt)
+                provider = result.scalar_one_or_none()
+                
+                if provider:
+                    return {
+                        "model": provider.default_model or provider.alias,
+                        "credentials": LLMProviderCredentials(
+                            provider_kind=provider.provider_kind,
+                            api_key=provider.api_key,
+                            api_base_url=provider.api_base_url,
+                            organization=provider.organization,
+                            timeout=provider.timeout,
+                        )
+                    }
+            except Exception as e:
+                self._logger.warning(f"Failed to fetch first available provider for {project_id}: {e}")
+            
+            return None
+
+    async def _resolve_team_model(
         self, context: CoordinationContext, members: List[Union[Agent, RemoteAgent]]
     ) -> Optional[Any]:
-        """Resolve the team's LLM model, falling back to first member's model."""
-        if context.team.model:
+        """Resolve the team's LLM model with fallback logic."""
+        # 1. Try Team configured LLM Provider
+        if context.team.llm_provider_credentials:
             try:
                 return self._agent_builder.resolve_model_instance(
                     AgentConfig(
@@ -95,7 +157,21 @@ class AgnoTeamBuilder:
             except InvalidConfigurationError:
                 pass
 
-        # Fallback to first member's model
+        # 2. Try project default configuration or first available Provider
+        if context.project_id:
+            fallback = await self._resolve_fallback_provider(context.project_id)
+            if fallback:
+                try:
+                    return self._agent_builder.resolve_model_instance(
+                        AgentConfig(
+                            model_name=fallback["model"],
+                            provider_credentials=fallback["credentials"],
+                        )
+                    )
+                except InvalidConfigurationError:
+                    pass
+
+        # 3. Fallback to first member's model (original logic)
         return getattr(members[0], "model", None) if members else None
 
     def _build_team_kwargs(
@@ -300,6 +376,21 @@ class AgnoTeamBuilder:
             else:
                 self._logger.warning("No project_id in coordination context, cannot fetch store credential")
 
+            # 为远程 Agent 加载本地工具（与本地 Agent 一致的方式）
+            local_tools = []
+            if internal_agent.tools:
+                try:
+                    local_tools = await self._build_tools_for_remote_agent(
+                        internal_agent,
+                        context,
+                    )
+                    self._logger.debug(
+                        f"Loaded {len(local_tools)} local tools for remote agent",
+                        agent_id=str(internal_agent.id),
+                    )
+                except Exception as e:
+                    self._logger.warning(f"Failed to load local tools for remote agent: {e}")
+
             # 设置元数据
             agent_id = str(internal_agent.id) if internal_agent.id else str(uuid.uuid4())
             metadata = dict(internal_agent.config or {})
@@ -308,7 +399,6 @@ class AgnoTeamBuilder:
                 "team_agent": True,
                 "is_remote": True,
             })
-
             remote_agent = StoreRemoteAgent(
                 base_url=internal_agent.remote_agent_url,
                 agent_id=internal_agent.store_agent_id,
@@ -317,6 +407,7 @@ class AgnoTeamBuilder:
                 override_name=internal_agent.name,
                 override_metadata=metadata,
                 api_key=api_key,
+                tools=local_tools,  # 传入本地工具
             )
             return remote_agent
 
@@ -413,3 +504,45 @@ class AgnoTeamBuilder:
             tool_call_limit=combined.get("tool_call_limit"),
             num_history_runs=combined.get("num_history_runs"),
         )
+
+    async def _build_tools_for_remote_agent(
+        self,
+        internal_agent: InternalAgent,
+        context: CoordinationContext,
+    ) -> List[Any]:
+        """
+        为远程 Agent 构建本地工具。
+        
+        复用 AgentBuilder 的工具构建逻辑，确保本地工具可以被远程 Agent 使用。
+        """
+        from app.runtime.tools.models import AgentConfig, AgentRunRequest
+        
+        # 使用 AgentBuilder 的工具构建能力
+        # 构建一个临时的 AgentConfig 来触发工具加载
+        config = AgentConfig(
+            model_name=internal_agent.model or "gpt-4o",  # 远程 Agent 实际上不会使用这个模型
+            system_prompt=internal_agent.instruction,
+        )
+        
+        # 创建一个临时的 request 对象
+        request = AgentRunRequest(
+            message="",  # 不会实际使用
+            config=config,
+            session_id=context.session_id,
+            user_id=context.user_id,
+            project_id=context.project_id,
+        )
+        
+        # 调用 AgentBuilder 的私有方法来构建工具
+        # 注意：这里我们直接调用 _build_mcp_tools_from_agent 方法
+        try:
+            tools = await self._agent_builder._build_mcp_tools_from_agent(
+                internal_agent,
+                context.session_id,
+                context.user_id,
+                project_id=context.project_id,
+            )
+            return tools
+        except Exception as e:
+            self._logger.warning(f"Failed to build tools for remote agent: {e}")
+            return []

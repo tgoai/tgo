@@ -33,7 +33,7 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
   const [_total, setTotal] = useState(0);
 
   const { loadProviders } = useProvidersStore();
-  const { isAuthenticated, user, bindToProject, logout } = useStoreAuthStore();
+  const { isAuthenticated, user, bindToProject, logout, verifySession, isVerifying } = useStoreAuthStore();
   const { i18n } = useTranslation();
   const currentLang = i18n.language.startsWith('zh') ? 'zh' : 'en';
 
@@ -97,7 +97,23 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
   useEffect(() => {
     if (isOpen) {
       fetchCategories();
+
+      // 如果显示已登录，主动验证一次会话有效性
+      if (isAuthenticated) {
+        verifySession();
+      }
     }
+  }, [isOpen]);
+
+  // 监听全局未授权事件
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      if (isOpen) {
+        setShowLoginModal(true);
+      }
+    };
+    window.addEventListener('store-unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('store-unauthorized', handleUnauthorized);
   }, [isOpen]);
 
   useEffect(() => {
@@ -279,6 +295,11 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
                   >
                     {t('tools.store.loginNow')}
                   </button>
+                ) : isVerifying ? (
+                  <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-800 animate-pulse">
+                    <div className="w-20 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg"></div>
+                    <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800"></div>
+                  </div>
                 ) : (
                   <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-800">
                     <div 

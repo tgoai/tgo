@@ -12,6 +12,7 @@ from app.models.usage import (
     ToolUsageRecord,
 )
 from app.models.llm_provider import LLMProvider
+from app.models.llm_model import LLMModel
 from app.models.project_ai_config import ProjectAIConfig
 from app.models.tool import Tool, ToolType
 
@@ -29,6 +30,7 @@ __all__ = [
     "CollectionUsageRecord",
     "AgentUsageRecord",
     "LLMProvider",
+    "LLMModel",
     "ProjectAIConfig",
     "Tool",
     "ToolType",

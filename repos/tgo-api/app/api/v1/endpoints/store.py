@@ -15,7 +15,10 @@ from app.schemas.store import (
     StoreCredential as StoreCredentialSchema, 
     StoreInstallRequest,
     StoreBindRequest,
-    StoreAgentDetail
+    StoreAgentDetail,
+    StoreToolSummary,
+    AgentDependencyCheckResponse,
+    StoreInstallAgentRequest
 )
 from app.schemas.tools import ToolCreateRequest, ToolType as CoreToolType, ToolSourceType
 from app.utils.crypto import encrypt_str, decrypt_str
@@ -72,6 +75,160 @@ async def bind_store(
     return credential
 
 
+async def _install_tool_internal(resource_id: str, project_id: UUID, api_key: str) -> Any:
+    """Internal helper to install a tool from store"""
+    # 1. 调用商店 API 获取工具详情
+    try:
+        tool_detail = await store_client.get_tool(resource_id, api_key)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch tool from Store: {str(e)}"
+        )
+
+    # 2. 构造本地工具创建请求
+    config = tool_detail.get("config", {})
+    # 确保 config 包含 inputSchema
+    if "input_schema" in tool_detail and "inputSchema" not in config:
+        config["inputSchema"] = tool_detail["input_schema"]
+    
+    # 存入 description 作为备份
+    if (tool_detail.get("description_zh") or tool_detail.get("description")) and "description" not in config:
+        config["description"] = tool_detail.get("description_zh") or tool_detail.get("description")
+
+    tool_create = ToolCreateRequest(
+        name=tool_detail["name"],
+        title=tool_detail.get("title") or tool_detail.get("title_zh") or tool_detail["name"],
+        title_zh=tool_detail.get("title_zh"),
+        title_en=tool_detail.get("title_en"),
+        description=tool_detail.get("description_zh") or tool_detail.get("description"),
+        tool_type=CoreToolType.MCP,
+        transport_type="http",
+        endpoint=f"{settings.STORE_SERVICE_URL.rstrip('/')}/api/v1/mcp/{resource_id}/http",
+        tool_source_type=ToolSourceType.STORE,
+        store_resource_id=resource_id,
+        config=config
+    )
+
+    # 3. 在 tgo-ai 创建 ai_tools 记录
+    try:
+        tool_data_dict = tool_create.model_dump(exclude_none=True)
+        tool_data_dict["project_id"] = str(project_id)
+        
+        result = await ai_client.create_tool(tool_data=tool_data_dict)
+        
+        # 记录商店安装
+        await store_client.install_tool(resource_id, api_key)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create tool in AI service: {str(e)}"
+        )
+
+
+async def _install_model_internal(resource_id: str, project_id: UUID, api_key: str, db: Session) -> Any:
+    """Internal helper to install a model from store"""
+    # 1. 调用商店 API 获取模型详情
+    try:
+        model_detail = await store_client.get_model(resource_id, api_key)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch model from Store: {str(e)}"
+        )
+
+    # 2. 确保本地有一个 "Store" 类型的 LLMProvider
+    from app.models import AIProvider
+    provider_name = f"Store-{model_detail.provider.name}"
+    local_model_id = model_detail.name
+
+    provider = db.scalar(
+        select(AIProvider).where(
+            AIProvider.project_id == project_id,
+            AIProvider.name == provider_name,
+            AIProvider.deleted_at.is_(None)
+        )
+    )
+    
+    if not provider:
+        provider = AIProvider(
+            project_id=project_id,
+            provider="openai_compatible",
+            name=provider_name,
+            api_base_url=f"{settings.STORE_SERVICE_URL.rstrip('/')}/api/v1",
+            api_key=encrypt_str(api_key),
+            is_active=True,
+            default_model=local_model_id,
+            is_from_store=True,
+            store_resource_id=model_detail.provider.id
+        )
+        db.add(provider)
+    else:
+        provider.is_from_store = True
+        provider.store_resource_id = model_detail.provider.id
+        provider.api_base_url = f"{settings.STORE_SERVICE_URL.rstrip('/')}/api/v1"
+        if not provider.default_model:
+            provider.default_model = local_model_id
+        db.add(provider)
+    
+    db.flush()
+
+    # 3. 创建本地模型记录
+    from app.models import AIModel
+    existing_model = db.scalar(
+        select(AIModel).where(
+            AIModel.provider_id == provider.id,
+            AIModel.model_id == local_model_id,
+            AIModel.deleted_at.is_(None)
+        )
+    )
+    
+    if not existing_model:
+        existing_model = AIModel(
+            provider_id=provider.id,
+            provider="openai_compatible",
+            model_id=local_model_id,
+            model_name=model_detail.title_zh or model_detail.name,
+            model_type=model_detail.model_type,
+            description=model_detail.description_zh,
+            is_active=True,
+            capabilities=model_detail.config.get("capabilities", {}) if model_detail.config else {},
+            store_resource_id=resource_id
+        )
+        db.add(existing_model)
+        # Ensure it's associated in the relationship for immediate sync
+        if existing_model not in provider.models:
+            provider.models.append(existing_model)
+    else:
+        existing_model.model_name = model_detail.title_zh or model_detail.name
+        existing_model.model_type = model_detail.model_type
+        existing_model.description = model_detail.description_zh
+        existing_model.capabilities = model_detail.config.get("capabilities", {}) if model_detail.config else {}
+        existing_model.store_resource_id = resource_id
+        db.add(existing_model)
+    
+    # 记录商店安装
+    try:
+        await store_client.install_model(resource_id, api_key)
+    except Exception as e:
+        logger.warning(f"Failed to record installation in store: {str(e)}")
+    
+    db.commit()
+    db.refresh(provider)
+
+    # Sync provider to tgo-ai service
+    ok, err = await sync_provider_with_retry_and_update(db, provider)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to sync provider to AI service: {err}"
+        )
+
+    return {"success": True, "model_id": local_model_id, "provider": provider_name}
+
+
 @router.post("/install-tool", response_model=Any)
 async def install_tool_from_store(
     install_in: StoreInstallRequest,
@@ -97,46 +254,7 @@ async def install_tool_from_store(
             detail="Failed to decrypt Store API Key"
         )
 
-    # 2. 调用商店 API 获取工具详情
-    try:
-        tool_detail = await store_client.get_tool(install_in.resource_id, api_key)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch tool from Store: {str(e)}"
-        )
-
-    # 3. 构造本地工具创建请求
-    tool_create = ToolCreateRequest(
-        name=tool_detail["name"],
-        title=tool_detail.get("title") or tool_detail.get("title_zh") or tool_detail["name"],
-        title_zh=tool_detail.get("title_zh"),
-        title_en=tool_detail.get("title_en"),
-        description=tool_detail.get("description_zh") or tool_detail.get("description"),
-        tool_type=CoreToolType.MCP,
-        transport_type="http",
-        endpoint=f"{settings.STORE_SERVICE_URL.rstrip('/')}/api/v1/execute/mcp/{install_in.resource_id}",
-        tool_source_type=ToolSourceType.STORE,
-        store_resource_id=install_in.resource_id,
-        config=tool_detail.get("config", {})
-    )
-
-    # 4. 在 tgo-ai 创建 ai_tools 记录
-    try:
-        tool_data_dict = tool_create.model_dump(exclude_none=True)
-        tool_data_dict["project_id"] = str(project_id)
-        
-        result = await ai_client.create_tool(tool_data=tool_data_dict)
-        
-        # 记录商店安装
-        await store_client.install_tool(install_in.resource_id, api_key)
-        
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create tool in AI service: {str(e)}"
-        )
+    return await _install_tool_internal(install_in.resource_id, project_id, api_key)
 
 
 @router.delete("/uninstall-tool/{resource_id}")
@@ -207,100 +325,7 @@ async def install_model_from_store(
             detail="Failed to decrypt Store API Key"
         )
 
-    # 2. 调用商店 API 获取模型详情
-    try:
-        model_detail = await store_client.get_model(install_in.resource_id, api_key)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch model from Store: {str(e)}"
-        )
-
-    # 3. 确保本地有一个 "Store" 类型的 LLMProvider
-    # 这里我们为每个项目创建一个专用的 Store Provider
-    from app.models import AIProvider
-    provider_name = f"Store-{model_detail.provider.name}"
-    local_model_id = model_detail.name
-
-    provider = db.scalar(
-        select(AIProvider).where(
-            AIProvider.project_id == project_id,
-            AIProvider.name == provider_name,
-            AIProvider.deleted_at.is_(None)
-        )
-    )
-    
-    if not provider:
-        provider = AIProvider(
-            project_id=project_id,
-            provider="openai_compatible",
-            name=provider_name,
-            api_base_url=f"{settings.STORE_SERVICE_URL.rstrip('/')}/api/v1",
-            api_key=encrypt_str(api_key), # 加密存储商店 API Key
-            is_active=True,
-            default_model=local_model_id,
-            is_from_store=True,
-            store_resource_id=model_detail.provider.id
-        )
-        db.add(provider)
-    else:
-        # 确保商店标识被更新，同时修正 Base URL
-        provider.is_from_store = True
-        provider.store_resource_id = model_detail.provider.id
-        provider.api_base_url = f"{settings.STORE_SERVICE_URL.rstrip('/')}/api/v1"
-        if not provider.default_model:
-            provider.default_model = local_model_id
-        db.add(provider)
-    
-    db.flush() # 确保 provider 已在数据库中
-
-    # 4. 创建本地模型记录 (关联到 Provider)
-    from app.models import AIModel
-    existing_model = db.scalar(
-        select(AIModel).where(
-            AIModel.provider_id == provider.id,
-            AIModel.model_id == local_model_id,
-            AIModel.deleted_at.is_(None)
-        )
-    )
-    
-    if not existing_model:
-        existing_model = AIModel(
-            provider_id=provider.id,
-            provider="openai_compatible", # 对应 AIProvider.provider
-            model_id=local_model_id,
-            model_name=model_detail.title_zh or model_detail.name,
-            model_type=model_detail.model_type,
-            description=model_detail.description_zh,
-            is_active=True,
-            capabilities=model_detail.config.get("capabilities", {}) if model_detail.config else {},
-            store_resource_id=install_in.resource_id
-        )
-        db.add(existing_model)
-    else:
-        # 更新已存在模型的元数据
-        existing_model.model_name = model_detail.title_zh or model_detail.name
-        existing_model.model_type = model_detail.model_type
-        existing_model.description = model_detail.description_zh
-        existing_model.capabilities = model_detail.config.get("capabilities", {}) if model_detail.config else {}
-        existing_model.store_resource_id = install_in.resource_id
-        db.add(existing_model)
-    
-    # 记录商店安装
-    try:
-        await store_client.install_model(install_in.resource_id, api_key)
-    except Exception as e:
-        logger.warning(f"Failed to record installation in store: {str(e)}")
-    
-    db.commit()
-
-    # Sync provider to tgo-ai service
-    try:
-        await sync_provider_with_retry_and_update(db, provider)
-    except Exception as e:
-        logger.warning(f"Failed to sync provider to AI service after model install: {str(e)}")
-
-    return {"success": True, "model_id": local_model_id, "provider": provider_name}
+    return await _install_model_internal(install_in.resource_id, project_id, api_key, db)
 
 
 @router.delete("/uninstall-model/{resource_id}")
@@ -414,9 +439,86 @@ async def list_installed_models(
         return []
 
 
+@router.get("/agent/{agent_id}/check-dependencies", response_model=AgentDependencyCheckResponse)
+async def check_agent_dependencies(
+    agent_id: str,
+    db: Session = Depends(get_db),
+    current_user: Staff = Depends(get_current_active_user),
+) -> Any:
+    """检查员工依赖的工具和模型是否已安装"""
+    project_id = current_user.project_id
+    
+    # 1. 获取项目绑定的商店凭证
+    credential = db.scalar(
+        select(StoreCredential).where(StoreCredential.project_id == project_id)
+    )
+    if not credential:
+        raise HTTPException(status_code=400, detail="Project not bound to Store")
+    
+    api_key = decrypt_str(credential.api_key_encrypted)
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Failed to decrypt Store API Key")
+
+    # 2. 调用商店 API 获取员工详情
+    try:
+        agent_template = await store_client.get_agent(agent_id, api_key)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch agent template from Store: {str(e)}"
+        )
+
+    # 3. 检查已安装的工具
+    local_tools = await ai_client.list_tools(project_id=str(project_id))
+    installed_store_tool_ids = {t.get("store_resource_id") for t in local_tools if t.get("store_resource_id")}
+    
+    missing_tools = []
+    if agent_template.recommended_tools:
+        for tool_id in agent_template.recommended_tools:
+            if tool_id not in installed_store_tool_ids:
+                try:
+                    tool_detail = await store_client.get_tool(tool_id, api_key)
+                    missing_tools.append(StoreToolSummary(
+                        id=tool_id,
+                        name=tool_detail["name"],
+                        title_zh=tool_detail.get("title_zh") or tool_detail.get("name"),
+                        price_per_call=tool_detail.get("price_per_call", 0)
+                    ))
+                except Exception as e:
+                    logger.warning(f"Failed to fetch tool {tool_id} details: {str(e)}")
+                    # 即使获取失败也标记为缺失，只包含 ID 和基本占位
+                    missing_tools.append(StoreToolSummary(
+                        id=tool_id,
+                        name="Unknown Tool",
+                        title_zh=f"未知工具 ({tool_id[:8]})"
+                    ))
+
+    # 4. 检查已安装的模型
+    from app.models import AIModel, AIProvider
+    missing_model = None
+    if agent_template.model_id:
+        # 必须检查模型未删除且所属的 Provider 未删除，且属于当前项目
+        existing_model = db.scalar(
+            select(AIModel)
+            .join(AIProvider, AIModel.provider_id == AIProvider.id)
+            .where(AIModel.store_resource_id == agent_template.model_id)
+            .where(AIModel.deleted_at.is_(None))
+            .where(AIProvider.deleted_at.is_(None))
+            .where(AIProvider.project_id == project_id)
+        )
+        if not existing_model:
+            missing_model = agent_template.model
+
+    return {
+        "agent": agent_template,
+        "missing_tools": missing_tools,
+        "missing_model": missing_model
+    }
+
+
 @router.post("/install-agent", response_model=Any)
 async def install_agent_from_store(
-    install_in: StoreInstallRequest,
+    install_in: StoreInstallAgentRequest,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
 ) -> Any:
@@ -448,9 +550,70 @@ async def install_agent_from_store(
             detail=f"Failed to fetch agent template from Store: {str(e)}"
         )
 
-    # 3. 检查推荐模型
-    # TODO: 自动安装推荐模型（如果尚未安装）
-    # 目前简化处理，直接透传模型名称
+    # 3. 批量安装选中的依赖并收集工具 ID
+    installed_tool_bindings = []
+    
+    # 3.1 循环安装工具
+    if agent_template.recommended_tools:
+        # 获取最新的本地工具列表，以防某些工具已经安装
+        local_tools = await ai_client.list_tools(project_id=str(project_id))
+        store_to_local_id_map = {t.get("store_resource_id"): t.get("id") for t in local_tools if t.get("store_resource_id")}
+        
+        for tool_id in agent_template.recommended_tools:
+            local_tool_id = store_to_local_id_map.get(tool_id)
+            
+            # 如果不在本地且被用户选中安装，或者已经在本地
+            should_install = install_in.install_tool_ids and tool_id in install_in.install_tool_ids
+            
+            if not local_tool_id and should_install:
+                try:
+                    result = await _install_tool_internal(tool_id, project_id, api_key)
+                    local_tool_id = result.get("id")
+                except Exception as e:
+                    logger.warning(f"Batch install: Failed to install tool {tool_id}: {str(e)}")
+            
+            # 如果有了本地 ID，加入绑定列表
+            if local_tool_id:
+                installed_tool_bindings.append({
+                    "tool_id": local_tool_id,
+                    "enabled": True
+                })
+    
+    # 3.2 安装模型并获取提供商 ID
+    associated_llm_provider_id = None
+    if agent_template.model_id:
+        # 先检查本地是否已有该商店模型的记录（且 Provider 也未删除）
+        from app.models import AIModel, AIProvider
+        existing_model = db.scalar(
+            select(AIModel)
+            .join(AIProvider, AIModel.provider_id == AIProvider.id)
+            .where(AIModel.store_resource_id == agent_template.model_id)
+            .where(AIModel.deleted_at.is_(None))
+            .where(AIProvider.deleted_at.is_(None))
+            .where(AIProvider.project_id == project_id)
+        )
+        
+        # 如果需要安装或已存在
+        if install_in.install_model or existing_model:
+            try:
+                # _install_model_internal 会处理同步并返回包含 provider 相关信息的字典
+                # 但我们需要拿到数据库中的 provider 对象来获取它的 UUID
+                await _install_model_internal(agent_template.model_id, project_id, api_key, db)
+                
+                # 重新查询获取 provider_id
+                # 刚才的 internal helper 已经 commit 了，所以这里直接查最新的
+                model_record = db.scalar(
+                    select(AIModel)
+                    .join(AIProvider, AIModel.provider_id == AIProvider.id)
+                    .where(AIModel.store_resource_id == agent_template.model_id)
+                    .where(AIModel.deleted_at.is_(None))
+                    .where(AIProvider.deleted_at.is_(None))
+                    .where(AIProvider.project_id == project_id)
+                )
+                if model_record:
+                    associated_llm_provider_id = model_record.provider_id
+            except Exception as e:
+                logger.warning(f"Batch install: Failed to install/get model {agent_template.model_id}: {str(e)}")
 
     # 4. 调用 ai_client.create_agent() 创建本地 Agent
     try:
@@ -464,10 +627,12 @@ async def install_agent_from_store(
             "remote_agent_url": f"{settings.STORE_SERVICE_URL.rstrip('/')}/api/v1/agentos",
             "store_agent_id": str(agent_template.id),
             "project_id": str(project_id),
-            "instruction": agent_template.instruction,
-            "model": agent_template.recommended_model,
+            "instruction": agent_template.instruction_zh or agent_template.instruction,
+            "model": agent_template.model.name if agent_template.model else "gpt-4o",
             "config": agent_template.default_config,
             "team_id": project.default_team_id if project else None,
+            "tools": installed_tool_bindings,  # 自动关联已安装的工具
+            "llm_provider_id": str(associated_llm_provider_id) if associated_llm_provider_id else None  # 关联已安装的模型提供商
         }
         
         result = await ai_client.create_agent(

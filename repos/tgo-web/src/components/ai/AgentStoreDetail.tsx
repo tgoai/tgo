@@ -96,7 +96,7 @@ const AgentStoreDetail: React.FC<AgentStoreDetailProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">推荐模型</p>
-                  <p className="font-bold text-gray-900 dark:text-gray-100">{agent.recommended_model}</p>
+                  <p className="font-bold text-gray-900 dark:text-gray-100">{agent.model?.title_zh || agent.model?.name || '通用模型'}</p>
                 </div>
                 <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">工具数量</p>

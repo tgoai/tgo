@@ -69,7 +69,8 @@ class SupervisorRuntimeService:
         self._tools_runtime = tools_runtime_service
         self._logger = get_logger("runtime.supervisor.service")
         self._team_builder = AgnoTeamBuilder(
-            getattr(self._tools_runtime, "_settings", settings.tools_runtime)
+            getattr(self._tools_runtime, "_settings", settings.tools_runtime),
+            session_factory=self._session_factory,
         )
         self._team_runner = AgnoTeamRunner()
 
