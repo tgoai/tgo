@@ -20,7 +20,14 @@ from app.models.internal import Agent as InternalAgent
 from app.models.internal import CoordinationContext
 from app.models.llm_provider import LLMProvider
 from app.models.project_ai_config import ProjectAIConfig
-from app.runtime.tools.models import AgentConfig, AgentRunRequest, LLMProviderCredentials
+from app.runtime.tools.models import (
+    AgentConfig, 
+    AgentRunRequest, 
+    LLMProviderCredentials,
+    MCPConfig,
+    RagConfig,
+    WorkflowConfig
+)
 from app.runtime.tools.config import ToolsRuntimeSettings
 from app.runtime.core.exceptions import InvalidConfigurationError
 from app.core.logging import get_logger
@@ -96,10 +103,16 @@ class AgnoTeamBuilder:
             self._logger.warning("No session factory provided to TeamBuilder, cannot resolve fallback provider")
             return None
 
+        try:
+            project_uuid = uuid.UUID(project_id) if isinstance(project_id, str) else project_id
+        except (ValueError, TypeError):
+            self._logger.warning(f"Invalid project_id format: {project_id}")
+            return None
+
         async with self._session_factory() as session:
             # 1. Check ProjectAIConfig for default chat configuration
             try:
-                config = await session.get(ProjectAIConfig, uuid.UUID(project_id))
+                config = await session.get(ProjectAIConfig, project_uuid)
                 if config and config.default_chat_provider_id:
                     provider = await session.get(LLMProvider, config.default_chat_provider_id)
                     if provider and provider.is_active:
@@ -119,7 +132,7 @@ class AgnoTeamBuilder:
             # 2. Fallback to first available Provider in the project
             try:
                 stmt = select(LLMProvider).where(
-                    LLMProvider.project_id == uuid.UUID(project_id),
+                    LLMProvider.project_id == project_uuid,
                     LLMProvider.is_active == True
                 ).limit(1)
                 result = await session.execute(stmt)
@@ -181,17 +194,22 @@ class AgnoTeamBuilder:
         team_model: Optional[Any],
     ) -> Dict[str, Any]:
         """Build the kwargs dict for Team instantiation."""
-        self._logger.debug("Building team kwargs", team_model=str(team_model))
-
         # Extract config and merge with defaults
         config = context.team.config or {}
+        
+        self._logger.debug(
+            "Building team kwargs", 
+            team_id=str(context.team.id),
+            team_model=str(team_model),
+            members_count=len(members)
+        )
 
         return {
             "members": members,
             "name": context.team.name or "Supervisor Coordination Team",
             "role": config.get("role", "Coordinator"),
             "description": context.team.instruction,
-            "instructions":  settings.supervisor_runtime.team_instructions,
+            "instructions": settings.supervisor_runtime.team_instructions,
             "user_id": context.user_id,
             "session_id": context.session_id,
             "model": team_model,
@@ -235,13 +253,15 @@ class AgnoTeamBuilder:
         ]
 
         for tool_name, creator in tool_creators:
-            result = creator(tool_context)
-            if result is not None:
-                # Handle both single tool and list of tools
-                if isinstance(result, list):
-                    tools.extend(result)
-                else:
-                    tools.append(result)
+            try:
+                result = creator(tool_context)
+                if result is not None:
+                    if isinstance(result, list):
+                        tools.extend(result)
+                    else:
+                        tools.append(result)
+            except Exception as exc:
+                self._logger.warning(f"Error creating tool '{tool_name}'", error=str(exc))
 
         return tools
 
@@ -250,7 +270,10 @@ class AgnoTeamBuilder:
         try:
             from app.runtime.tools.custom.handoff import create_handoff_tool
             return create_handoff_tool(**ctx)
-        except Exception as exc:  # noqa: BLE001
+        except ImportError:
+            self._logger.debug("Handoff tool module not found, skipping")
+            return None
+        except Exception as exc:
             self._logger.warning("Failed to add handoff tool", error=str(exc))
             return None
 
@@ -259,7 +282,9 @@ class AgnoTeamBuilder:
         try:
             from app.runtime.tools.custom.user_info import create_user_info_tool
             return create_user_info_tool(**ctx)
-        except Exception as exc:  # noqa: BLE001
+        except ImportError:
+            return None
+        except Exception as exc:
             self._logger.warning("Failed to add user info tool", error=str(exc))
             return None
 
@@ -268,7 +293,9 @@ class AgnoTeamBuilder:
         try:
             from app.runtime.tools.custom.user_sentiment import create_user_sentiment_tool
             return create_user_sentiment_tool(**ctx)
-        except Exception as exc:  # noqa: BLE001
+        except ImportError:
+            return None
+        except Exception as exc:
             self._logger.warning("Failed to add user sentiment tool", error=str(exc))
             return None
 
@@ -277,56 +304,36 @@ class AgnoTeamBuilder:
         try:
             from app.runtime.tools.custom.user_tag import create_user_tag_tool
             return create_user_tag_tool(**ctx)
-        except Exception as exc:  # noqa: BLE001
+        except ImportError:
+            return None
+        except Exception as exc:
             self._logger.warning("Failed to add user tag tool", error=str(exc))
             return None
 
     def _create_ui_template_tools(self, ctx: Dict[str, Any]) -> Optional[List[Any]]:
-        """Create UI template tools for structured data rendering.
-
-        Args:
-            ctx: Tool context (not used for UI templates but kept for consistency).
-
-        Returns:
-            List of UI template tool functions, or None if creation fails.
-        """
+        """Create UI template tools for structured data rendering."""
         try:
             from app.ui_templates.tools import get_ui_template, render_ui, list_ui_templates
 
-            # Create function wrappers for UI template operations
-            def ui_get_template(template_name: str) -> str:
-                """获取指定 UI 模板的详细 schema 格式和使用示例。
-                
-                当用户请求展示结构化信息（如订单详情、产品介绍、物流状态等）时，你必须首先调用此工具来了解该模板所需的具体字段结构和数据类型。
-                调用后，你将获得一个 JSON 格式的模板说明，请严格按照该说明组织数据。
+            # Use descriptive names for tool functions
+            ui_get_template = get_ui_template
+            ui_render = render_ui
+            ui_list_templates = list_ui_templates
 
-                Args:
-                    template_name: 模板名称。可选值: order, product, product_list, logistics, price_comparison
-                """
-                return get_ui_template(template_name)
-
-            def ui_render(template_name: str, data: dict) -> str:
-                """将业务数据渲染为前端可识别的 UI 组件代码块 (tgo-ui-widget)。
-
-                在获取了模板格式并准备好数据后，调用此工具生成最终的 Markdown 代码块。
-                你应当将返回的 Markdown 块直接包含在回复用户的消息中。
-
-                注意：确保 data 字段完全符合模板定义，数值型字段传数字。
-
-                Args:
-                    template_name: 模板名称
-                    data: 符合模板定义的 JSON 数据对象
-                """
-                return render_ui(template_name, data)
-
-            def ui_list_templates() -> str:
-                """列出所有可用的 UI 模板及其简短描述。当你不知道该使用哪个模板时可以调用此工具。"""
-                return list_ui_templates()
+            # Assign docstrings for Agent understanding if not already present
+            if not ui_get_template.__doc__:
+                ui_get_template.__doc__ = "获取指定 UI 模板的详细 schema 格式和使用示例。"
+            if not ui_render.__doc__:
+                ui_render.__doc__ = "将业务数据渲染为前端可识别的 UI 组件代码块 (tgo-ui-widget)。"
+            if not ui_list_templates.__doc__:
+                ui_list_templates.__doc__ = "列出所有可用的 UI 模板及其简短描述。"
 
             self._logger.debug("UI template tools created for team")
             return [ui_get_template, ui_render, ui_list_templates]
 
-        except Exception as exc:  # noqa: BLE001
+        except ImportError:
+            return None
+        except Exception as exc:
             self._logger.warning("Failed to create UI template tools", error=str(exc))
             return None
 
@@ -341,11 +348,11 @@ class AgnoTeamBuilder:
             return
 
         try:
-            memory_manager, memory_db = self._agent_builder.get_memory_backend(
-                members[0].model
-            )
+            # Safely get model from the first member
+            model = getattr(members[0], "model", None)
+            memory_manager, memory_db = self._agent_builder.get_memory_backend(model)
             team_kwargs.update(db=memory_db, memory_manager=memory_manager)
-        except InvalidConfigurationError as exc:
+        except Exception as exc:
             self._logger.warning(
                 "Memory backend unavailable; continuing without persistence",
                 error=str(exc),
@@ -360,57 +367,73 @@ class AgnoTeamBuilder:
         role: str,
     ) -> Union[Agent, RemoteAgent]:
         """Convert an internal agent definition into an agno Agent or RemoteAgent."""
-        # 检查是否为远程商店 Agent
-        if getattr(internal_agent, "is_remote_store_agent", False):
-            # 获取商店 API Key
-            api_key = None
-            if context.project_id:
-                try:
-                    credential = await api_service_client.get_store_credential(context.project_id)
-                    if credential:
-                        api_key = credential.get("api_key")
-                    else:
-                        self._logger.warning(f"No store credential found for project {context.project_id}")
-                except Exception as e:
-                    self._logger.warning(f"Failed to fetch store credential for team member: {e}")
-            else:
-                self._logger.warning("No project_id in coordination context, cannot fetch store credential")
+        # 1. Handle Remote Store Agents
+        # if getattr(internal_agent, "is_remote_store_agent", False):
+        #     return await self._build_remote_agent(internal_agent, context, role)
 
-            # 为远程 Agent 加载本地工具（与本地 Agent 一致的方式）
-            local_tools = []
-            if internal_agent.tools:
-                try:
-                    local_tools = await self._build_tools_for_remote_agent(
-                        internal_agent,
-                        context,
-                    )
-                    self._logger.debug(
-                        f"Loaded {len(local_tools)} local tools for remote agent",
-                        agent_id=str(internal_agent.id),
-                    )
-                except Exception as e:
-                    self._logger.warning(f"Failed to load local tools for remote agent: {e}")
+        # 2. Handle Local Agents
+        return await self._build_local_agent(internal_agent, context, config_overrides, role)
 
-            # 设置元数据
-            agent_id = str(internal_agent.id) if internal_agent.id else str(uuid.uuid4())
-            metadata = dict(internal_agent.config or {})
-            metadata.update({
-                "role": role,
-                "team_agent": True,
-                "is_remote": True,
-            })
-            remote_agent = StoreRemoteAgent(
-                base_url=internal_agent.remote_agent_url,
-                agent_id=internal_agent.store_agent_id,
-                timeout=60.0,
-                override_id=agent_id,
-                override_name=internal_agent.name,
-                override_metadata=metadata,
-                api_key=api_key,
-                tools=local_tools,  # 传入本地工具
-            )
-            return remote_agent
+    async def _build_remote_agent(
+        self, 
+        internal_agent: InternalAgent, 
+        context: CoordinationContext, 
+        role: str
+    ) -> StoreRemoteAgent:
+        """Helper to construct a StoreRemoteAgent."""
+        api_key = None
+        if context.project_id:
+            try:
+                credential = await api_service_client.get_store_credential(context.project_id)
+                if credential:
+                    api_key = credential.get("api_key")
+                else:
+                    self._logger.warning(f"No store credential found for project {context.project_id}")
+            except Exception as e:
+                self._logger.warning(f"Failed to fetch store credential: {e}")
+        else:
+            self._logger.warning("No project_id provided, skipping store credentials")
 
+        # Load local tools if any
+        local_tools = []
+        if internal_agent.tools:
+            try:
+                local_tools = await self._build_tools_for_remote_agent(internal_agent, context)
+                self._logger.debug(
+                    f"Loaded {len(local_tools)} local tools for remote agent",
+                    agent_id=str(internal_agent.id),
+                )
+            except Exception as e:
+                self._logger.warning(f"Failed to load local tools for remote agent: {e}")
+
+        # Construct metadata
+        agent_id = str(internal_agent.id) if internal_agent.id else str(uuid.uuid4())
+        metadata = dict(internal_agent.config or {})
+        metadata.update({
+            "role": role,
+            "team_agent": True,
+            "is_remote": True,
+        })
+
+        return StoreRemoteAgent(
+            base_url=internal_agent.remote_agent_url,
+            agent_id=internal_agent.store_agent_id,
+            timeout=60.0,
+            override_id=agent_id,
+            override_name=internal_agent.name,
+            override_metadata=metadata,
+            api_key=api_key,
+            tools=local_tools,
+        )
+
+    async def _build_local_agent(
+        self,
+        internal_agent: InternalAgent,
+        context: CoordinationContext,
+        config_overrides: Dict[str, Any],
+        role: str,
+    ) -> Agent:
+        """Helper to construct a local Agno Agent."""
         agent_config = self._build_agent_config(internal_agent, context, config_overrides)
 
         request = AgentRunRequest(
@@ -422,16 +445,19 @@ class AgnoTeamBuilder:
             enable_memory=context.enable_memory,
         )
 
-        # Pass internal_agent to AgentBuilder so it can load MCP tools from agent.tools
+        # Build agent instance
         agno_agent = await self._agent_builder.build_agent(request, internal_agent=internal_agent)
 
+        # Set IDs and metadata
         agent_id = str(internal_agent.id) if internal_agent.id else str(uuid.uuid4())
         agno_agent.id = agent_id
         agno_agent.name = internal_agent.name or agno_agent.name
+        
         metadata = dict(internal_agent.config or {})
         metadata.update({
             "role": role,
             "team_agent": True,
+            "is_remote": False,
         })
         agno_agent.metadata = metadata
 
@@ -443,13 +469,11 @@ class AgnoTeamBuilder:
         context: CoordinationContext,
         overrides: Dict[str, Any],
     ) -> AgentConfig:
-        base_config = internal_agent.config or {}
-        combined = {**base_config, **overrides}
+        """Build a consolidated AgentConfig for member construction."""
+        config = {**(internal_agent.config or {}), **overrides}
 
         mcp_config = None
         if context.mcp_url and internal_agent.tools:
-            from app.runtime.tools.models import MCPConfig
-
             mcp_config = MCPConfig(
                 url=context.mcp_url,
                 tools=[tool.tool_name for tool in internal_agent.tools if tool.enabled],
@@ -458,29 +482,24 @@ class AgnoTeamBuilder:
 
         rag_config = None
         if context.rag_url and internal_agent.collections:
-            from app.runtime.tools.models import RagConfig
-
             rag_config = RagConfig(
                 rag_url=context.rag_url,
-                collections=[binding.collection_id for binding in internal_agent.collections if binding.enabled],
+                collections=[b.collection_id for b in internal_agent.collections if b.enabled],
                 api_key=context.rag_api_key,
-                project_id=str(context.project_id) if context.project_id is not None else None,
+                project_id=str(context.project_id) if context.project_id else None,
                 filters={"content_type": "qa_pair"}
             )
 
-
         workflow_config = None
-        workflow_service_url = getattr(settings, "workflow_service_url", None)
-        if workflow_service_url and internal_agent.workflows:
-            from app.runtime.tools.models import WorkflowConfig
-
+        workflow_url = getattr(settings, "workflow_service_url", None)
+        if workflow_url and internal_agent.workflows:
             workflow_config = WorkflowConfig(
-                workflow_url=workflow_service_url,
-                workflows=[str(binding.workflow_id) for binding in internal_agent.workflows if binding.enabled],
-                project_id=str(context.project_id) if context.project_id is not None else None,
+                workflow_url=workflow_url,
+                workflows=[str(b.workflow_id) for b in internal_agent.workflows if b.enabled],
+                project_id=str(context.project_id) if context.project_id else None,
             )
 
-        # Resolve provider credentials: Agent-level overrides Team-level; otherwise error later in builder
+        # Resolve provider credentials: Agent-level overrides Team-level
         provider_credentials = (
             internal_agent.llm_provider_credentials
             or getattr(context.team, "llm_provider_credentials", None)
@@ -488,21 +507,21 @@ class AgnoTeamBuilder:
 
         return AgentConfig(
             model_name=internal_agent.model,
-            temperature=combined.get("temperature"),
-            max_tokens=combined.get("max_tokens"),
+            temperature=config.get("temperature"),
+            max_tokens=config.get("max_tokens"),
             system_prompt=internal_agent.instruction,
             mcp_config=mcp_config,
             rag=rag_config,
             workflow=workflow_config,
             enable_memory=context.enable_memory,
             provider_credentials=provider_credentials,
-            markdown=combined.get("markdown"),
-            add_datetime_to_context=combined.get("add_datetime_to_context"),
-            add_location_to_context=combined.get("add_location_to_context"),
-            timezone_identifier=combined.get("timezone_identifier"),
-            show_tool_calls=combined.get("show_tool_calls"),
-            tool_call_limit=combined.get("tool_call_limit"),
-            num_history_runs=combined.get("num_history_runs"),
+            markdown=config.get("markdown"),
+            add_datetime_to_context=config.get("add_datetime_to_context"),
+            add_location_to_context=config.get("add_location_to_context"),
+            timezone_identifier=config.get("timezone_identifier"),
+            show_tool_calls=config.get("show_tool_calls"),
+            tool_call_limit=config.get("tool_call_limit"),
+            num_history_runs=config.get("num_history_runs"),
         )
 
     async def _build_tools_for_remote_agent(
@@ -515,8 +534,6 @@ class AgnoTeamBuilder:
         
         复用 AgentBuilder 的工具构建逻辑，确保本地工具可以被远程 Agent 使用。
         """
-        from app.runtime.tools.models import AgentConfig, AgentRunRequest
-        
         # 使用 AgentBuilder 的工具构建能力
         # 构建一个临时的 AgentConfig 来触发工具加载
         config = AgentConfig(
@@ -534,7 +551,6 @@ class AgnoTeamBuilder:
         )
         
         # 调用 AgentBuilder 的私有方法来构建工具
-        # 注意：这里我们直接调用 _build_mcp_tools_from_agent 方法
         try:
             tools = await self._agent_builder._build_mcp_tools_from_agent(
                 internal_agent,
@@ -542,7 +558,7 @@ class AgnoTeamBuilder:
                 context.user_id,
                 project_id=context.project_id,
             )
-            return tools
+            return tools or []
         except Exception as e:
             self._logger.warning(f"Failed to build tools for remote agent: {e}")
             return []

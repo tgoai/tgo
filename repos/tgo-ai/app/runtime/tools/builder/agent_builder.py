@@ -2,16 +2,61 @@
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Union
-import uuid
 import asyncio
-from app.models.internal import Agent as InternalAgent
+import json
+import time
+import traceback
+import types
+import uuid
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Union
+
+import httpx
 from agno.agent import Agent, RemoteAgent
-from agno.tools.function import Function
+from agno.db.postgres import PostgresDb
+from agno.memory import MemoryManager
+from agno.models.anthropic import Claude
+from agno.models.google import Gemini
+from agno.models.openai import OpenAIChat
 from agno.models.response import ToolExecution
 from agno.run.agent import RunOutput, RunOutputEvent
+from agno.tools import Toolkit
+from agno.tools.function import Function
+from agno.tools.mcp import MCPTools, MultiMCPTools
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
+from app.config import settings
 from app.core.logging import get_logger
+from app.models.internal import Agent as InternalAgent
+from app.models.internal import AgentTool
+from app.models.tool import Tool as ToolModel
+from app.runtime.core.exceptions import (
+    InvalidConfigurationError,
+    MCPAuthenticationError,
+    MCPConnectionError,
+    MCPToolError,
+    MissingConfigurationError,
+)
+from app.runtime.tools.config import ToolsRuntimeSettings
+from app.runtime.tools.models import (
+    AgentConfig,
+    AgentRunRequest,
+    MCPConfig,
+    RagConfig,
+    WorkflowConfig,
+)
+from app.runtime.tools.token import get_mcp_access_token
+from app.runtime.tools.utils import (
+    create_agno_mcp_tool,
+    create_http_tool,
+    create_plugin_tool,
+    create_rag_tool,
+    create_workflow_tools,
+    wrap_mcp_authenticate_tool,
+)
+from app.services.api_service import api_service_client
+from app.ui_templates import generate_template_catalog
+from app.ui_templates.tools import get_ui_template, list_ui_templates, render_ui
 
 _logger = get_logger(__name__)
 
@@ -43,7 +88,6 @@ class StoreRemoteAgent(RemoteAgent):
     
     def _build_tool_map(self) -> None:
         """构建工具名称到工具对象的映射，支持 Toolkit 和普通 Function"""
-        from agno.tools import Toolkit
         self._tool_map = {}
         for tool in self.local_tools:
             if isinstance(tool, Function):
@@ -167,7 +211,6 @@ class StoreRemoteAgent(RemoteAgent):
                 print("tool-result--->", result)
                 # 将结果转换为字符串
                 if not isinstance(result, str):
-                    import json
                     try:
                         result = json.dumps(result, ensure_ascii=False, default=str)
                     except Exception:
@@ -177,7 +220,6 @@ class StoreRemoteAgent(RemoteAgent):
                 _logger.debug(f"Tool {tool_name} executed successfully: {result[:100]}...")
                 
             except Exception as e:
-                import traceback
                 error_detail = traceback.format_exc()
                 _logger.error(f"Error executing tool {tool_name}: {e}\n{error_detail}")
                 
@@ -212,7 +254,6 @@ class StoreRemoteAgent(RemoteAgent):
             
         api_key = self._api_key
         if not api_key:
-            from app.config import settings
             api_key = settings.store_api_key
             
         if api_key:
@@ -262,7 +303,6 @@ class StoreRemoteAgent(RemoteAgent):
         except Exception:
             pass
             
-        from app.config import settings
         api_key = self._api_key or settings.store_api_key
 
         if api_key:
@@ -276,7 +316,6 @@ class StoreRemoteAgent(RemoteAgent):
     @property
     def _agent_config(self) -> Optional[Any]:
         """Override to pass headers to the remote call."""
-        import time
         current_time = time.time()
 
         # Check if cache is valid
@@ -297,7 +336,6 @@ class StoreRemoteAgent(RemoteAgent):
     @property
     def _config(self) -> Optional[Any]:
         """Override to pass headers to the remote call."""
-        import time
         current_time = time.time()
 
         # Check if cache is valid
@@ -322,7 +360,6 @@ class StoreRemoteAgent(RemoteAgent):
 
     async def refresh_config(self) -> Optional[Any]:
         """Override to pass headers."""
-        import time
         headers = self._get_auth_headers()
         config = await self.agentos_client.aget_agent(self.agent_id, headers=headers)
         self._cached_agent_config = (config, time.time())
@@ -347,7 +384,6 @@ class StoreRemoteAgent(RemoteAgent):
         _logger.info(f"StoreRemoteAgent.arun called with stream={stream}")
         # 如果有本地工具，注入工具 schema 到请求中
         if self.local_tools:
-            import json
             tools_schema = self._build_tools_schema()
             # 显式序列化为 JSON 字符串数组，确保跨语言/跨服务调用格式标准
             kwargs["tools"] = json.dumps(tools_schema)
@@ -471,44 +507,7 @@ class StoreRemoteAgent(RemoteAgent):
                 result.agent_id = self._override_id
             if hasattr(result, "agent_name"):
                 result.agent_name = self.name
-from agno.models.openai import OpenAIChat
-from agno.models.anthropic import Claude
-from agno.models.google import Gemini
-from agno.memory import MemoryManager
-from types import SimpleNamespace
-from agno.db.postgres import PostgresDb
-from agno.tools.mcp import MCPTools, MultiMCPTools
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
 
-from app.core.logging import get_logger
-from app.config import settings
-from app.runtime.core.exceptions import (
-    InvalidConfigurationError,
-    MCPAuthenticationError,
-    MCPConnectionError,
-    MCPToolError,
-    MissingConfigurationError,
-)
-from app.runtime.tools.config import ToolsRuntimeSettings
-from app.runtime.tools.models import (
-    AgentConfig,
-    AgentRunRequest,
-    MCPConfig,
-    RagConfig,
-    WorkflowConfig,
-)
-from app.runtime.tools.token import get_mcp_access_token
-from app.models.tool import Tool as ToolModel
-from app.runtime.tools.utils import (
-    create_agno_mcp_tool,
-    create_rag_tool,
-    create_workflow_tools,
-    create_plugin_tool,
-    create_http_tool,
-    wrap_mcp_authenticate_tool,
-)
-from app.services.api_service import api_service_client
 
 UNEDITABLE_SYSTEM_PROMPT = (
     "\nIf the tool throws an error requiring authentication, provide the user with a Markdown "
@@ -542,50 +541,66 @@ class AgentBuilder:
             request: The agent run request containing configuration
             internal_agent: Optional internal agent model containing tool bindings
         """
-        # 检查是否为远程商店 Agent
-        if internal_agent and getattr(internal_agent, "is_remote_store_agent", False):
-            # 获取商店 API Key
-            api_key = None
-            
-            if request.project_id:
-                try:
-                    credential = await api_service_client.get_store_credential(request.project_id)
-                    if credential:
-                        api_key = credential.get("api_key")
-                except Exception as e:
-                    self._logger.warning(f"Failed to fetch store credential: {e}")
+        # # 1. Handle Remote Store Agents
+        # if internal_agent and getattr(internal_agent, "is_remote_store_agent", False):
+        #     return await self._build_remote_store_agent(request, internal_agent)
 
-            if not api_key and settings.store_api_key:
-                api_key = settings.store_api_key
+        # 2. Handle Local Agents
+        return await self._build_local_agent(request, internal_agent)
 
-            # 为远程 Agent 加载本地工具
-            tools = []
-            if internal_agent.tools:
-                try:
-                    tools = await self._build_mcp_tools_from_agent(
-                        internal_agent,
-                        request.session_id,
-                        request.user_id,
-                        project_id=request.project_id,
-                    )
-                except Exception as e:
-                    self._logger.warning(f"Failed to build tools for remote agent: {e}")
+    async def _build_remote_store_agent(
+        self,
+        request: AgentRunRequest,
+        internal_agent: "InternalAgent",
+    ) -> StoreRemoteAgent:
+        """Helper to construct a StoreRemoteAgent."""
+        # 获取商店 API Key
+        api_key = None
+        if request.project_id:
+            try:
+                credential = await api_service_client.get_store_credential(request.project_id)
+                if credential:
+                    api_key = credential.get("api_key")
+            except Exception as e:
+                self._logger.warning("Failed to fetch store credential", error=str(e))
 
-            self._logger.debug(
-                "Creating RemoteAgent",
-                agent_id=internal_agent.store_agent_id,
-                base_url=internal_agent.remote_agent_url
-            )
-            return StoreRemoteAgent(
-                base_url=internal_agent.remote_agent_url,
-                agent_id=internal_agent.store_agent_id,
-                timeout=60.0,
-                override_id=str(internal_agent.id),
-                override_name=internal_agent.name,
-                api_key=api_key,
-                tools=tools,  # 传入本地工具
-            )
+        if not api_key:
+            api_key = settings.store_api_key
 
+        # 为远程 Agent 加载本地工具
+        local_tools = []
+        if internal_agent.tools:
+            try:
+                local_tools = await self._build_mcp_tools_from_agent(
+                    internal_agent,
+                    request.session_id,
+                    request.user_id,
+                    project_id=request.project_id,
+                )
+            except Exception as e:
+                self._logger.warning("Failed to build local tools for remote agent", error=str(e))
+
+        self._logger.debug(
+            "Creating RemoteAgent",
+            agent_id=internal_agent.store_agent_id,
+            base_url=internal_agent.remote_agent_url
+        )
+        return StoreRemoteAgent(
+            base_url=internal_agent.remote_agent_url,
+            agent_id=internal_agent.store_agent_id,
+            timeout=60.0,
+            override_id=str(internal_agent.id),
+            override_name=internal_agent.name,
+            api_key=api_key,
+            tools=local_tools,
+        )
+
+    async def _build_local_agent(
+        self,
+        request: AgentRunRequest,
+        internal_agent: Optional["InternalAgent"] = None,
+    ) -> Agent:
+        """Helper to construct a local Agno Agent."""
         config = self._normalize_config(request.config)
         tools = await self._build_tools(
             config,
@@ -598,14 +613,14 @@ class AgentBuilder:
         # Add UI template tools if enabled
         enable_ui_templates = getattr(config, 'enable_ui_templates', True) and UI_TEMPLATES_ENABLED
         if enable_ui_templates:
-            ui_tools = self._build_ui_template_tools()
-            tools.extend(ui_tools)
+            tools.extend(self._build_ui_template_tools())
 
         model = self._initialize_model(config)
         instructions = self._compose_system_prompt(config.system_prompt, enable_ui_templates)
         enable_memory = request.enable_memory or bool(config.enable_memory)
+
         self._logger.debug(
-            "Creating agent",
+            "Creating local agent",
             tool_count=len(tools),
             model_name=config.model_name,
         )
@@ -641,12 +656,12 @@ class AgentBuilder:
                     enable_agentic_memory=True,
                     enable_user_memories=True,
                     add_memories_to_context=True,
-                    add_history_to_context = True,  # Automatically add the persisted session history to the context
-                    num_history_runs=config.num_history_runs if config.num_history_runs is not None else 5, # Specify how many messages to add to the context
+                    add_history_to_context=True,
+                    num_history_runs=config.num_history_runs if config.num_history_runs is not None else 5,
                 )
 
             return Agent(**agent_kwargs)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise InvalidConfigurationError(
                 "Failed to create Agent instance",
                 tools_count=len(tools),
@@ -658,16 +673,13 @@ class AgentBuilder:
     def _normalize_config(self, config: Optional[AgentConfig]) -> AgentConfig:
         """Apply runtime defaults to the incoming configuration."""
         merged = (config or AgentConfig()).model_copy(deep=True)
-
         base = self._settings.model
-        if merged.model_name is None:
-            merged.model_name = base.name
-        if merged.temperature is None:
-            merged.temperature = base.temperature
-        if merged.max_tokens is None:
-            merged.max_tokens = base.max_tokens
-        if merged.system_prompt is None:
-            merged.system_prompt = base.system_prompt
+
+        # Map base defaults if not provided in merged config
+        merged.model_name = merged.model_name or base.name
+        merged.temperature = merged.temperature if merged.temperature is not None else base.temperature
+        merged.max_tokens = merged.max_tokens if merged.max_tokens is not None else base.max_tokens
+        merged.system_prompt = merged.system_prompt or base.system_prompt
 
         return merged
 
@@ -690,7 +702,6 @@ class AgentBuilder:
         # Inject UI template catalog if enabled
         if enable_ui_templates and UI_TEMPLATES_ENABLED:
             try:
-                from app.ui_templates import generate_template_catalog
                 ui_catalog = generate_template_catalog()
                 if ui_catalog:
                     prompt = f"{prompt}\n\n{ui_catalog}"
@@ -786,8 +797,6 @@ class AgentBuilder:
             List of UI template tool functions.
         """
         try:
-            from app.ui_templates.tools import get_ui_template, render_ui, list_ui_templates
-
             # Create function tools for the UI template operations
             tools = []
 
@@ -982,10 +991,6 @@ class AgentBuilder:
         Returns:
             Function 对象列表
         """
-        import httpx
-        import types
-        from app.runtime.tools.utils import create_agno_mcp_tool
-        
         tools: List[Function] = []
         server_url = endpoint.rstrip("/")
         
@@ -1069,7 +1074,6 @@ class AgentBuilder:
                 response_text=response_text,
             )
         except Exception as e:
-            import traceback
             print(f"[ERROR] Failed to fetch MCP tools from endpoint: {e!r}")
             print(f"[ERROR] endpoint={endpoint}, tools_url={tools_url}")
             print(f"[ERROR] requested_tools={list(requested_tools) if requested_tools else None}")
@@ -1091,334 +1095,161 @@ class AgentBuilder:
         user_id: Optional[str],
         project_id: Optional[str] = None,
     ) -> List[Any]:
-        """Build MCP tools from InternalAgent.tools configuration.
-
-        This method creates MCPTools instances for each MCP server configured in the agent's
-        tool bindings. For stdio transport with multiple servers, it uses MultiMCPTools.
-        For HTTP/SSE transports, it creates individual MCPTools instances.
-
-        Note: Both MCPTools and MultiMCPTools load all tools from each MCP server, not just
-        the ones bound to the agent. If you need to restrict which tools the agent can use,
-        consider using tool permissions or other filtering mechanisms at the agent level.
-
-        Args:
-            internal_agent: Internal agent model containing tool bindings from database
-            session_id: Optional session ID for MCP authentication headers (HTTP/SSE only)
-            user_id: Optional user ID for MCP authentication headers (HTTP/SSE only)
-
-        Returns:
-            List of MCPTools/MultiMCPTools instances
-        """
-        from app.models.internal import AgentTool
-
-        # Filter MCP and HTTP tools that are enabled
-        mcp_tools = [
-            tool for tool in internal_agent.tools
-            if (tool.tool_type == "MCP" or tool.transport_type == "http_webhook") and tool.enabled
+        """Build MCP tools from InternalAgent.tools configuration."""
+        # 1. Filter and group tools
+        enabled_tools = [
+            t for t in internal_agent.tools 
+            if (t.tool_type == "MCP" or t.transport_type == "http_webhook") and t.enabled
         ]
-
-        if not mcp_tools:
-            self._logger.debug("No enabled MCP or HTTP tools found in agent configuration")
+        if not enabled_tools:
             return []
 
-        self._logger.debug(
-            "Loading MCP and HTTP tools from agent configuration",
-            agent_id=str(internal_agent.id) if internal_agent.id else "unknown",
-            tool_count=len(mcp_tools),
-        )
+        self._logger.debug("Loading tools from agent", agent_id=str(internal_agent.id), count=len(enabled_tools))
 
-        # Group tools by endpoint and transport type
+        # 2. Group by type/endpoint
         tools_by_endpoint: Dict[str, List[AgentTool]] = {}
         plugin_tools: List[AgentTool] = []
         http_tools: List[AgentTool] = []
-        for tool in mcp_tools:
-            if tool.transport_type == "plugin":
-                plugin_tools.append(tool)
-                continue
-            
-            if tool.transport_type == "http_webhook":
-                http_tools.append(tool)
-                continue
+        for t in enabled_tools:
+            if t.transport_type == "plugin":
+                plugin_tools.append(t)
+            elif t.transport_type == "http_webhook":
+                http_tools.append(t)
+            elif t.endpoint:
+                tools_by_endpoint.setdefault(t.endpoint, []).append(t)
 
-            if not tool.endpoint:
-                self._logger.warning(
-                    "MCP tool missing endpoint, skipping",
-                    tool_id=str(tool.tool_id),
-                    tool_name=tool.tool_name,
-                )
-                continue
+        # 3. Build authentication headers
+        headers = await self._build_auth_headers(session_id, user_id, project_id)
 
-            endpoint = tool.endpoint
-            if endpoint not in tools_by_endpoint:
-                tools_by_endpoint[endpoint] = []
-            tools_by_endpoint[endpoint].append(tool)
+        # 4. Build tool instances
+        tools: List[Any] = []
+        tools.extend(self._build_plugin_tools(plugin_tools, session_id, user_id, str(internal_agent.id)))
+        tools.extend(self._build_http_webhook_tools(http_tools))
+        
+        mcp_tools, stdio_cmds = await self._build_mcp_server_instances(tools_by_endpoint, headers)
+        tools.extend(mcp_tools)
+        
+        if stdio_cmds:
+            tools.extend(await self._build_multi_mcp_stdio(stdio_cmds))
 
-        # Build headers for authentication (used by HTTP/SSE transports)
+        return tools
+
+    async def _build_auth_headers(self, session_id: Optional[str], user_id: Optional[str], project_id: Optional[str]) -> Dict[str, str]:
+        """Helper to build consistent authentication headers."""
         headers = {}
         if session_id:
             headers["X-Session-ID"] = session_id
         if user_id:
             headers["X-User-ID"] = user_id
         
-        # Add Store API Key if applicable (Project-level key)
         if project_id:
-            credential = await api_service_client.get_store_credential(project_id)
-            if credential and credential.get("api_key"):
-                headers["X-API-Key"] = credential["api_key"]
-                self._logger.debug(f"Injected Store API Key for project {project_id}")
+            try:
+                credential = await api_service_client.get_store_credential(project_id)
+                if credential and credential.get("api_key"):
+                    headers["X-API-Key"] = credential["api_key"]
+            except Exception:
+                pass
         
-        # Fallback to global Store API Key if still not set
         if "X-API-Key" not in headers and settings.store_api_key:
             headers["X-API-Key"] = settings.store_api_key
+        return headers
 
-        # Separate stdio commands from HTTP/SSE endpoints
-        stdio_commands: List[str] = []
-        mcp_tools_instances: List[Any] = []
-
-        # Handle plugin-based tools
-        for tool_binding in plugin_tools:
+    def _build_plugin_tools(self, plugin_tools: List[AgentTool], session_id: Optional[str], user_id: Optional[str], agent_id: str) -> List[Any]:
+        """Helper to construct plugin-based tools."""
+        instances = []
+        for t in plugin_tools:
             try:
-                # Load tool definition from tool.base_config (which contains the Tool model config)
-                config = tool_binding.base_config or {}
+                config = t.base_config or {}
                 plugin_id = config.get("plugin_id")
                 tool_name = config.get("tool_name")
-                parameters_list = config.get("parameters", [])
-                
                 if not plugin_id or not tool_name:
-                    self._logger.warning(f"Plugin tool missing configuration: {tool_binding.tool_name}")
                     continue
 
-                # Convert parameters list to JSON Schema
-                properties = {}
-                required = []
-                for p in parameters_list:
+                # Build schema from parameters list
+                props = {}
+                req = []
+                for p in config.get("parameters", []):
                     p_name = p.get("name")
                     p_type = p.get("type", "string")
-                    p_desc = p.get("description", "")
-                    p_required = p.get("required", False)
-                    
-                    prop = {"type": p_type, "description": p_desc}
+                    prop = {"type": "string" if p_type == "enum" else p_type, "description": p.get("description", "")}
                     if p_type == "enum" and "enum_values" in p:
-                        prop["type"] = "string"
                         prop["enum"] = p["enum_values"]
-                    elif p_type == "number":
-                        prop["type"] = "number"
-                    elif p_type == "boolean":
-                        prop["type"] = "boolean"
-                    
-                    properties[p_name] = prop
-                    if p_required:
-                        required.append(p_name)
-                
-                parameters_schema = {
-                    "type": "object",
-                    "properties": properties,
-                }
-                if required:
-                    parameters_schema["required"] = required
+                    props[p_name] = prop
+                    if p.get("required"):
+                        req.append(p_name)
 
-                plugin_tool_func = create_plugin_tool(
+                instances.append(create_plugin_tool(
                     plugin_id=plugin_id,
                     tool_name=tool_name,
-                    title=tool_binding.tool_name,
-                    description=config.get("description"), # Note: description might be in base_config or tool model
-                    parameters=parameters_schema,
+                    title=t.tool_name,
+                    description=config.get("description"),
+                    parameters={"type": "object", "properties": props, "required": req} if req else {"type": "object", "properties": props},
                     session_id=session_id,
                     user_id=user_id,
-                    agent_id=str(internal_agent.id),
-                )
-                mcp_tools_instances.append(plugin_tool_func)
-                self._logger.debug(f"Added plugin tool: {tool_binding.tool_name} (plugin_id={plugin_id})")
+                    agent_id=agent_id,
+                ))
             except Exception as exc:
-                self._logger.warning(f"Failed to create plugin tool {tool_binding.tool_name}: {exc}")
+                self._logger.warning(f"Failed to create plugin tool {t.tool_name}", error=str(exc))
+        return instances
 
-        # Handle HTTP webhook tools
-        for tool_binding in http_tools:
+    def _build_http_webhook_tools(self, http_tools: List[AgentTool]) -> List[Any]:
+        """Helper to construct HTTP webhook tools."""
+        instances = []
+        for t in http_tools:
             try:
-                # Load tool definition from tool.base_config (which contains the Tool model config)
-                config = tool_binding.base_config or {}
-                
-                if not tool_binding.endpoint:
-                    self._logger.warning(f"HTTP tool missing endpoint: {tool_binding.tool_name}")
+                config = t.base_config or {}
+                if not t.endpoint:
                     continue
-
-                http_tool_func = create_http_tool(
-                    name=tool_binding.tool_name,
-                    description=config.get("description") or tool_binding.tool_name,
-                    endpoint=tool_binding.endpoint,
+                instances.append(create_http_tool(
+                    name=t.tool_name,
+                    description=config.get("description") or t.tool_name,
+                    endpoint=t.endpoint,
                     method=config.get("method", "POST"),
                     headers=config.get("headers"),
                     parameters=config.get("parameters"),
                     timeout=config.get("timeout", 30.0),
-                )
-                mcp_tools_instances.append(http_tool_func)
-                self._logger.debug(f"Added HTTP tool: {tool_binding.tool_name} (endpoint={tool_binding.endpoint})")
+                ))
             except Exception as exc:
-                self._logger.warning(f"Failed to create HTTP tool {tool_binding.tool_name}: {exc}")
+                self._logger.warning(f"Failed to create HTTP tool {t.tool_name}", error=str(exc))
+        return instances
 
-        if not tools_by_endpoint and not plugin_tools and not http_tools:
-            self._logger.debug("No valid MCP endpoints, plugin tools, or HTTP tools found after filtering")
-            return []
-
+    async def _build_mcp_server_instances(self, tools_by_endpoint: Dict[str, List[AgentTool]], headers: Dict[str, str]) -> tuple[List[Any], List[str]]:
+        """Helper to construct individual MCP server instances (HTTP/SSE/stdio)."""
+        instances = []
+        stdio_cmds = []
         for endpoint, endpoint_tools in tools_by_endpoint.items():
             try:
-                # Get transport type (default to http)
-                transport_type = endpoint_tools[0].transport_type or "http"
-
-                if transport_type == "stdio":
-                    # stdio transport: collect commands for MultiMCPTools
-                    stdio_commands.append(endpoint)
-
-                    self._logger.debug(
-                        "Added stdio MCP server command",
-                        command=endpoint,
-                        tool_count=len(endpoint_tools),
-                        tool_names=[tool.tool_name for tool in endpoint_tools],
-                    )
-
-                elif transport_type == "http":
-                    # HTTP transport: create individual MCPTools instance
-                    server_url = endpoint.rstrip("/")
-
-                    # If we have custom headers (e.g. for ToolStore), dynamically fetch
-                    # tool definitions from MCP server to get accurate inputSchema
-                    if headers:
-                        # 动态从 MCP 服务器获取工具定义
-                        # Store 的 endpoint 已经是针对特定 tool_id 的，所以获取其所有方法
-                        fetched_tools = await self._fetch_mcp_tools_from_endpoint(
-                            endpoint=server_url,
-                            headers=headers,
-                            requested_tools=None,
-                        )
-                        
-                        if fetched_tools:
-                            mcp_tools_instances.extend(fetched_tools)
-                            self._logger.debug(
-                                "Fetched MCP tools dynamically from endpoint",
-                                endpoint=endpoint,
-                                requested=len(endpoint_tools),
-                                fetched=len(fetched_tools),
-                            )
-                        else:
-                            # 如果动态获取失败，不回退到静态配置，只打印警告
-                            self._logger.warning(
-                                "Failed to fetch MCP tools from endpoint, tools will not be available",
-                                endpoint=endpoint,
-                                requested_tools=[t.tool_name for t in endpoint_tools],
-                            )
-                    else:
-                        mcp_tools_instance = MCPTools(
-                            transport="streamable-http",
-                            url=server_url,
-                        )
-                        await mcp_tools_instance.connect()
-                        mcp_tools_instances.append(mcp_tools_instance)
-
-                        self._logger.debug(
-                            "Created and connected HTTP MCPTools instance",
-                            endpoint=endpoint,
-                            server_url=server_url,
-                            tool_count=len(endpoint_tools),
-                            tool_names=[tool.tool_name for tool in endpoint_tools],
-                        )
-
-                elif transport_type == "sse":
-                    # SSE transport: create individual MCPTools instance
-                    server_url = endpoint.rstrip("/")
-
-                    # If we have custom headers, dynamically fetch tool definitions
-                    if headers:
-                        # 动态从 MCP 服务器获取工具定义
-                        # 注意：SSE 端点的动态获取使用相同的 HTTP 方法
-                        fetched_tools = await self._fetch_mcp_tools_from_endpoint(
-                            endpoint=server_url,
-                            headers=headers,
-                            requested_tools=None,
-                        )
-                        
-                        if fetched_tools:
-                            mcp_tools_instances.extend(fetched_tools)
-                            self._logger.debug(
-                                "Fetched MCP tools dynamically from SSE endpoint",
-                                endpoint=endpoint,
-                                requested=len(endpoint_tools),
-                                fetched=len(fetched_tools),
-                            )
-                        else:
-                            # 如果动态获取失败，不回退到静态配置，只打印警告
-                            self._logger.warning(
-                                "Failed to fetch MCP tools from SSE endpoint, tools will not be available",
-                                endpoint=endpoint,
-                                requested_tools=[t.tool_name for t in endpoint_tools],
-                            )
-                    else:
-                        mcp_tools_instance = MCPTools(
-                            transport="sse",
-                            url=server_url,
-                        )
-                        await mcp_tools_instance.connect()
-                        mcp_tools_instances.append(mcp_tools_instance)
-
-                        self._logger.debug(
-                            "Created and connected SSE MCPTools instance",
-                            endpoint=endpoint,
-                            server_url=server_url,
-                            tool_count=len(endpoint_tools),
-                            tool_names=[tool.tool_name for tool in endpoint_tools],
-                        )
-
-                else:
-                    self._logger.warning(
-                        "Unsupported MCP transport type, skipping endpoint",
-                        endpoint=endpoint,
-                        transport_type=transport_type,
-                        tool_count=len(endpoint_tools),
-                        supported_transports=["http", "stdio", "sse"],
-                    )
+                transport = endpoint_tools[0].transport_type or "http"
+                if transport == "stdio":
+                    stdio_cmds.append(endpoint)
                     continue
 
-            except Exception as exc:  # noqa: BLE001
-                self._logger.warning(
-                    "Failed to create MCPTools instance for endpoint, skipping",
-                    endpoint=endpoint,
-                    transport_type=transport_type,
-                    error=str(exc),
-                    error_type=type(exc).__name__,
-                )
+                server_url = endpoint.rstrip("/")
+                if headers:
+                    # Dynamically fetch definitions if we have headers (likely ToolStore)
+                    fetched = await self._fetch_mcp_tools_from_endpoint(server_url, headers)
+                    if fetched:
+                        instances.extend(fetched)
+                    else:
+                        self._logger.warning("Dynamic MCP fetch failed", endpoint=endpoint)
+                else:
+                    # Static connection
+                    mcp = MCPTools(transport="streamable-http" if transport == "http" else "sse", url=server_url)
+                    await mcp.connect()
+                    instances.append(mcp)
+            except Exception as exc:
+                self._logger.warning(f"Failed to setup MCP server {endpoint}", error=str(exc))
+        return instances, stdio_cmds
 
-        # Create MultiMCPTools for stdio commands if any
-        if stdio_commands:
-            try:
-                multi_mcp_tools = MultiMCPTools(
-                    stdio_commands,
-                    allow_partial_failure=True,
-                )
-
-                await multi_mcp_tools.connect()
-                mcp_tools_instances.append(multi_mcp_tools)
-
-                self._logger.debug(
-                    "Created and connected MultiMCPTools instance for stdio",
-                    command_count=len(stdio_commands),
-                    commands=stdio_commands,
-                )
-
-            except Exception as exc:  # noqa: BLE001
-                self._logger.error(
-                    "Failed to create MultiMCPTools instance for stdio commands",
-                    commands=stdio_commands,
-                    error=str(exc),
-                    error_type=type(exc).__name__,
-                )
-
-        self._logger.debug(
-            "MCP tools setup from agent completed",
-            agent_id=str(internal_agent.id) if internal_agent.id else "unknown",
-            mcp_tools_instances_created=len(mcp_tools_instances),
-            unique_endpoints=len(tools_by_endpoint),
-        )
-
-        return mcp_tools_instances
+    async def _build_multi_mcp_stdio(self, stdio_cmds: List[str]) -> List[Any]:
+        """Helper to construct MultiMCPTools for stdio servers."""
+        try:
+            multi = MultiMCPTools(stdio_cmds, allow_partial_failure=True)
+            await multi.connect()
+            return [multi]
+        except Exception as exc:
+            self._logger.error("MultiMCPTools initialization failed", error=str(exc))
+            return []
 
     def get_memory_backend(self, model: Any) -> tuple[MemoryManager, PostgresDb]:
         """Expose shared memory backend for external consumers (keyed by model)."""
@@ -1483,124 +1314,54 @@ class AgentBuilder:
     def _initialize_model(self, config: AgentConfig) -> Any:
         model_name = config.model_name or self._settings.model.name
         if not model_name:
-            raise MissingConfigurationError(
-                "Model name is required but not provided",
-                config_key="model_name",
-            )
+            raise MissingConfigurationError("Model name is required", config_key="model_name")
 
         creds = config.provider_credentials
         if not creds:
-            raise MissingConfigurationError(
-                "LLM provider credentials are required",
-                config_key="provider_credentials",
-                model_name=model_name,
-            )
+            raise MissingConfigurationError("LLM provider credentials required", model_name=model_name)
        
         api_key = creds.api_key
-        base_url = creds.api_base_url
-        organization = creds.organization
-        timeout = creds.timeout
-        provider_kind = (creds.provider_kind or "").lower()
-
         if not api_key:
-            raise MissingConfigurationError(
-                f"Missing API key for model {model_name}",
-                model_name=model_name,
-                config_key="api_key",
-            )
+            raise MissingConfigurationError(f"Missing API key for {model_name}", model_name=model_name)
 
+        # Validation
         if config.temperature is not None and not (0 <= config.temperature <= 2):
-            raise InvalidConfigurationError(
-                "Temperature must be between 0 and 2",
-                temperature=config.temperature,
-                valid_range="0-2",
-            )
-
+            raise InvalidConfigurationError("Temperature must be 0-2", temperature=config.temperature)
         if config.max_tokens is not None and config.max_tokens <= 0:
-            raise InvalidConfigurationError(
-                "max_tokens must be a positive integer",
-                max_tokens=config.max_tokens,
-            )
+            raise InvalidConfigurationError("max_tokens must be positive", max_tokens=config.max_tokens)
 
-        # Provider is determined by credentials.provider_kind; do not parse from model_name
-        if provider_kind in {"openai", "openai_compatible"}:
-            openai_model = model_name
-            try:
-                kwargs: Dict[str, Any] = {
-                    "id": openai_model,
-                    "api_key": api_key,
-                    "temperature": config.temperature,
-                    "max_tokens": config.max_tokens,
-                    "role_map": {
-                        "system": "system",
-                        "user": "user",
-                        "assistant": "assistant",
-                        "tool": "tool",
-                        "model": "assistant",
-                    },
-                }
-                if base_url:
-                    kwargs["base_url"] = base_url
-                if organization:
-                    kwargs["organization"] = organization
-                if timeout:
-                    kwargs["timeout"] = timeout
-                return OpenAIChat(**kwargs)
-            except Exception as exc:  # noqa: BLE001
-                raise InvalidConfigurationError(
-                    "Failed to initialize OpenAI/OpenAI-compatible model",
-                    model_name=model_name,
-                    openai_model=openai_model,
-                    error=str(exc),
-                ) from exc
+        provider_kind = (creds.provider_kind or "").lower()
+        model_kwargs = {
+            "id": model_name,
+            "api_key": api_key,
+            "temperature": config.temperature,
+            "max_tokens": config.max_tokens,
+        }
 
-        if provider_kind == "anthropic":
-            claude_model = model_name
-            try:
-                kwargs: Dict[str, Any] = {
-                    "id": claude_model,
-                    "api_key": api_key,
-                    "temperature": config.temperature,
-                    "max_tokens": config.max_tokens,
-                }
-                # Anthropic SDK typically doesn't take base_url; ignore if provided
-                if timeout:
-                    kwargs["timeout"] = timeout
-                return Claude(**kwargs)
-            except Exception as exc:  # noqa: BLE001
-                raise InvalidConfigurationError(
-                    "Failed to initialize Anthropic model",
-                    model_name=model_name,
-                    anthropic_model=claude_model,
-                    error=str(exc),
-                ) from exc
+        try:
+            if provider_kind in {"openai", "openai_compatible"}:
+                model_kwargs.update({
+                    "role_map": {"system": "system", "user": "user", "assistant": "assistant", "tool": "tool", "model": "assistant"},
+                    "base_url": creds.api_base_url,
+                    "organization": creds.organization,
+                    "timeout": creds.timeout,
+                })
+                return OpenAIChat(**{k: v for k, v in model_kwargs.items() if v is not None})
 
-        if provider_kind == "google":
-            gemini_model = model_name
-            try:
-                kwargs: Dict[str, Any] = {
-                    "id": gemini_model,
-                    "api_key": api_key,
-                    "temperature": config.temperature,
-                    "max_tokens": config.max_tokens,
-                }
-                # Google Gemini may support base_url via compatible endpoints; pass if provided
-                if base_url:
-                    kwargs["base_url"] = base_url
-                if timeout:
-                    kwargs["timeout"] = timeout
-                return Gemini(**kwargs)
-            except Exception as exc:  # noqa: BLE001
-                raise InvalidConfigurationError(
-                    "Failed to initialize Google Gemini model",
-                    model_name=model_name,
-                    gemini_model=gemini_model,
-                    error=str(exc),
-                ) from exc
+            if provider_kind == "anthropic":
+                if creds.timeout:
+                    model_kwargs["timeout"] = creds.timeout
+                return Claude(**{k: v for k, v in model_kwargs.items() if v is not None})
+
+            if provider_kind == "google":
+                model_kwargs.update({"base_url": creds.api_base_url, "timeout": creds.timeout})
+                return Gemini(**{k: v for k, v in model_kwargs.items() if v is not None})
+
+        except Exception as exc:
+            raise InvalidConfigurationError(f"Failed to init {provider_kind} model", model_name=model_name, error=str(exc)) from exc
 
         raise InvalidConfigurationError(
-            "Unsupported or missing provider_kind in provider credentials",
-            model_name=model_name,
-            provider_kind=provider_kind,
-            supported_providers=["openai", "openai_compatible", "anthropic", "google"],
+            f"Unsupported provider: {provider_kind}", 
+            model_name=model_name, 
+            supported=["openai", "openai_compatible", "anthropic", "google"]
         )
