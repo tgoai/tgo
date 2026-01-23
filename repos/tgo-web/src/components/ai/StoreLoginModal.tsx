@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useStoreAuthStore } from '@/stores/storeAuthStore';
 import { useToast } from './ToolToastProvider';
 import { generateCodeVerifier, generateCodeChallenge } from '@/utils/pkce';
-import { TOOL_STORE_URLS } from '@/constants';
+import storeApi from '@/services/storeApi';
 
 interface StoreLoginModalProps {
   isOpen: boolean;
@@ -31,6 +31,9 @@ const StoreLoginModal: React.FC<StoreLoginModalProps> = ({ isOpen, onClose }) =>
 
   const handleOpenLogin = async () => {
     try {
+      const config = await storeApi.getStoreConfig();
+      const storeWebUrl = config.store_web_url || 'http://localhost:3002';
+
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = await generateCodeChallenge(codeVerifier);
       const state = crypto.randomUUID();
@@ -38,7 +41,7 @@ const StoreLoginModal: React.FC<StoreLoginModalProps> = ({ isOpen, onClose }) =>
       sessionStorage.setItem('toolstore_pkce_verifier', codeVerifier);
       sessionStorage.setItem('toolstore_auth_state', state);
       
-      const loginUrl = `${TOOL_STORE_URLS.WEB}/auth/callback?` +
+      const loginUrl = `${storeWebUrl}/auth/callback?` +
         `state=${state}&code_challenge=${codeChallenge}`;
       
       const width = 520;

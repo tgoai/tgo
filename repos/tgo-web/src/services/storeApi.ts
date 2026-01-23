@@ -1,4 +1,3 @@
-import axios, { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import apiClient from '@/services/api';
 import { 
   ToolStoreItem, 
@@ -7,151 +6,164 @@ import {
   AgentStoreItem,
   AgentDependencyCheckResponse
 } from '@/types';
-import { STORAGE_KEYS } from '@/constants';
 import type { ToolStoreCategory } from '@/types';
+import { STORAGE_KEYS } from '@/constants';
 
-// 获取商店 API 地址
-const getStoreBaseUrl = () => {
-  // 如果没有环境变量配置，默认直接请求商店后端 (Port 8095)
-  return (window as any).ENV?.VITE_STORE_API_URL || (window as any).ENV?.VITE_TOOLSTORE_API_URL || 'http://localhost:8095/api/v1';
-};
+// 获取商店 API 地址 (通过 tgo-api 代理)
+const PROXY_PATH = '/v1/store/proxy';
 
-const storeClient = axios.create({
-  baseURL: getStoreBaseUrl(),
-});
-
-// 请求拦截器：注入 Access Token
-storeClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+// 获取商店的 access token（从 localStorage 中的 Zustand 存储读取）
+const getStoreAccessToken = (): string | null => {
+  try {
     const authDataStr = localStorage.getItem(STORAGE_KEYS.TOOLSTORE_AUTH);
     if (authDataStr) {
-      try {
-        const authData = JSON.parse(authDataStr);
-        const token = authData.state?.accessToken;
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-      } catch (e) {
-        console.error('Failed to parse store auth data', e);
-      }
+      const authData = JSON.parse(authDataStr);
+      return authData.state?.accessToken || null;
     }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// 响应拦截器：处理 401 并尝试刷新 Token
-storeClient.interceptors.response.use(
-  (response: AxiosResponse) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    
-    // 如果是 401 且不是刷新 token 的请求
-    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/refresh')) {
-      originalRequest._retry = true;
-      
-      try {
-        const authDataStr = localStorage.getItem(STORAGE_KEYS.TOOLSTORE_AUTH);
-        if (authDataStr) {
-          const authData = JSON.parse(authDataStr);
-          const refreshToken = authData.state?.refreshToken;
-          
-          if (refreshToken) {
-            // 调用刷新接口
-            const response = await storeApi.refreshToken(refreshToken);
-            
-            // 更新本地存储（Zustand 会自动处理，但拦截器需要同步获取新 token）
-            authData.state.accessToken = response.access_token;
-            authData.state.refreshToken = response.refresh_token;
-            localStorage.setItem(STORAGE_KEYS.TOOLSTORE_AUTH, JSON.stringify(authData));
-            
-            // 重试原请求
-            originalRequest.headers.Authorization = `Bearer ${response.access_token}`;
-            return storeClient(originalRequest);
-          }
-        }
-      } catch (refreshError) {
-        // 刷新失败，清除登录状态
-        localStorage.removeItem(STORAGE_KEYS.TOOLSTORE_AUTH);
-        window.dispatchEvent(new Event('store-unauthorized'));
-        return Promise.reject(refreshError);
-      }
-    }
-    
-    return Promise.reject(error);
+  } catch (e) {
+    console.error('Failed to get store access token', e);
   }
-);
+  return null;
+};
+
+// 获取 API base URL
+const getApiBaseUrl = (): string => {
+  // 优先使用运行时配置 (由 docker-entrypoint.sh 设置)
+  if (typeof window !== 'undefined' && (window as any).ENV?.VITE_API_BASE_URL) {
+    return (window as any).ENV.VITE_API_BASE_URL;
+  }
+  // 其次使用构建时环境变量
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  return '/api';
+};
+
+// 带商店认证的请求函数
+const storeAuthFetch = async <T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> => {
+  const url = `${getApiBaseUrl()}${endpoint}`;
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  // 添加 TGO API 的 token
+  const tgoToken = localStorage.getItem('tgo-auth-token');
+  if (tgoToken) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${tgoToken}`;
+  }
+
+  // 添加商店的 token 作为自定义头
+  const storeToken = getStoreAccessToken();
+  if (storeToken) {
+    (headers as Record<string, string>)['X-Store-Authorization'] = `Bearer ${storeToken}`;
+  }
+
+  const response = await fetch(url, { ...options, headers });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `HTTP ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return {} as T;
+  }
+
+  return response.json();
+};
 
 export const storeApi = {
   // --- 认证相关 ---
   
   login: async (credentials: { username: string; password: string }): Promise<ToolStoreLoginResponse> => {
-    const formData = new URLSearchParams();
-    formData.append('username', credentials.username);
-    formData.append('password', credentials.password);
-    
-    const response = await storeClient.post<ToolStoreLoginResponse>('/auth/login', formData, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    const response = await storeAuthFetch<ToolStoreLoginResponse>(`${PROXY_PATH}/auth/login`, {
+      method: 'POST',
+      body: JSON.stringify({
+        username: credentials.username,
+        password: credentials.password,
+      }),
     });
 
     // 登录成功后自动绑定到当前项目
     try {
       await apiClient.post('/v1/store/bind', {
-        access_token: response.data.access_token
+        access_token: response.access_token
       });
     } catch (e) {
       console.error('Failed to bind Store credential automatically', e);
     }
 
-    return response.data;
+    return response;
   },
 
   exchangeCode: async (code: string, codeVerifier: string): Promise<ToolStoreLoginResponse> => {
-    const response = await storeClient.post<ToolStoreLoginResponse>('/auth/exchange', null, {
-      params: { code, code_verifier: codeVerifier }
+    const response = await storeAuthFetch<ToolStoreLoginResponse>(`${PROXY_PATH}/auth/exchange?code=${code}&code_verifier=${codeVerifier}`, {
+      method: 'POST',
     });
 
     // 交换成功后自动绑定到当前项目
     try {
       await apiClient.post('/v1/store/bind', {
-        access_token: response.data.access_token
+        access_token: response.access_token
       });
     } catch (e) {
       console.error('Failed to bind Store credential automatically', e);
     }
 
-    return response.data;
+    return response;
   },
 
   refreshToken: async (refreshToken: string): Promise<ToolStoreRefreshResponse> => {
-    const response = await storeClient.post<ToolStoreRefreshResponse>(`/auth/refresh?refresh_token=${refreshToken}`);
-    return response.data;
+    const response = await storeAuthFetch<ToolStoreRefreshResponse>(`${PROXY_PATH}/auth/refresh?refresh_token=${refreshToken}`, {
+      method: 'POST',
+    });
+    return response;
   },
 
   logout: async (refreshToken: string): Promise<void> => {
-    await storeClient.post(`/auth/logout?refresh_token=${refreshToken}`);
+    await storeAuthFetch(`${PROXY_PATH}/auth/logout?refresh_token=${refreshToken}`, {
+      method: 'POST',
+    });
   },
 
   getMe: async () => {
-    const response = await storeClient.get('/auth/me');
-    return response.data;
+    const response = await storeAuthFetch<any>(`${PROXY_PATH}/auth/me`, {
+      method: 'GET',
+    });
+    return response;
   },
 
   // --- 工具相关 ---
 
   getToolCategories: async (): Promise<ToolStoreCategory[]> => {
-    const response = await storeClient.get<ToolStoreCategory[]>('/tools/categories');
-    return response.data;
+    const response = await storeAuthFetch<ToolStoreCategory[]>(`${PROXY_PATH}/tools/categories`, {
+      method: 'GET',
+    });
+    return response;
   },
 
   getTools: async (params?: { category?: string; search?: string; skip?: number; limit?: number }) => {
-    const response = await storeClient.get<{ items: ToolStoreItem[]; total: number }>('/tools', { params });
-    return response.data;
+    const filteredParams = Object.fromEntries(
+      Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== 'undefined' && v !== '')
+    );
+    const query = Object.keys(filteredParams).length > 0 
+      ? `?${new URLSearchParams(filteredParams as any).toString()}` 
+      : '';
+    const response = await storeAuthFetch<{ items: ToolStoreItem[]; total: number }>(`${PROXY_PATH}/tools${query}`, {
+      method: 'GET',
+    });
+    return response;
   },
 
   getTool: async (id: string) => {
-    const response = await storeClient.get<ToolStoreItem>(`/tools/${id}`);
-    return response.data;
+    const response = await storeAuthFetch<ToolStoreItem>(`${PROXY_PATH}/tools/${id}`, {
+      method: 'GET',
+    });
+    return response;
   },
 
   installTool: async (id: string) => {
@@ -169,23 +181,37 @@ export const storeApi = {
   // --- 模型相关 ---
 
   getModelCategories: async (): Promise<any[]> => {
-    const response = await storeClient.get<any[]>('/models/categories');
-    return response.data;
+    const response = await storeAuthFetch<any[]>(`${PROXY_PATH}/models/categories`, {
+      method: 'GET',
+    });
+    return response;
   },
 
   getModels: async (params?: { category?: string; provider?: string; provider_id?: string; search?: string; skip?: number; limit?: number }) => {
-    const response = await storeClient.get<{ items: any[]; total: number }>('/models', { params });
-    return response.data;
+    const filteredParams = Object.fromEntries(
+      Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== 'undefined' && v !== '')
+    );
+    const query = Object.keys(filteredParams).length > 0 
+      ? `?${new URLSearchParams(filteredParams as any).toString()}` 
+      : '';
+    const response = await storeAuthFetch<{ items: any[]; total: number }>(`${PROXY_PATH}/models${query}`, {
+      method: 'GET',
+    });
+    return response;
   },
 
   getModelsByProvider: async (providerId: string) => {
-    const response = await storeClient.get<{ items: any[]; total: number }>('/models', { params: { provider_id: providerId, limit: 100 } });
-    return response.data.items || [];
+    const response = await storeAuthFetch<{ items: any[]; total: number }>(`${PROXY_PATH}/models?provider_id=${providerId}&limit=100`, {
+      method: 'GET',
+    });
+    return (response as any).items || [];
   },
 
   getModel: async (id: string) => {
-    const response = await storeClient.get<any>(`/models/${id}`);
-    return response.data;
+    const response = await storeAuthFetch<any>(`${PROXY_PATH}/models/${id}`, {
+      method: 'GET',
+    });
+    return response;
   },
 
   installModel: async (id: string) => {
@@ -209,18 +235,30 @@ export const storeApi = {
   // --- 员工模板相关 ---
 
   getAgentCategories: async (): Promise<any[]> => {
-    const response = await storeClient.get<any[]>('/agents/categories');
-    return response.data;
+    const response = await storeAuthFetch<any[]>(`${PROXY_PATH}/agents/categories`, {
+      method: 'GET',
+    });
+    return response;
   },
 
   getAgents: async (params?: { category?: string; search?: string; skip?: number; limit?: number }) => {
-    const response = await storeClient.get<{ items: any[]; total: number }>('/agents', { params });
-    return response.data;
+    const filteredParams = Object.fromEntries(
+      Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== 'undefined' && v !== '')
+    );
+    const query = Object.keys(filteredParams).length > 0 
+      ? `?${new URLSearchParams(filteredParams as any).toString()}` 
+      : '';
+    const response = await storeAuthFetch<{ items: any[]; total: number }>(`${PROXY_PATH}/agents${query}`, {
+      method: 'GET',
+    });
+    return response;
   },
 
   getAgent: async (id: string): Promise<AgentStoreItem> => {
-    const response = await storeClient.get<AgentStoreItem>(`/agents/${id}`);
-    return response.data;
+    const response = await storeAuthFetch<AgentStoreItem>(`${PROXY_PATH}/agents/${id}`, {
+      method: 'GET',
+    });
+    return response;
   },
 
   checkAgentDependencies: async (id: string): Promise<AgentDependencyCheckResponse> => {
@@ -238,6 +276,11 @@ export const storeApi = {
 
   uninstallAgent: async (id: string) => {
     const response = await apiClient.delete<any>(`/v1/store/uninstall-agent/${id}`);
+    return response;
+  },
+
+  getStoreConfig: async () => {
+    const response = await apiClient.get<{ store_web_url: string; store_api_url: string }>('/v1/store/config');
     return response;
   },
 };

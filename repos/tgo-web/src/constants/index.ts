@@ -97,7 +97,7 @@ export const STORAGE_KEYS = {
   TOOLSTORE_REFRESH_TOKEN: 'toolstore-refresh-token',
 } as const;
 
-/** Tool Store URLs */
+/** Tool Store URLs (Deprecated: Use storeApi.getStoreConfig() instead) */
 export const TOOL_STORE_URLS = {
   WEB: (window as any).ENV?.VITE_TOOLSTORE_WEB_URL || 'http://localhost:3002',
   API: (window as any).ENV?.VITE_TOOLSTORE_API_URL || 'http://localhost:8095',

@@ -3207,6 +3207,7 @@
       "loginSyncDesc": "登录成功后，此窗口将自动同步您的状态。",
       "loginSecurityDesc": "为了确保您的账户安全，我们将在新窗口中打开登录页面。",
       "logout": "退出登录",
+      "recharge": "充值",
       "balance": "余额",
       "popupBlocked": "弹出窗口被浏览器拦截，请允许弹出窗口再试",
       "cancelInstall": "稍后再说",

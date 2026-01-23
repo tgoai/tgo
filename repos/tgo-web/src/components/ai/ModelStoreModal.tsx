@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Filter, Loader2, Sparkles, Brain, Grid3X3, LogOut, Cpu, Database, Image, Mic } from 'lucide-react';
+import { X, Search, Filter, Loader2, Sparkles, Brain, Grid3X3, LogOut, Cpu, Database, Image, Mic, CreditCard } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ModelStoreCard from './ModelStoreCard';
 import ModelStoreDetail from './ModelStoreDetail';
@@ -211,6 +211,17 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
     }
   };
 
+  const handleRecharge = async () => {
+    try {
+      const config = await storeApi.getStoreConfig();
+      const rechargeUrl = `${config.store_web_url}/account?recharge=true`;
+      window.open(rechargeUrl, '_blank');
+    } catch (e) {
+      // 降级使用默认地址
+      window.open('https://store.tgo.ai/account?recharge=true', '_blank');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -272,9 +283,9 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
           </aside>
 
           {/* Main Area */}
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 relative">
             {/* Header */}
-            <header className="px-8 py-6 flex items-center justify-between gap-6 border-b border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl">
+            <header className="px-8 py-6 flex items-center justify-between gap-6 border-b border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl sticky top-0 z-20">
               <div className="relative flex-1 max-w-2xl group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                 <input 
@@ -320,13 +331,22 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
                       >
                         {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase()}
                       </div>
-                      <button 
-                        onClick={() => logout()}
-                        className="absolute top-full right-0 mt-2 p-2 bg-white dark:bg-gray-800 shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex items-center gap-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 whitespace-nowrap z-50"
-                      >
-                        <LogOut className="w-3.5 h-3.5" />
-                        {t('tools.store.logout')}
-                      </button>
+                      <div className="absolute top-full right-0 mt-2 p-1 bg-white dark:bg-gray-800 shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col gap-1 z-50 min-w-[120px]">
+                        <button 
+                          onClick={handleRecharge}
+                          className="w-full p-2 flex items-center gap-2 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          {t('tools.store.recharge', '充值')}
+                        </button>
+                        <button 
+                          onClick={() => logout()}
+                          className="w-full p-2 flex items-center gap-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          {t('tools.store.logout')}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

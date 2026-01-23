@@ -48,7 +48,7 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
         const models = await storeApi.getModelsByProvider(provider.storeResourceId);
         // Mark installed status
         const currentModels = provider.models || [];
-        setRemoteModels(models.map(m => ({
+        setRemoteModels(models.map((m: any) => ({
           ...m,
           is_installed: currentModels.includes(m.name)
         })));

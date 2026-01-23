@@ -21,7 +21,6 @@ const getApiBaseUrl = (): string => {
 };
 
 const API_BASE_URL = getApiBaseUrl();
-console.log("API_BASE_URL----->",API_BASE_URL)
 
 /**
  * Get current user language for API requests

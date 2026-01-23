@@ -2331,6 +2331,7 @@
       "loginSyncDesc": "Once logged in, this window will automatically sync your status.",
       "loginSecurityDesc": "To ensure your account security, we will open the login page in a new window.",
       "logout": "Logout",
+      "recharge": "Top Up",
       "balance": "Balance",
       "popupBlocked": "Pop-up window blocked by browser, please allow pop-ups and try again",
       "cancelInstall": "Not Now",
