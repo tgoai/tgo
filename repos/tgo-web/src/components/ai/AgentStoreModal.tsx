@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Bot } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AgentStoreCard from './AgentStoreCard';
@@ -47,7 +47,7 @@ const AgentStoreModal: React.FC<AgentStoreModalProps> = ({ isOpen, onClose, onIn
   const { agents: localAgents, loadAgents } = useAIStore();
   const { isAuthenticated, bindToProject } = useStoreAuthStore();
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     const data = await storeApi.getAgentCategories();
     return [
       { 
@@ -59,7 +59,7 @@ const AgentStoreModal: React.FC<AgentStoreModalProps> = ({ isOpen, onClose, onIn
       },
       ...data
     ];
-  };
+  }, []);
 
   const {
     searchQuery,

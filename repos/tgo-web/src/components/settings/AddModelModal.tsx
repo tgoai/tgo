@@ -22,8 +22,8 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
   const [loading, setLoading] = useState(false);
   const [remoteModels, setRemoteModels] = useState<any[]>([]);
   const [modelId, setModelId] = useState('');
-  const [modelType, setModelType] = useState('chat');
-  const [selectedModels, setSelectedModels] = useState<Array<{ id: string; type: string }>>([]);
+  const [modelType, setModelType] = useState<'chat' | 'embedding'>('chat');
+  const [selectedModels, setSelectedModels] = useState<Array<{ id: string; type: 'chat' | 'embedding' }>>([]);
   const [saving, setSaving] = useState(false);
 
   const isStore = provider?.isFromStore;
@@ -106,7 +106,7 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
     }
   };
 
-  const toggleModel = (id: string, type: string) => {
+  const toggleModel = (id: string, type: 'chat' | 'embedding') => {
     setSelectedModels(prev => {
       const exists = prev.find(m => m.id === id);
       if (exists) {
@@ -138,7 +138,7 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
             <label className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('settings.providers.fields.modelType')}</label>
             <Select
               value={modelType}
-              onChange={setModelType}
+              onChange={(val) => setModelType(val as 'chat' | 'embedding')}
               options={[
                 { value: 'chat', label: t('settings.providers.modelTypes.chat') },
                 { value: 'embedding', label: t('settings.providers.modelTypes.embedding') },

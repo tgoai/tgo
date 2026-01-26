@@ -30,10 +30,29 @@ const StoreLoginModal: React.FC<StoreLoginModalProps> = ({ isOpen, onClose }) =>
   }, [exchangeCode, onClose, showToast, t]);
 
   const handleOpenLogin = async () => {
+    // 1. 先同步打开空白窗口（不会被拦截）
+    const width = 520;
+    const height = 680;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    
+    const popup = window.open(
+      'about:blank', 
+      'toolstore_login', 
+      `width=${width},height=${height},left=${left},top=${top},popup=yes`
+    );
+
+    if (!popup) {
+      showToast('error', t('common.error'), t('tools.store.popupBlocked'));
+      return;
+    }
+
     try {
+      // 2. 异步获取配置
       const config = await storeApi.getStoreConfig();
       const storeWebUrl = config.store_web_url || 'http://localhost:3002';
 
+      // 3. 生成 PKCE 参数
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = await generateCodeChallenge(codeVerifier);
       const state = crypto.randomUUID();
@@ -44,25 +63,13 @@ const StoreLoginModal: React.FC<StoreLoginModalProps> = ({ isOpen, onClose }) =>
       const loginUrl = `${storeWebUrl}/auth/callback?` +
         `state=${state}&code_challenge=${codeChallenge}`;
       
-      const width = 520;
-      const height = 680;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
+      console.log('[StoreLoginModal] Navigating popup to:', loginUrl);
       
-      console.log('[StoreLoginModal] Opening login window:', loginUrl);
-      
-      // 明确指定 rel=opener 以确保跨域时 window.opener 不被置空
-      const popup = window.open(
-        loginUrl, 
-        'toolstore_login', 
-        `width=${width},height=${height},left=${left},top=${top},popup=yes`
-      );
-
-      if (!popup) {
-        showToast('error', t('common.error'), t('tools.store.popupBlocked'));
-      }
+      // 4. 更新已打开窗口的 URL
+      popup.location.href = loginUrl;
     } catch (error) {
       console.error('[StoreLoginModal] Failed to initiate login:', error);
+      popup.close(); // 出错时关闭窗口
       showToast('error', t('common.error'), t('tools.store.model.initLoginFailed'));
     }
   };

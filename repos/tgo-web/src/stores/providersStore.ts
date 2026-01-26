@@ -44,7 +44,7 @@ export interface ProvidersState {
   addProvider: (data: Omit<ModelProviderConfig, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateProvider: (id: string, patch: Partial<ModelProviderConfig>) => Promise<void>;
   removeProvider: (id: string) => Promise<void>;
-  addModelToProvider: (providerId: string, models: Array<{ model_id: string; model_type: string }>) => Promise<void>;
+  addModelToProvider: (providerId: string, models: Array<{ model_id: string; model_type: 'chat' | 'embedding' }>) => Promise<void>;
   removeModelFromProvider: (providerId: string, modelId: string) => Promise<void>;
   clearAll: () => void;
 }
@@ -160,7 +160,7 @@ export const useProvidersStore = create<ProvidersState>()(
         
         // Merge with type info for new models, and assume 'chat' for existing ones if type unknown
         // Backend update_ai_provider will handle this
-        const available_models = [
+        const available_models: any[] = [
           ...existingModelIds.map(id => ({ model_id: id, model_type: 'chat' as const })),
           ...models.filter(m => !existingModelIds.includes(m.model_id))
         ];

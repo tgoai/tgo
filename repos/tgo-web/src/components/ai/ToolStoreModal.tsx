@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ToolStoreCard from './ToolStoreCard';
@@ -37,7 +37,7 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
   const { aiTools, loadTools } = useProjectToolsStore();
   const { isAuthenticated, bindToProject } = useStoreAuthStore();
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     const data = await storeApi.getToolCategories();
     return [
       { 
@@ -57,7 +57,7 @@ const ToolStoreModal: React.FC<ToolStoreModalProps> = ({ isOpen, onClose }) => {
         label: cat.name_zh
       }))
     ];
-  };
+  }, []);
 
   const {
     searchQuery,

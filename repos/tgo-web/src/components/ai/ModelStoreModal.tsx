@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ModelStoreCard from './ModelStoreCard';
@@ -39,7 +39,7 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
   const { loadProviders } = useProvidersStore();
   const { isAuthenticated, bindToProject } = useStoreAuthStore();
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     const data = await storeApi.getModelCategories();
     return [
       { 
@@ -57,7 +57,7 @@ const ModelStoreModal: React.FC<ModelStoreModalProps> = ({ isOpen, onClose }) =>
         icon: cat.icon || 'Cpu'
       }))
     ];
-  };
+  }, [t]);
 
   const {
     searchQuery,
