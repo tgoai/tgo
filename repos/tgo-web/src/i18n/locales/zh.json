@@ -565,6 +565,7 @@
         "modelId": "模型 ID"
       },
       "suggestedModels": "推荐模型",
+      "noStoreModels": "商店中暂无此类模型",
       "modelType": {
         "chat": "聊天模型",
         "embedding": "嵌入模型"
@@ -2843,6 +2844,8 @@
       "actions": "操作",
       "processed": "已处理",
       "processing": "处理中",
+      "chunking": "分段中",
+      "embedding": "生成向量中",
       "error": "错误",
       "pending": "等待处理",
       "archived": "已归档",

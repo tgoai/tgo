@@ -51,16 +51,17 @@ async def sync_llm_providers(
             [p.model_dump() for p in request.providers],
         )
     except SQLAlchemyError as exc:
-        logger.error("Database error during LLM provider sync", exc_info=exc)
+        logger.error(f"Database error during LLM provider sync: {str(exc)}", exc_info=exc)
+        # If it's a conflict or other DB error, we want to see it
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to sync LLM providers: database error",
+            detail=f"Failed to sync LLM providers: database error - {str(exc)}",
         )
     except Exception as exc:
-        logger.error("Unexpected error during LLM provider sync", exc_info=exc)
+        logger.error(f"Unexpected error during LLM provider sync: {str(exc)}", exc_info=exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to sync LLM providers: unexpected error",
+            detail=f"Failed to sync LLM providers: unexpected error - {str(exc)}",
         )
 
     if len(providers) != len(request.providers):

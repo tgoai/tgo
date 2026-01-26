@@ -66,11 +66,25 @@ class LLMModelService:
         if isinstance(provider_id, str):
             provider_id = uuid.UUID(provider_id)
             
-        existing = await self.get_model_by_id(id)
         now = datetime.now(timezone.utc)
+
+        # 1. Try to find by primary key ID first
+        existing = await self.get_model_by_id(id)
+        
+        # 2. If not found by ID, try to find by (provider_id, model_id) to avoid unique constraint violation
+        if not existing:
+            stmt = select(LLMModel).where(
+                LLMModel.provider_id == provider_id,
+                LLMModel.model_id == model_id,
+                LLMModel.deleted_at.is_(None)
+            )
+            result = await self.db.execute(stmt)
+            existing = result.scalar_one_or_none()
 
         if existing:
             # Update in place
+            # If we found it by (provider_id, model_id) but the ID is different, 
+            # we should keep the existing ID to avoid conflicts
             existing.provider_id = provider_id
             existing.model_id = model_id
             existing.model_name = model_name
@@ -109,6 +123,7 @@ class LLMModelService:
     async def sync_models(
         self,
         models: Iterable[dict],
+        commit: bool = True,
     ) -> List[LLMModel]:
         """Bulk upsert models.
         
@@ -130,7 +145,8 @@ class LLMModelService:
                 store_resource_id=payload.get("store_resource_id"),
             )
             synced.append(model)
-        await self.db.commit()
+        if commit:
+            await self.db.commit()
         return synced
 
     async def deactivate_model(

@@ -231,6 +231,10 @@ const transformFileStatus = (status: string): string => {
       return i18n.t('knowledge.detail.pending', { defaultValue: '等待处理' });
     case 'processing':
       return i18n.t('knowledge.detail.processing', { defaultValue: '处理中' });
+    case 'chunking_documents':
+      return i18n.t('knowledge.detail.chunking', { defaultValue: '分段中' });
+    case 'generating_embeddings':
+      return i18n.t('knowledge.detail.embedding', { defaultValue: '生成向量中' });
     case 'completed':
       return i18n.t('knowledge.detail.processed', { defaultValue: '已处理' });
     case 'failed':
@@ -251,6 +255,8 @@ const transformFileStatusType = (status: string): 'success' | 'processing' | 'er
       return 'success';
     case 'processing':
     case 'pending':
+    case 'chunking_documents':
+    case 'generating_embeddings':
       return 'processing';
     case 'failed':
       return 'error';

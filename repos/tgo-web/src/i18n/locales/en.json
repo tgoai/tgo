@@ -565,6 +565,7 @@
         "modelId": "Model ID"
       },
       "suggestedModels": "Suggested Models",
+      "noStoreModels": "No such models available in store",
       "modelType": {
         "chat": "Chat Model",
         "embedding": "Embedding Model"
@@ -1650,6 +1651,8 @@
       "actions": "Actions",
       "processed": "Processed",
       "processing": "Processing",
+      "chunking": "Chunking",
+      "embedding": "Embedding",
       "error": "Error",
       "pending": "Pending",
       "archived": "Archived",

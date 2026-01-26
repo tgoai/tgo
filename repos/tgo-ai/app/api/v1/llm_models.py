@@ -47,16 +47,16 @@ async def sync_llm_models(
             [m.model_dump() for m in request.models],
         )
     except SQLAlchemyError as exc:
-        logger.error("Database error during LLM model sync", exc_info=exc)
+        logger.error(f"Database error during LLM model sync: {str(exc)}", exc_info=exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to sync LLM models: database error",
+            detail=f"Failed to sync LLM models: database error - {str(exc)}",
         )
     except Exception as exc:
-        logger.error("Unexpected error during LLM model sync", exc_info=exc)
+        logger.error(f"Unexpected error during LLM model sync: {str(exc)}", exc_info=exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to sync LLM models: unexpected error",
+            detail=f"Failed to sync LLM models: unexpected error - {str(exc)}",
         )
 
     return LLMModelSyncResponse(data=[LLMModelResponse.from_orm_model(m) for m in models])
