@@ -489,6 +489,11 @@ async def enable_platform(
     if not platform:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Platform not found")
 
+    # For wechat_personal, create Vision Agent session BEFORE enabling
+    # This ensures the platform is only enabled if session creation succeeds
+    if platform.type == "wechat_personal":
+        await _create_vision_session(platform, db)
+
     platform.is_active = True
     platform.updated_at = datetime.utcnow()
     db.commit()
@@ -536,6 +541,10 @@ async def disable_platform(
     # Notify tgo-platform to stop Slack Socket Mode handler
     if platform.type == "slack":
         await _notify_slack_platform_stop(str(platform.id))
+
+    # Stop Vision Agent session for wechat_personal platform
+    if platform.type == "wechat_personal":
+        await _stop_vision_session(platform, db)
 
     platform.is_active = False
     platform.updated_at = datetime.utcnow()
@@ -667,6 +676,230 @@ async def _notify_slack_platform_stop(platform_id: str) -> None:
         logger.warning("Error notifying tgo-platform for Slack stop: %s", str(e))
 
 
+# ============== Vision Agent (wechat_personal) helper functions ==============
+
+async def _create_vision_session(platform: Platform, db: Session) -> dict[str, Any]:
+    """Create a Vision Agent session for wechat_personal platform.
+    
+    Calls tgo-vision-agent POST /v1/sessions to create an AgentBay session
+    with dual-model configuration (vision + reasoning models).
+    On success, stores session_id in platform.config and returns session info.
+    On failure, raises HTTPException to prevent platform from being enabled.
+    """
+    config = platform.config or {}
+    agentbay_api_key = config.get("agentbay_api_key")
+    
+    if not agentbay_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="启用失败：请先配置 AgentBay API Key"
+        )
+    
+    # Validate vision model configuration
+    vision_provider_id = config.get("vision_provider_id")
+    vision_model_id = config.get("vision_model_id")
+    if not vision_provider_id or not vision_model_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="启用失败：请先配置视觉模型"
+        )
+    
+    # Validate reasoning model configuration
+    reasoning_provider_id = config.get("reasoning_provider_id")
+    reasoning_model_id = config.get("reasoning_model_id")
+    if not reasoning_provider_id or not reasoning_model_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="启用失败：请先配置推理模型"
+        )
+    
+    # Build request payload with dual-model configuration
+    payload = {
+        "platform_id": str(platform.id),
+        "app_type": "wechat",
+        "environment_type": config.get("environment_type", "mobile"),
+        "image_id": config.get("image_id") or None,
+        "agentbay_api_key": agentbay_api_key,
+        "vision_provider_id": vision_provider_id,
+        "vision_model_id": vision_model_id,
+        "reasoning_provider_id": reasoning_provider_id,
+        "reasoning_model_id": reasoning_model_id,
+    }
+    
+    vision_agent_url = settings.VISION_AGENT_SERVICE_URL
+    timeout = settings.VISION_AGENT_SERVICE_TIMEOUT
+    
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(
+                f"{vision_agent_url.rstrip('/')}/v1/sessions",
+                json=payload
+            )
+            
+            if response.status_code in (200, 201):
+                result = response.json()
+                session_id = result.get("session_id") or result.get("id")
+                
+                # Update platform config with session info
+                new_config = dict(config)
+                new_config["session_id"] = session_id
+                new_config["login_status"] = result.get("app_login_status", "offline")
+                platform.config = new_config
+                db.commit()
+                
+                logger.info(
+                    "Vision session created for platform %s: session_id=%s",
+                    str(platform.id), session_id
+                )
+                return result
+            else:
+                # Try to parse error detail from response
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("detail") or error_data.get("message") or response.text[:200]
+                except Exception:
+                    error_msg = response.text[:200] if response.text else "未知错误"
+                
+                logger.error(
+                    "Failed to create vision session for platform %s: %s (status=%d)",
+                    str(platform.id), error_msg, response.status_code
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"创建 Vision Agent 会话失败：{error_msg}"
+                )
+                
+    except HTTPException:
+        raise  # Re-raise HTTPException as-is
+    except httpx.TimeoutException:
+        logger.error(
+            "Timeout creating vision session for platform %s",
+            str(platform.id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="创建 Vision Agent 会话超时，请检查服务是否正常运行"
+        )
+    except httpx.ConnectError:
+        logger.error(
+            "Connection error creating vision session for platform %s",
+            str(platform.id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="无法连接到 Vision Agent 服务，请检查服务是否已启动"
+        )
+    except Exception as e:
+        logger.error(
+            "Error creating vision session for platform %s: %s",
+            str(platform.id), str(e)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"创建 Vision Agent 会话时发生错误：{str(e)}"
+        )
+
+
+async def _stop_vision_session(platform: Platform, db: Session) -> bool:
+    """Stop the Vision Agent session for wechat_personal platform.
+    
+    Calls tgo-vision-agent POST /v1/sessions/{session_id}/stop to stop workers.
+    Clears login_status in platform.config.
+    Returns True on success, False on failure.
+    """
+    config = platform.config or {}
+    session_id = config.get("session_id")
+    
+    if not session_id:
+        logger.info(
+            "Vision platform %s disabled but no session_id found, skipping stop",
+            str(platform.id)
+        )
+        return True
+    
+    vision_agent_url = settings.VISION_AGENT_SERVICE_URL
+    timeout = settings.VISION_AGENT_SERVICE_TIMEOUT
+    
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(
+                f"{vision_agent_url.rstrip('/')}/v1/sessions/{session_id}/stop"
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(
+                    "Vision session stopped for platform %s: %s",
+                    str(platform.id), result.get("status", "stopped")
+                )
+            else:
+                logger.warning(
+                    "Failed to stop vision session for platform %s: status=%d",
+                    str(platform.id), response.status_code
+                )
+                
+    except Exception as e:
+        logger.warning(
+            "Error stopping vision session for platform %s: %s",
+            str(platform.id), str(e)
+        )
+    
+    # Clear login_status regardless of stop result
+    new_config = dict(config)
+    new_config["login_status"] = "offline"
+    platform.config = new_config
+    db.commit()
+    
+    return True
+
+
+async def _delete_vision_session(platform: Platform, db: Session) -> bool:
+    """Delete the Vision Agent session completely.
+    
+    Called when platform is deleted or session needs full cleanup.
+    """
+    config = platform.config or {}
+    session_id = config.get("session_id")
+    
+    if not session_id:
+        return True
+    
+    vision_agent_url = settings.VISION_AGENT_SERVICE_URL
+    timeout = settings.VISION_AGENT_SERVICE_TIMEOUT
+    
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.delete(
+                f"{vision_agent_url.rstrip('/')}/v1/sessions/{session_id}"
+            )
+            
+            if response.status_code in (200, 204):
+                logger.info(
+                    "Vision session deleted for platform %s",
+                    str(platform.id)
+                )
+            else:
+                logger.warning(
+                    "Failed to delete vision session for platform %s: status=%d",
+                    str(platform.id), response.status_code
+                )
+                
+    except Exception as e:
+        logger.warning(
+            "Error deleting vision session for platform %s: %s",
+            str(platform.id), str(e)
+        )
+    
+    # Clear session info from config
+    new_config = dict(config)
+    new_config.pop("session_id", None)
+    new_config["login_status"] = "offline"
+    platform.config = new_config
+    db.commit()
+    
+    return True
+
+
 @router.post("/{platform_id}/enable-ai", response_model=PlatformResponse)
 async def enable_ai_for_platform(
     platform_id: UUID,
@@ -729,6 +962,313 @@ async def disable_ai_for_platform(
 
     logger.info("Platform %s AI disabled (ai_mode=off) by user %s", str(platform.id), current_user.username)
     return _build_platform_response(platform, language=x_user_language)
+
+
+# ============== Vision Agent status endpoints ==============
+
+from pydantic import BaseModel
+from typing import Optional
+
+
+class VisionStatusResponse(BaseModel):
+    """Response model for vision agent status."""
+    platform_id: str
+    session_id: Optional[str] = None
+    session_status: str  # active, paused, terminated, not_found
+    login_status: str  # logged_in, qr_pending, offline, expired
+    qr_code_base64: Optional[str] = None
+    last_heartbeat: Optional[str] = None
+    message_poll_active: bool = False
+    error: Optional[str] = None
+
+
+class VisionScreenshotResponse(BaseModel):
+    """Response model for vision agent screenshot."""
+    platform_id: str
+    session_id: Optional[str] = None
+    base64_image: Optional[str] = None
+    timestamp: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    error: Optional[str] = None
+
+
+@router.get("/{platform_id}/vision-status", response_model=VisionStatusResponse)
+async def get_vision_status(
+    platform_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: Staff = Depends(require_permission("platforms:read")),
+) -> VisionStatusResponse:
+    """Get Vision Agent session status for a wechat_personal platform.
+    
+    Returns current session status, login status, QR code (if pending), and last heartbeat.
+    Requires platforms:read permission.
+    """
+    platform = (
+        db.query(Platform)
+        .filter(
+            Platform.id == platform_id,
+            Platform.project_id == current_user.project_id,
+            Platform.deleted_at.is_(None),
+        )
+        .first()
+    )
+    
+    if not platform:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Platform not found")
+    
+    if platform.type != "wechat_personal":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vision status only available for wechat_personal platforms"
+        )
+    
+    config = platform.config or {}
+    session_id = config.get("session_id")
+    
+    # Default response when no session exists
+    if not session_id:
+        return VisionStatusResponse(
+            platform_id=str(platform_id),
+            session_id=None,
+            session_status="not_found",
+            login_status=config.get("login_status", "offline"),
+            qr_code_base64=None,
+            last_heartbeat=None,
+            message_poll_active=False,
+            error=None,
+        )
+    
+    # Call vision-agent to get status
+    vision_agent_url = settings.VISION_AGENT_SERVICE_URL
+    timeout = settings.VISION_AGENT_SERVICE_TIMEOUT
+    
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(
+                f"{vision_agent_url.rstrip('/')}/v1/sessions/{session_id}/status"
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return VisionStatusResponse(
+                    platform_id=str(platform_id),
+                    session_id=session_id,
+                    session_status=result.get("status", "unknown"),
+                    login_status=result.get("app_login_status", "offline"),
+                    qr_code_base64=result.get("qr_code_base64"),
+                    last_heartbeat=result.get("last_heartbeat"),
+                    message_poll_active=result.get("message_poll_active", False),
+                    error=None,
+                )
+            elif response.status_code == 404:
+                return VisionStatusResponse(
+                    platform_id=str(platform_id),
+                    session_id=session_id,
+                    session_status="not_found",
+                    login_status="offline",
+                    qr_code_base64=None,
+                    last_heartbeat=None,
+                    message_poll_active=False,
+                    error="Session not found in vision-agent",
+                )
+            else:
+                return VisionStatusResponse(
+                    platform_id=str(platform_id),
+                    session_id=session_id,
+                    session_status="error",
+                    login_status=config.get("login_status", "offline"),
+                    qr_code_base64=None,
+                    last_heartbeat=None,
+                    message_poll_active=False,
+                    error=f"Vision agent returned status {response.status_code}",
+                )
+                
+    except httpx.TimeoutException:
+        return VisionStatusResponse(
+            platform_id=str(platform_id),
+            session_id=session_id,
+            session_status="error",
+            login_status=config.get("login_status", "offline"),
+            qr_code_base64=None,
+            last_heartbeat=None,
+            message_poll_active=False,
+            error="Vision agent timeout",
+        )
+    except Exception as e:
+        return VisionStatusResponse(
+            platform_id=str(platform_id),
+            session_id=session_id,
+            session_status="error",
+            login_status=config.get("login_status", "offline"),
+            qr_code_base64=None,
+            last_heartbeat=None,
+            message_poll_active=False,
+            error=str(e),
+        )
+
+
+@router.get("/{platform_id}/vision-screenshot", response_model=VisionScreenshotResponse)
+async def get_vision_screenshot(
+    platform_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: Staff = Depends(require_permission("platforms:read")),
+) -> VisionScreenshotResponse:
+    """Get current screenshot from Vision Agent session.
+    
+    Returns base64-encoded screenshot image from the AgentBay session.
+    Requires platforms:read permission.
+    """
+    platform = (
+        db.query(Platform)
+        .filter(
+            Platform.id == platform_id,
+            Platform.project_id == current_user.project_id,
+            Platform.deleted_at.is_(None),
+        )
+        .first()
+    )
+    
+    if not platform:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Platform not found")
+    
+    if platform.type != "wechat_personal":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vision screenshot only available for wechat_personal platforms"
+        )
+    
+    config = platform.config or {}
+    session_id = config.get("session_id")
+    
+    if not session_id:
+        return VisionScreenshotResponse(
+            platform_id=str(platform_id),
+            session_id=None,
+            base64_image=None,
+            timestamp=None,
+            width=None,
+            height=None,
+            error="No active session",
+        )
+    
+    # Call vision-agent to get screenshot
+    vision_agent_url = settings.VISION_AGENT_SERVICE_URL
+    timeout = settings.VISION_AGENT_SERVICE_TIMEOUT
+    
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(
+                f"{vision_agent_url.rstrip('/')}/v1/screenshots/{session_id}/current",
+                params={"include_base64": "true"}
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return VisionScreenshotResponse(
+                    platform_id=str(platform_id),
+                    session_id=session_id,
+                    base64_image=result.get("base64_image"),
+                    timestamp=result.get("timestamp"),
+                    width=result.get("width"),
+                    height=result.get("height"),
+                    error=None,
+                )
+            elif response.status_code == 404:
+                return VisionScreenshotResponse(
+                    platform_id=str(platform_id),
+                    session_id=session_id,
+                    base64_image=None,
+                    timestamp=None,
+                    width=None,
+                    height=None,
+                    error="Session or screenshot not found",
+                )
+            else:
+                return VisionScreenshotResponse(
+                    platform_id=str(platform_id),
+                    session_id=session_id,
+                    base64_image=None,
+                    timestamp=None,
+                    width=None,
+                    height=None,
+                    error=f"Vision agent returned status {response.status_code}",
+                )
+                
+    except httpx.TimeoutException:
+        return VisionScreenshotResponse(
+            platform_id=str(platform_id),
+            session_id=session_id,
+            base64_image=None,
+            timestamp=None,
+            width=None,
+            height=None,
+            error="Vision agent timeout",
+        )
+    except Exception as e:
+        return VisionScreenshotResponse(
+            platform_id=str(platform_id),
+            session_id=session_id,
+            base64_image=None,
+            timestamp=None,
+            width=None,
+            height=None,
+            error=str(e),
+        )
+
+
+@router.post("/{platform_id}/vision-reconnect", response_model=VisionStatusResponse)
+async def reconnect_vision_session(
+    platform_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: Staff = Depends(require_permission("platforms:update")),
+) -> VisionStatusResponse:
+    """Reconnect/recreate Vision Agent session.
+    
+    Useful when the session is lost or needs to be refreshed.
+    Requires platforms:update permission.
+    """
+    platform = (
+        db.query(Platform)
+        .filter(
+            Platform.id == platform_id,
+            Platform.project_id == current_user.project_id,
+            Platform.deleted_at.is_(None),
+        )
+        .first()
+    )
+    
+    if not platform:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Platform not found")
+    
+    if platform.type != "wechat_personal":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vision reconnect only available for wechat_personal platforms"
+        )
+    
+    if not platform.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Platform must be enabled before reconnecting"
+        )
+    
+    # First, try to delete existing session
+    await _delete_vision_session(platform, db)
+    
+    # Create new session (will raise HTTPException on failure)
+    result = await _create_vision_session(platform, db)
+    
+    return VisionStatusResponse(
+        platform_id=str(platform_id),
+        session_id=result.get("session_id") or result.get("id"),
+        session_status="active",
+        login_status=result.get("app_login_status", "offline"),
+        qr_code_base64=result.get("qr_code_base64"),
+        last_heartbeat=None,
+        message_poll_active=False,
+        error=None,
+    )
 
 
 @router.post("/{platform_id}/logo", response_model=PlatformResponse)

@@ -51,6 +51,9 @@ services:
   tgo-workflow-worker:
     image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-workflow:latest
 
+  tgo-vision-agent:
+    image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-vision-agent:latest
+
   tgo-web:
     image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-web:latest
 

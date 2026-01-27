@@ -8,4 +8,5 @@ from .feishu_bot import FeishuBotAdapter
 from .dingtalk_bot import DingTalkBotAdapter
 from .telegram import TelegramAdapter
 from .slack import SlackAdapter
+from .vision_agent import VisionAgentAdapter
 

@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
+    # Vision Agent service URL (for UI automation platforms like wechat_personal)
+    vision_agent_url: str = "http://tgo-vision-agent:8000"
 
 
 settings = Settings()

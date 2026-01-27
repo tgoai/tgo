@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.db.models import Platform
 from app.domain.entities import NormalizedMessage, ChatCompletionRequest
 from app.domain.ports import TgoApiClient, SSEManager, PlatformAdapter
-from app.domain.services.adapters import SimpleStdoutAdapter, EmailAdapter, WeComAdapter, WeComBotAdapter, FeishuBotAdapter, DingTalkBotAdapter, TelegramAdapter, SlackAdapter
+from app.domain.services.adapters import SimpleStdoutAdapter, EmailAdapter, WeComAdapter, WeComBotAdapter, FeishuBotAdapter, DingTalkBotAdapter, TelegramAdapter, SlackAdapter, VisionAgentAdapter
 
 
 def _expected_output_for(ptype: str) -> str | None:
@@ -25,6 +25,9 @@ def _expected_output_for(ptype: str) -> str | None:
         return "text"  # Telegram supports Markdown but default to text
     if p == "email":
         return "markdown"
+    # Vision Agent platforms (UI automation)
+    if p in ("wechat_personal", "douyin_personal", "xiaohongshu_personal"):
+        return "text"  # Plain text for chat apps
     return None
 
 
@@ -45,6 +48,9 @@ def _default_system_message_for(ptype: str) -> str | None:
         return None
     if p == "telegram":
         return None
+    # Vision Agent platforms - chat style responses
+    if p in ("wechat_personal", "douyin_personal", "xiaohongshu_personal"):
+        return None  # Use default agent system message
     return None
 
 
@@ -150,6 +156,29 @@ async def select_adapter_for_target(msg: NormalizedMessage, platform: Platform) 
         if not (bot_token and channel):
             return SimpleStdoutAdapter()
         return SlackAdapter(bot_token=bot_token, channel=channel, thread_ts=thread_ts)
+    # Vision Agent platforms (UI automation via VLM + AgentBay)
+    if ptype in ("wechat_personal", "douyin_personal", "xiaohongshu_personal"):
+        cfg = platform.config or {}
+        # Vision Agent service URL from platform config, settings, or default
+        vision_agent_url = (
+            cfg.get("vision_agent_url")
+            or getattr(settings, "vision_agent_url", None)
+            or "http://tgo-vision-agent:8000"
+        )
+        # Extract app type from platform type (remove _personal suffix)
+        app_type = ptype.replace("_personal", "")
+        # Contact info from message
+        contact_id = msg.from_uid or ""
+        contact_name = (msg.extra or {}).get("contact_name")
+        if not contact_id:
+            return SimpleStdoutAdapter()
+        return VisionAgentAdapter(
+            vision_agent_url=vision_agent_url,
+            platform_id=str(platform.id),
+            app_type=app_type,
+            contact_id=contact_id,
+            contact_name=contact_name,
+        )
     return SimpleStdoutAdapter()
 
 

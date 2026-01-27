@@ -16,6 +16,16 @@ export interface ProviderParams {
   [key: string]: any;
 }
 
+export interface AIModelConfig {
+  id: string;
+  name: string;
+  type: 'chat' | 'embedding';
+  capabilities?: {
+    vision?: boolean;
+    [key: string]: any;
+  };
+}
+
 export interface ModelProviderConfig {
   id: string;
   kind: ProviderKind;
@@ -24,6 +34,7 @@ export interface ModelProviderConfig {
   apiBaseUrl?: string;
   // Multi-model support
   models?: string[]; // list of model identifiers available under this provider
+  modelConfigs?: AIModelConfig[]; // detailed model configurations
   defaultModel?: string; // must be one of models if models exists
   enabled: boolean;
   params?: ProviderParams;
@@ -44,7 +55,7 @@ export interface ProvidersState {
   addProvider: (data: Omit<ModelProviderConfig, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateProvider: (id: string, patch: Partial<ModelProviderConfig>) => Promise<void>;
   removeProvider: (id: string) => Promise<void>;
-  addModelToProvider: (providerId: string, models: Array<{ model_id: string; model_type: 'chat' | 'embedding' }>) => Promise<void>;
+  addModelToProvider: (providerId: string, models: Array<{ model_id: string; model_type: 'chat' | 'embedding'; capabilities?: any }>) => Promise<void>;
   removeModelFromProvider: (providerId: string, modelId: string) => Promise<void>;
   clearAll: () => void;
 }
@@ -54,6 +65,12 @@ const svc = new AIProvidersApiService();
 function mapDtoToConfig(dto: AIProviderResponseDTO): ModelProviderConfig {
   const kind = AIProvidersApiService.providerKeyToKind(dto.provider);
   const models = (dto.available_models || []).filter(Boolean);
+  const modelConfigs: AIModelConfig[] = (dto.model_configs || []).map(mc => ({
+    id: mc.model_id,
+    name: mc.model_id,
+    type: mc.model_type,
+    capabilities: mc.capabilities
+  }));
   const defaultModel = dto.default_model || (models[0] || undefined);
   const createdAt = Date.parse(dto.created_at) || Date.now();
   const updatedAt = Date.parse(dto.updated_at) || createdAt;
@@ -64,6 +81,7 @@ function mapDtoToConfig(dto: AIProviderResponseDTO): ModelProviderConfig {
     apiKey: '', // backend never returns secret; keep empty unless user edits
     apiBaseUrl: dto.api_base_url || undefined,
     models,
+    modelConfigs,
     defaultModel,
     enabled: !!dto.is_active,
     params: AIProvidersApiService.extractParams(kind, dto.config),
@@ -155,14 +173,24 @@ export const useProvidersStore = create<ProvidersState>()(
         const current = get().providers.find(p => p.id === providerId);
         if (!current) return;
         
-        // Fetch current model IDs
-        const existingModelIds = current.models || [];
+        // Fetch current model configs
+        const existingConfigs = current.modelConfigs || [];
         
-        // Merge with type info for new models, and assume 'chat' for existing ones if type unknown
-        // Backend update_ai_provider will handle this
+        // Merge with new models
+        // If a model ID already exists, we update it with the new model's info (e.g. capabilities)
+        const updatedModelIds = models.map(m => m.model_id);
+        
         const available_models: any[] = [
-          ...existingModelIds.map(id => ({ model_id: id, model_type: 'chat' as const })),
-          ...models.filter(m => !existingModelIds.includes(m.model_id))
+          // Keep existing models that are NOT being updated
+          ...existingConfigs
+            .filter(mc => !updatedModelIds.includes(mc.id))
+            .map(mc => ({ 
+              model_id: mc.id, 
+              model_type: mc.type,
+              capabilities: mc.capabilities
+            })),
+          // Add all models from the input (new or updated)
+          ...models
         ];
         
         const updated = await svc.updateProvider(providerId, {

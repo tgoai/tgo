@@ -75,6 +75,9 @@ class PlatformsApiService extends BaseApiService {
     ENABLE: (id: string) => `/${this.apiVersion}/platforms/${id}/enable`,
     DISABLE: (id: string) => `/${this.apiVersion}/platforms/${id}/disable`,
     UPLOAD_LOGO: (id: string) => `/${this.apiVersion}/platforms/${id}/logo`,
+    VISION_STATUS: (id: string) => `/${this.apiVersion}/platforms/${id}/vision-status`,
+    VISION_SCREENSHOT: (id: string) => `/${this.apiVersion}/platforms/${id}/vision-screenshot`,
+    VISION_RECONNECT: (id: string) => `/${this.apiVersion}/platforms/${id}/vision-reconnect`,
   } as const;
 
   private static typesCache: { data: PlatformTypeDefinitionResponse[]; ts: number } | null = null;
@@ -172,6 +175,30 @@ class PlatformsApiService extends BaseApiService {
     const endpoint = this.endpoints.DISABLE(id);
     await this.post<void>(endpoint, {});
   }
+
+  /**
+   * Get Vision Agent status for a wechat_personal platform
+   */
+  async getVisionStatus(id: string): Promise<VisionStatusResponse> {
+    const endpoint = this.endpoints.VISION_STATUS(id);
+    return this.get<VisionStatusResponse>(endpoint);
+  }
+
+  /**
+   * Get Vision Agent screenshot for a wechat_personal platform
+   */
+  async getVisionScreenshot(id: string): Promise<VisionScreenshotResponse> {
+    const endpoint = this.endpoints.VISION_SCREENSHOT(id);
+    return this.get<VisionScreenshotResponse>(endpoint);
+  }
+
+  /**
+   * Reconnect/recreate Vision Agent session
+   */
+  async reconnectVisionSession(id: string): Promise<VisionStatusResponse> {
+    const endpoint = this.endpoints.VISION_RECONNECT(id);
+    return this.post<VisionStatusResponse>(endpoint, {});
+  }
 }
 
 
@@ -189,5 +216,32 @@ export interface PlatformListQueryParams {
   is_active?: boolean | null;
   limit?: number;
   offset?: number;
+}
+
+/**
+ * Vision Agent status response
+ */
+export interface VisionStatusResponse {
+  platform_id: string;
+  session_id: string | null;
+  session_status: 'active' | 'paused' | 'terminated' | 'not_found' | 'error' | 'unknown';
+  login_status: 'logged_in' | 'qr_pending' | 'offline' | 'expired';
+  qr_code_base64: string | null;
+  last_heartbeat: string | null;
+  message_poll_active: boolean;
+  error: string | null;
+}
+
+/**
+ * Vision Agent screenshot response
+ */
+export interface VisionScreenshotResponse {
+  platform_id: string;
+  session_id: string | null;
+  base64_image: string | null;
+  timestamp: string | null;
+  width: number | null;
+  height: number | null;
+  error: string | null;
 }
 

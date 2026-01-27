@@ -1,14 +1,26 @@
 """Internal API endpoints for platform management.
 
-These endpoints are called by tgo-api to notify tgo-platform about platform changes.
+These endpoints are called by tgo-api to notify tgo-platform about platform changes,
+and by tgo-vision-agent to send inbound messages.
 """
 from __future__ import annotations
 
+import logging
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from uuid import UUID
+
+from fastapi import APIRouter, HTTPException, Request, Depends
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.base import get_db
+from app.db.models import Platform
+from app.domain.entities import NormalizedMessage
+from app.domain.services.dispatcher import process_message
 
 router = APIRouter(prefix="/internal", tags=["internal"])
+logger = logging.getLogger(__name__)
 
 
 class SlackPlatformConfig(BaseModel):
@@ -71,4 +83,91 @@ async def stop_slack_platform(platform_id: str, request: Request):
         else:
             return ReloadResponse(success=False, message=f"Platform {platform_id} was not running")
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Vision Agent Inbound Messages ---
+
+class VisionAgentInboundMessage(BaseModel):
+    """Inbound message from tgo-vision-agent."""
+
+    platform_id: str = Field(..., description="Platform ID (UUID string)")
+    platform_type: str = Field(..., description="Platform type (e.g., wechat_personal)")
+    from_uid: str = Field(..., description="Contact/sender ID")
+    content: str = Field(..., description="Message content")
+    msg_type: int = Field(default=1, description="Message type: 1=text, 2=image, etc.")
+    extra: Optional[dict] = Field(default=None, description="Extra metadata")
+
+
+class VisionAgentInboundResponse(BaseModel):
+    """Response for vision agent inbound message."""
+
+    success: bool
+    message: str
+
+
+@router.post("/vision-agent/inbound", response_model=VisionAgentInboundResponse)
+async def vision_agent_inbound(
+    msg: VisionAgentInboundMessage,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Receive an inbound message from tgo-vision-agent.
+
+    Called by tgo-vision-agent when a new message is detected via UI automation.
+    This endpoint processes the message through the normal AI pipeline.
+    """
+    try:
+        # Validate platform_id format
+        try:
+            platform_uuid = UUID(msg.platform_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid platform_id format")
+
+        # Look up platform to get API key
+        platform = await db.scalar(
+            select(Platform).where(
+                Platform.id == platform_uuid,
+                Platform.is_active.is_(True),
+            )
+        )
+        if not platform:
+            raise HTTPException(status_code=404, detail="Platform not found or inactive")
+
+        if not platform.api_key:
+            raise HTTPException(status_code=400, detail="Platform has no API key configured")
+
+        # Build normalized message
+        extra = msg.extra or {}
+        extra["source"] = "vision_agent"
+
+        normalized = NormalizedMessage(
+            platform_id=platform_uuid,
+            platform_type=msg.platform_type,
+            platform_api_key=platform.api_key,
+            from_uid=msg.from_uid,
+            content=msg.content,
+            extra=extra,
+        )
+
+        # Process through AI pipeline
+        tgo_api_client = request.app.state.tgo_api_client
+        sse_manager = request.app.state.sse_manager
+
+        await process_message(normalized, db, tgo_api_client, sse_manager)
+
+        logger.info(
+            f"Vision agent inbound message processed: platform={msg.platform_id}, "
+            f"from={msg.from_uid}"
+        )
+
+        return VisionAgentInboundResponse(
+            success=True,
+            message="Message processed successfully",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to process vision agent inbound message: {e}")
         raise HTTPException(status_code=500, detail=str(e))

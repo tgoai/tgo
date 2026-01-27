@@ -68,6 +68,7 @@ class AIModelWithProvider(BaseSchema):
     provider_name: str
     provider_kind: str
     description: Optional[str] = None
+    capabilities: Optional[Dict[str, Any]] = None
     context_window: Optional[int] = None
     is_active: bool
 

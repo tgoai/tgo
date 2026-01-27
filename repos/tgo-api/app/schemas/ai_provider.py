@@ -63,6 +63,7 @@ class AIModelInput(BaseSchema):
     """Model input with type information."""
     model_id: str = Field(..., min_length=1, max_length=100)
     model_type: str = Field(default="chat", pattern="^(chat|embedding)$")
+    capabilities: Optional[Dict[str, bool]] = Field(None, description="Model capabilities (e.g., vision)")
 
 
 class AIProviderUpdate(BaseSchema):
@@ -85,6 +86,7 @@ class AIProviderResponse(AIProviderConfigBase, TimestampMixin, SoftDeleteMixin):
     project_id: UUID = Field(..., description="Associated project ID")
     has_api_key: bool = Field(..., description="Whether secret is set")
     api_key_masked: Optional[str] = Field(None, description="Masked API key, only last 4 visible")
+    model_configs: Optional[list[AIModelInput]] = Field(None, description="Detailed model configurations")
 
     # Store metadata
     store_resource_id: Optional[str] = Field(None, description="Store resource ID if provider is from store")

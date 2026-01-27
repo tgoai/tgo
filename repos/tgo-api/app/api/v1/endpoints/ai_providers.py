@@ -20,6 +20,7 @@ from app.schemas import (
     AIProviderListResponse,
     AIProviderResponse,
     AIProviderUpdate,
+    AIModelInput,
 )
 from app.schemas.remote_model import RemoteModelListResponse, RemoteModelInfo
 from app.utils.crypto import decrypt_str, encrypt_str, mask_secret
@@ -49,6 +50,16 @@ def _to_response(item: AIProvider, model_type: Optional[str] = None) -> AIProvid
     available_models_list = [m.model_id for m in item.models if m.deleted_at is None]
     models = _filter_models_by_type(available_models_list, model_type)
     
+    # Build detailed model configs
+    model_configs = [
+        AIModelInput(
+            model_id=m.model_id,
+            model_type=m.model_type,
+            capabilities=m.capabilities
+        )
+        for m in item.models if m.deleted_at is None
+    ]
+    
     return AIProviderResponse.model_validate({
         "id": item.id,
         "project_id": item.project_id,
@@ -56,6 +67,7 @@ def _to_response(item: AIProvider, model_type: Optional[str] = None) -> AIProvid
         "name": item.name,
         "api_base_url": item.api_base_url,
         "available_models": models,
+        "model_configs": model_configs,
         "default_model": item.default_model,
         "config": item.config,
         "is_active": item.is_active,
@@ -135,6 +147,14 @@ def _parse_remote_models(provider: str, data: Any) -> list[RemoteModelInfo]:
     models = []
     p = provider.lower()
 
+    def get_caps(mid: str) -> dict:
+        caps = {}
+        mid_lower = mid.lower()
+        # Basic vision detection for common models
+        if any(x in mid_lower for x in ("vision", "vl", "gpt-4o", "claude-3-5", "claude-3-opus", "claude-3-sonnet")):
+            caps["vision"] = True
+        return caps
+
     if p in ("openai", "gpt", "gpt-4o", "oai", "dashscope", "ali", "aliyun") or "compatible" in p:
         # OpenAI style: { "data": [ { "id": "...", ... } ] }
         if isinstance(data, dict) and "data" in data:
@@ -142,17 +162,24 @@ def _parse_remote_models(provider: str, data: Any) -> list[RemoteModelInfo]:
                 if isinstance(m, dict) and "id" in m:
                     mid = m["id"]
                     mtype = "embedding" if "embedding" in mid.lower() else "chat"
-                    models.append(RemoteModelInfo(id=mid, name=mid, model_type=mtype))
+                    models.append(RemoteModelInfo(
+                        id=mid, 
+                        name=mid, 
+                        model_type=mtype,
+                        capabilities=get_caps(mid)
+                    ))
     
     elif p in ("anthropic", "claude"):
         # Anthropic style: { "data": [ { "id": "...", "display_name": "..." } ] }
         if isinstance(data, dict) and "data" in data:
             for m in data["data"]:
                 if isinstance(m, dict) and "id" in m:
+                    mid = m["id"]
                     models.append(RemoteModelInfo(
-                        id=m["id"], 
-                        name=m.get("display_name") or m["id"],
-                        model_type="chat"
+                        id=mid, 
+                        name=m.get("display_name") or mid,
+                        model_type="chat",
+                        capabilities=get_caps(mid)
                     ))
     
     elif p in ("azure_openai", "azure-openai", "azure"):
@@ -165,7 +192,12 @@ def _parse_remote_models(provider: str, data: Any) -> list[RemoteModelInfo]:
                     # Model name might be in 'model' field
                     actual_model = m.get("model", mid)
                     mtype = "embedding" if "embedding" in actual_model.lower() else "chat"
-                    models.append(RemoteModelInfo(id=mid, name=f"{mid} ({actual_model})", model_type=mtype))
+                    models.append(RemoteModelInfo(
+                        id=mid, 
+                        name=f"{mid} ({actual_model})", 
+                        model_type=mtype,
+                        capabilities=get_caps(actual_model)
+                    ))
 
     return models
 
@@ -176,6 +208,8 @@ router = APIRouter()
 @router.get("/{provider_id}/remote-models", response_model=RemoteModelListResponse)
 async def get_provider_remote_models(
     provider_id: UUID,
+    model_type: Optional[str] = Query(None, pattern="^(chat|embedding)$"),
+    capabilities: Optional[str] = Query(None, description="Filter by capabilities, e.g., 'vision:true'"),
     db: Session = Depends(get_db),
     current_user: Staff = Depends(get_current_active_user),
 ):
@@ -207,6 +241,34 @@ async def get_provider_remote_models(
         
         models = _parse_remote_models(item.provider, remote_data)
         
+        # Apply filtering
+        if model_type:
+            models = [m for m in models if m.model_type == model_type]
+        
+        if capabilities:
+            try:
+                # Parse capabilities filter, e.g., "vision:true,function_calling:true"
+                filters = {}
+                for part in capabilities.split(","):
+                    if ":" in part:
+                        k, v = part.split(":", 1)
+                        filters[k.strip()] = v.strip().lower() == "true"
+                
+                if filters:
+                    filtered_models = []
+                    for m in models:
+                        m_caps = m.capabilities or {}
+                        match = True
+                        for fk, fv in filters.items():
+                            if m_caps.get(fk) != fv:
+                                match = False
+                                break
+                        if match:
+                            filtered_models.append(m)
+                    models = filtered_models
+            except Exception as e:
+                logger.warning(f"Failed to parse capabilities filter '{capabilities}': {e}")
+
         return RemoteModelListResponse(
             provider=item.provider,
             models=models,
@@ -334,13 +396,23 @@ async def create_ai_provider(
 
     # Create AIModel records from available_models
     if payload.available_models:
-        for m_id in payload.available_models:
+        for m in payload.available_models:
+            if isinstance(m, str):
+                m_id = m
+                m_type = "embedding" if "embedding" in m_id.lower() else "chat"
+                m_caps = None
+            else:
+                m_id = m.model_id
+                m_type = m.model_type
+                m_caps = m.capabilities
+
             model_record = AIModel(
                 provider_id=item.id,
                 provider=item.provider,
                 model_id=m_id,
                 model_name=m_id,  # Use ID as name if not specified
-                model_type="embedding" if "embedding" in m_id.lower() else "chat",
+                model_type=m_type,
+                capabilities=m_caps,
                 is_active=True
             )
             db.add(model_record)
@@ -453,17 +525,26 @@ async def update_ai_provider(
         new_models_input = data.pop("available_models") or []
         new_model_ids = []
         model_type_map = {}
+        model_caps_map = {}
         
         for m in new_models_input:
             if isinstance(m, str):
-                new_model_ids.append(m)
-                model_type_map[m] = "embedding" if "embedding" in m.lower() else "chat"
+                m_id = m
+                m_type = "embedding" if "embedding" in m_id.lower() else "chat"
+                m_caps = None
+            elif isinstance(m, dict):
+                m_id = m["model_id"]
+                m_type = m.get("model_type", "chat")
+                m_caps = m.get("capabilities")
             else:
-                # It's an AIModelInput object/dict
-                m_id = m.model_id if hasattr(m, "model_id") else m["model_id"]
-                m_type = m.model_type if hasattr(m, "model_type") else m["model_type"]
-                new_model_ids.append(m_id)
-                model_type_map[m_id] = m_type
+                # It's an AIModelInput object
+                m_id = m.model_id
+                m_type = m.model_type
+                m_caps = m.capabilities
+            
+            new_model_ids.append(m_id)
+            model_type_map[m_id] = m_type
+            model_caps_map[m_id] = m_caps
 
         existing_models = {m.model_id: m for m in item.models if m.deleted_at is None}
         
@@ -473,9 +554,10 @@ async def update_ai_provider(
                 m_obj.deleted_at = datetime.utcnow()
                 db.add(m_obj)
         
-        # Add new models or update existing ones' types if needed
+        # Add new models or update existing ones' types/caps if needed
         for m_id in new_model_ids:
             m_type = model_type_map[m_id]
+            m_caps = model_caps_map[m_id]
             if m_id not in existing_models:
                 new_model = AIModel(
                     provider_id=item.id,
@@ -483,14 +565,35 @@ async def update_ai_provider(
                     model_id=m_id,
                     model_name=m_id,
                     model_type=m_type,
+                    capabilities=m_caps,
                     is_active=True
                 )
                 db.add(new_model)
             else:
-                # Update type if it changed
+                # Update type/caps if they changed
                 existing_model = existing_models[m_id]
+                changed = False
                 if existing_model.model_type != m_type:
                     existing_model.model_type = m_type
+                    changed = True
+                
+                # Normalize caps for comparison
+                current_caps = existing_model.capabilities or {}
+                new_caps = m_caps or {}
+                
+                # Ensure we are comparing dicts
+                if isinstance(current_caps, str):
+                    import json
+                    try:
+                        current_caps = json.loads(current_caps)
+                    except:
+                        current_caps = {}
+                
+                if current_caps != new_caps:
+                    existing_model.capabilities = new_caps
+                    changed = True
+                
+                if changed:
                     db.add(existing_model)
 
     for field, value in data.items():
@@ -741,4 +844,3 @@ async def test_ai_provider_connection(
     except httpx.RequestError as e:
         logger.warning("AIProvider test request error", extra={"id": str(item.id), "error": str(e)})
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Connection failed: {e}")
-

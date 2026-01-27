@@ -7,6 +7,7 @@ class RemoteModelInfo(BaseSchema):
     id: str = Field(..., description="Model identifier")
     name: Optional[str] = Field(None, description="Model display name")
     model_type: Optional[str] = Field(None, description="Model type (chat, embedding, etc.)")
+    capabilities: Optional[dict] = Field(None, description="Model capabilities (e.g., vision)")
 
 class RemoteModelListResponse(BaseSchema):
     """Schema for remote model list response."""

@@ -53,6 +53,11 @@ services:
     build:
       context: ./repos/tgo-workflow
 
+  tgo-vision-agent:
+    image: tgo-vision-agent:local
+    build:
+      context: ./repos/tgo-vision-agent
+
   # Customer-facing web app
   tgo-web:
     image: tgo-web:local

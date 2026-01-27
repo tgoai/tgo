@@ -6,7 +6,7 @@ These endpoints are designed for inter-service communication within the internal
 
 from fastapi import APIRouter
 
-from app.api.internal.endpoints import ai_events, users, store
+from app.api.internal.endpoints import ai_events, ai_providers, users, store
 
 internal_router = APIRouter()
 
@@ -15,6 +15,13 @@ internal_router.include_router(
     ai_events.router,
     prefix="/ai/events",
     tags=["Internal AI Events"]
+)
+
+# AI Providers endpoint (for tgo-vision-agent to fetch provider config)
+internal_router.include_router(
+    ai_providers.router,
+    prefix="/ai-providers",
+    tags=["Internal AI Providers"]
 )
 
 # New users endpoint

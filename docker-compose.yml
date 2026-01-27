@@ -260,6 +260,12 @@ services:
       WUKONGIM_ENABLED: "true"
       WUKONGIM_DEVICE_FLAG: 1
       WUKONGIM_DEVICE_LEVEL: 1
+      # Vision Agent service URL for UI automation
+      VISION_AGENT_SERVICE_URL: http://tgo-vision-agent:8000
+      VISION_AGENT_SERVICE_TIMEOUT: 60
+      # Internal service configuration (for inter-service communication)
+      INTERNAL_SERVICE_HOST: "0.0.0.0"
+      INTERNAL_SERVICE_PORT: 8001
     volumes:
       - ./data/tgo-api/uploads:/app/uploads
     healthcheck:
@@ -284,6 +290,8 @@ services:
       TGO_API_BASE_URL: http://tgo-api:8000
       TGO_SSE_BACKPRESSURE_LIMIT: 1000
       TGO_REQUEST_TIMEOUT_SECONDS: 120
+      # Vision Agent service URL for UI automation platforms
+      TGO_VISION_AGENT_URL: http://tgo-vision-agent:8000
     depends_on:
       - tgo-api
       - postgres
@@ -291,6 +299,38 @@ services:
       - wukongim
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://127.0.0.1:8003/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # Vision Agent service (UI automation via VLM + AgentBay)
+  tgo-vision-agent:
+    image: ghcr.io/tgoai/tgo/tgo-vision-agent:latest
+    container_name: tgo-vision-agent
+    env_file:
+      - .env
+    environment:
+      # Service-specific configuration
+      TGO_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-tgo}
+      TGO_REDIS_URL: redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/3
+      # TGO API URLs
+      TGO_API_URL: http://tgo-api:8000
+      # TGO API Internal Service URL (for fetching AI provider config)
+      TGO_API_INTERNAL_URL: http://tgo-api:8001
+      # TGO Platform for message callbacks
+      TGO_PLATFORM_URL: http://tgo-platform:8003
+      # AgentBay API Key (optional, can be configured per-platform)
+      TGO_AGENTBAY_API_KEY: ${AGENTBAY_API_KEY:-}
+      TGO_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      - tgo-api
+      - tgo-platform
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

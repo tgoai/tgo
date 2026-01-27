@@ -23,7 +23,8 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
   const [remoteModels, setRemoteModels] = useState<any[]>([]);
   const [modelId, setModelId] = useState('');
   const [modelType, setModelType] = useState<'chat' | 'embedding'>('chat');
-  const [selectedModels, setSelectedModels] = useState<Array<{ id: string; type: 'chat' | 'embedding' }>>([]);
+  const [isVision, setIsVision] = useState(false);
+  const [selectedModels, setSelectedModels] = useState<Array<{ id: string; type: 'chat' | 'embedding'; capabilities?: { vision: boolean } }>>([]);
   const [saving, setSaving] = useState(false);
 
   const isStore = provider?.isFromStore;
@@ -34,10 +35,13 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
     } else {
       setRemoteModels([]);
       setModelId('');
-      setModelType('chat');
-      setSelectedModels([]);
+      if (!isOpen) {
+        setModelType('chat');
+        setIsVision(false);
+        setSelectedModels([]);
+      }
     }
-  }, [isOpen, provider]);
+  }, [isOpen, provider, modelType, isVision]);
 
   const fetchAvailableModels = async () => {
     if (!provider) return;
@@ -55,7 +59,10 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
       } else {
         // Manual Mode - Try fetching list from provider using stored credentials
         const service = new AIProvidersApiService();
-        const res = await service.getRemoteModels(provider.id);
+        const res = await service.getRemoteModels(provider.id, {
+          model_type: modelType,
+          capabilities: modelType === 'chat' && isVision ? 'vision:true' : null
+        });
         setRemoteModels(res.models || []);
       }
     } catch (e: any) {
@@ -88,14 +95,22 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
     
     setSaving(true);
     try {
+      // Ensure the manual input model is included with correct capabilities
       const modelsToSubmit = [...selectedModels];
-      if (modelId.trim() && !modelsToSubmit.some(m => m.id === modelId.trim())) {
-        modelsToSubmit.push({ id: modelId.trim(), type: modelType });
+      const trimmedId = modelId.trim();
+      
+      if (trimmedId && !modelsToSubmit.some(m => m.id === trimmedId)) {
+        modelsToSubmit.push({ 
+          id: trimmedId, 
+          type: modelType,
+          capabilities: modelType === 'chat' ? { vision: isVision } : undefined
+        });
       }
 
       await addModelToProvider(provider.id, modelsToSubmit.map(m => ({
         model_id: m.id,
-        model_type: m.type
+        model_type: m.type,
+        capabilities: m.capabilities
       })));
       toast?.showToast('success', t('settings.providers.toast.modelAdded'));
       onClose();
@@ -106,13 +121,20 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
     }
   };
 
-  const toggleModel = (id: string, type: 'chat' | 'embedding') => {
+  const toggleModel = (id: string, type: 'chat' | 'embedding', caps?: any) => {
     setSelectedModels(prev => {
       const exists = prev.find(m => m.id === id);
       if (exists) {
         return prev.filter(m => m.id !== id);
       } else {
-        return [...prev, { id, type }];
+        // If caps are provided (from remote list), use them.
+        // Otherwise (manual input), use the current isVision switch state.
+        const modelCaps = caps || (type === 'chat' ? { vision: isVision } : undefined);
+        return [...prev, { 
+          id, 
+          type, 
+          capabilities: modelCaps
+        }];
       }
     });
   };
@@ -145,6 +167,24 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
               ]}
             />
           </div>
+
+          {modelType === 'chat' && (
+            <div className="flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-2xl border border-blue-100/50 dark:border-blue-800/50">
+              <div className="flex-1">
+                <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('settings.providers.fields.visionCapability', '视觉能力 (Vision)')}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{t('settings.providers.fields.visionCapabilityHint', '启用后，该模型可用于分析图片和界面截图')}</div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer" 
+                  checked={isVision}
+                  onChange={(e) => setIsVision(e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+          )}
 
           {isStore ? (
             // Store Mode UI
@@ -240,7 +280,7 @@ const AddModelModal: React.FC<AddModelModalProps> = ({ isOpen, onClose, provider
                             return (
                               <button
                                 key={m.id}
-                                onClick={() => toggleModel(m.id, m.model_type || modelType)}
+                                onClick={() => toggleModel(m.id, m.model_type || modelType, m.capabilities)}
                                 className={`w-full text-left px-4 py-3 rounded-2xl text-sm font-bold transition-all flex justify-between items-center ${
                                   isSelected 
                                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-100 dark:shadow-none' 
