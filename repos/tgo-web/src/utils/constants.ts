@@ -56,6 +56,12 @@ export const AI_MENU_ITEMS: NavigationItem[] = [
     path: '/ai/tools'
   },
   {
+    id: 'device-control',
+    title: 'navigation.deviceControl',
+    icon: 'Monitor',
+    path: '/ai/device-control'
+  },
+  {
     id: 'workflows',
     title: 'navigation.workflows',
     icon: 'GitBranch',

@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     Uses Pydantic Settings 2.x. All fields are validated and typed.
     """
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="TGO_", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # tgo-api base URL
     api_base_url: str

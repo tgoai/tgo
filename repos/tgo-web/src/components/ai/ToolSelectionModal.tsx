@@ -24,6 +24,7 @@ const TOOL_CATEGORIES = [
   { id: 'tool_server', label: 'tools.selectModal.category.toolServer' },
   { id: 'custom', label: 'tools.selectModal.category.custom' },
   { id: 'plugin', label: 'tools.selectModal.category.plugin' },
+  { id: 'device_control', label: 'tools.selectModal.category.deviceControl' },
 ];
 
 
@@ -95,6 +96,8 @@ const ToolSelectionModal: React.FC<ToolSelectionModalProps> = ({
           return tool.config?.transport_type === undefined || tool.config?.transport_type === null;
         } else if (selectedCategory === 'plugin') {
           return tool.config?.transport_type === 'plugin';
+        } else if (selectedCategory === 'device_control') {
+          return tool.config?.transport_type === 'device_control' || tool.name?.startsWith('computer_');
         }
         return false;
       });

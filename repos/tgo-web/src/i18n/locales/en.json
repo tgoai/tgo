@@ -1030,6 +1030,7 @@
     "aiFeatures": "AI Features",
     "agents": "Agent Teams",
     "tools": "Tools",
+    "deviceControl": "Device Control",
     "workflows": "Workflows",
     "visitors": "Visitors",
     "knowledge": "Knowledge Base",
@@ -2403,7 +2404,8 @@
       "category": {
         "toolServer": "Tool Server",
         "custom": "Custom Tool",
-        "plugin": "Plugin Tool"
+        "plugin": "Plugin Tool",
+        "deviceControl": "Device Control"
       },
       "confirmSelection": "Confirm Selection ({{count}})",
       "loadFailedDesc": "Unable to load tool list, please try again later",
@@ -3688,6 +3690,74 @@
       "knowledgeBaseUploaded": "Upload Knowledge Base",
       "agentCreated": "Create AI Agent and Link Knowledge Base",
       "messageReceived": "Receive Message from Platform"
+    }
+  },
+  "deviceControl": {
+    "title": "Device Control",
+    "subtitle": "Manage remote devices controlled by AI agents",
+    "addDevice": "Add Device",
+    "search": {
+      "placeholder": "Search devices..."
+    },
+    "banner": {
+      "title": "Remote Device Control",
+      "description": "Connect your computer or mobile device to let AI agents control the screen directly for more complex automation tasks."
+    },
+    "stats": {
+      "total": "Total Devices",
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "filter": {
+      "all": "All",
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "empty": {
+      "title": "No Connected Devices",
+      "description": "Click the \"Add Device\" button to generate a bind code, then enter the bind code in the control client software to connect your device.",
+      "noResults": "No matching devices found",
+      "tryOther": "Try other search criteria or filters"
+    },
+    "device": {
+      "online": "Online",
+      "offline": "Offline",
+      "disconnect": "Disconnect",
+      "resolution": "Resolution",
+      "lastSeen": "Last Seen",
+      "now": "Now",
+      "neverConnected": "Never connected",
+      "justNow": "Just now",
+      "minutesAgo": "{{count}} minutes ago",
+      "hoursAgo": "{{count}} hours ago",
+      "daysAgo": "{{count}} days ago"
+    },
+    "bindCode": {
+      "title": "Add Device",
+      "description": "Enter the following bind code in the control client software to connect your device",
+      "expiresIn": "Expires in",
+      "expired": "Bind code expired",
+      "howTo": "How to connect?",
+      "step1": "Download and install the control client software",
+      "step2": "Open the software and enter the bind code above",
+      "step3": "Once connected, the device will appear in the list"
+    },
+    "edit": {
+      "title": "Edit Device",
+      "deviceName": "Device Name",
+      "deviceNamePlaceholder": "Enter device name",
+      "nameRequired": "Please enter a device name",
+      "os": "Operating System",
+      "resolution": "Screen Resolution",
+      "status": "Status"
+    },
+    "delete": {
+      "title": "Confirm Delete",
+      "message": "Are you sure you want to delete device \"{{name}}\"? This action cannot be undone."
+    },
+    "disconnect": {
+      "title": "Confirm Disconnect",
+      "message": "Are you sure you want to disconnect device \"{{name}}\"?"
     }
   },
   "ws": {

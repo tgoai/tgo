@@ -544,6 +544,17 @@ class Settings(BaseSettings):
         gt=0,
     )
 
+    # Device Control Service
+    DEVICE_CONTROL_SERVICE_URL: str = Field(
+        default="http://localhost:8085",
+        description="URL of the tgo-device-control service",
+    )
+    DEVICE_CONTROL_SERVICE_TIMEOUT: int = Field(
+        default=60,
+        description="Timeout in seconds for device control requests",
+        gt=0,
+    )
+
     # Environment
     ENVIRONMENT: str = Field(
         default="development",

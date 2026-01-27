@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     ai_tools,
     ai_workflows,
     conversations,
+    device_control,
     docs,
     email,
     onboarding,
@@ -257,4 +258,11 @@ api_router.include_router(
     plugins.router,
     prefix="/plugins",
     tags=["Plugins"],
+)
+
+# Device Control endpoints (proxy to tgo-device-control service)
+api_router.include_router(
+    device_control.router,
+    prefix="/device-control",
+    tags=["Device Control"],
 )

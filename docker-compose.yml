@@ -181,6 +181,7 @@ services:
       RAG_SERVICE_URL: http://tgo-rag:8082
       WORKFLOW_SERVICE_URL: http://tgo-workflow:8000
       PLUGIN_RUNTIME_URL: http://tgo-plugin-runtime:8090
+      DEVICE_CONTROL_SERVICE_URL: http://tgo-device-control:8085
     depends_on:
       postgres:
         condition: service_healthy
@@ -227,6 +228,37 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # Device Control service (for AI agent remote device control)
+  tgo-device-control:
+    image: ghcr.io/tgoai/tgo/tgo-device-control:latest
+    container_name: tgo-device-control
+    env_file:
+      - .env
+    environment:
+      # Service-specific: port
+      PORT: 8085
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-tgo}
+      REDIS_URL: redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/3
+      # Internal service URLs
+      AI_SERVICE_URL: http://tgo-ai:8081
+      API_SERVICE_URL: http://tgo-api:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      tgo-ai:
+        condition: service_started
+    volumes:
+      - ./data/tgo-device-control/screenshots:/var/lib/tgo/device-control/screenshots
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8085/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
   # API service
   tgo-api:
     image: ghcr.io/tgoai/tgo/tgo-api:latest
@@ -237,6 +269,7 @@ services:
       - tgo-ai
       - tgo-workflow
       - tgo-plugin-runtime
+      - tgo-device-control
       - postgres
       - redis
     environment:
@@ -253,6 +286,8 @@ services:
       RAG_SERVICE_URL: http://tgo-rag:8082
       RAG_SERVICE_TIMEOUT: 30
       PLUGIN_RUNTIME_URL: http://tgo-plugin-runtime:8090
+      DEVICE_CONTROL_SERVICE_URL: http://tgo-device-control:8085
+      DEVICE_CONTROL_SERVICE_TIMEOUT: 60
       WORKFLOW_SERVICE_URL: http://tgo-workflow:8000
       WORKFLOW_SERVICE_TIMEOUT: 60
       WUKONGIM_SERVICE_URL: http://wukongim:5001
@@ -277,13 +312,13 @@ services:
     env_file:
       - .env
     environment:
-      # Service-specific: port (uses TGO_ prefix to avoid conflicts)
+      # Service-specific: port
       PORT: 8003
-      TGO_REDIS_URL: redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/0
-      TGO_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-tgo}
-      TGO_API_BASE_URL: http://tgo-api:8000
-      TGO_SSE_BACKPRESSURE_LIMIT: 1000
-      TGO_REQUEST_TIMEOUT_SECONDS: 120
+      REDIS_URL: redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-tgo}
+      API_BASE_URL: http://tgo-api:8000
+      SSE_BACKPRESSURE_LIMIT: 1000
+      REQUEST_TIMEOUT_SECONDS: 120
     depends_on:
       - tgo-api
       - postgres

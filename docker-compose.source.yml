@@ -36,6 +36,12 @@ services:
       - ./data/plugins:/var/lib/tgo/plugins
       - plugin-socket:/var/run/tgo
 
+  # Device Control service
+  tgo-device-control:
+    image: tgo-device-control:local
+    build:
+      context: ./repos/tgo-device-control
+
   # Platform service
   tgo-platform:
     image: tgo-platform:local

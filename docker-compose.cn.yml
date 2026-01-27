@@ -41,6 +41,9 @@ services:
 
   tgo-plugin-runtime:
     image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-plugin-runtime:latest
+
+  tgo-device-control:
+    image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-device-control:latest
     
   tgo-platform:
     image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-platform:latest

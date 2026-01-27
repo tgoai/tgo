@@ -64,6 +64,9 @@ run_all_migrations() {
 
   echo "[INFO] Running Alembic migrations for tgo-plugin-runtime..."
   docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-plugin-runtime alembic upgrade head
+
+  echo "[INFO] Running Alembic migrations for tgo-device-control..."
+  docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-device-control alembic upgrade head
 }
 
 # Start core infrastructure services
@@ -467,7 +470,7 @@ Commands:
   service <start|stop|remove> [--source] [--cn]
                                       Start/stop/remove core services
   tools <start|stop>                  Start/stop debug tools (adminer, redis-insight)
-  build <service>                     Rebuild specific service from source (api|rag|ai|plugin-runtime|workflow|platform|web|widget|all)
+  build <service>                     Rebuild specific service from source (api|rag|ai|plugin-runtime|device-control|workflow|platform|web|widget|all)
   config <subcommand> [args]          Configure domains and SSL certificates
 
 Config Subcommands:
@@ -1323,6 +1326,7 @@ cmd_install() {
     "./data/tgo-rag/uploads"
     "./data/tgo-api/uploads"
     "./data/tgo-workflow/uploads"
+    "./data/tgo-device-control/screenshots"
     "./data/nginx"
   )
 
@@ -1734,6 +1738,7 @@ cmd_build() {
     workflow) services=(tgo-workflow tgo-workflow-worker) ;;
     ai) services=(tgo-ai) ;;
     plugin-runtime) services=(tgo-plugin-runtime) ;;
+    device-control) services=(tgo-device-control) ;;
     platform) services=(tgo-platform) ;;
     celery) services=(tgo-celery-flower) ;;
     web) services=(tgo-web) ;;
@@ -1741,7 +1746,7 @@ cmd_build() {
     all) services=() ;;
     *)
       echo "[ERROR] Unknown service: $target" >&2
-      echo "Supported: api, rag, ai, plugin-runtime, workflow, platform, web, widget, all" >&2
+      echo "Supported: api, rag, ai, plugin-runtime, device-control, workflow, platform, web, widget, all" >&2
       exit 1
       ;;
   esac
@@ -1811,6 +1816,11 @@ run_service_migrations() {
       echo "[INFO] Running Alembic migrations for tgo-plugin-runtime..."
       wait_for_postgres "$compose_file_args"
       docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-plugin-runtime alembic upgrade head
+      ;;
+    device-control)
+      echo "[INFO] Running Alembic migrations for tgo-device-control..."
+      wait_for_postgres "$compose_file_args"
+      docker compose --env-file "$ENV_FILE" $compose_file_args run --rm -T tgo-device-control alembic upgrade head
       ;;
     web|widget)
       # Frontend services don't have database migrations
@@ -2208,6 +2218,7 @@ cmd_doctor() {
     "tgo-celery-flower:Celery Flower"
     "tgo-ai:AI Service"
     "tgo-plugin-runtime:Plugin Runtime"
+    "tgo-device-control:Device Control"
     "tgo-workflow:Workflow Service"
     "tgo-workflow-worker:Workflow Worker"
     "tgo-api:API Service"

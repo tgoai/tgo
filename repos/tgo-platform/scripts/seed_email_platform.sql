@@ -1,6 +1,6 @@
 -- Seed a sample email platform for testing
 -- This creates an email platform with IMAP configuration for inbound email fetching
--- Note: Outbound SMTP is now configured globally via TGO_SMTP_* environment variables
+-- Note: Outbound SMTP is now configured globally via SMTP_* environment variables
 
 INSERT INTO pt_platforms (id, project_id, name, type, config, is_active)
 VALUES (

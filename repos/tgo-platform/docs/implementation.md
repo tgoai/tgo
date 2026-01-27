@@ -225,7 +225,7 @@ class Platform(Base):
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="TGO_", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     api_base_url: str  # tgo-api base url
 
@@ -410,21 +410,21 @@ async def get_db() -> AsyncSession:
 ### 6) 配置示例（Pydantic Settings 2.x）
 .env.example
 ```
-TGO_API_BASE_URL=https://tgo-api.example.com
+API_BASE_URL=https://tgo-api.example.com
 
-TGO_DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:5432/tgo
-TGO_REQUEST_TIMEOUT_SECONDS=120
+DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:5432/tgo
+REQUEST_TIMEOUT_SECONDS=120
 
 # Global SMTP (outbound email)
-TGO_SMTP_HOST=smtp.example.com
-TGO_SMTP_PORT=587
-TGO_SMTP_USERNAME=no-reply@example.com
-TGO_SMTP_PASSWORD=changeme
-TGO_SMTP_USE_TLS=true
-TGO_SMTP_FROM_ADDRESS=no-reply@example.com
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=no-reply@example.com
+SMTP_PASSWORD=changeme
+SMTP_USE_TLS=true
+SMTP_FROM_ADDRESS=no-reply@example.com
 ```
 
-> 注：出站邮件（SMTP 发送）采用全局账户配置（如上 TGO_SMTP_*），不再从 pt_platforms.config 读取 SMTP 凭据；平台表 email 类型仅保留 IMAP 收件相关字段（imap_host/port/username/password/use_ssl/mailbox 等）用于入站拉取。
+> 注：出站邮件（SMTP 发送）采用全局账户配置（如上 SMTP_*），不再从 pt_platforms.config 读取 SMTP 凭据；平台表 email 类型仅保留 IMAP 收件相关字段（imap_host/port/username/password/use_ssl/mailbox 等）用于入站拉取。
 
 
 使用

@@ -119,12 +119,12 @@ For `type = 'email'`, the `config` JSONB field contains **IMAP-only** credential
 Outbound email sending uses a **single global SMTP account** configured via environment variables:
 
 ```bash
-TGO_SMTP_HOST=smtp.gmail.com
-TGO_SMTP_PORT=587
-TGO_SMTP_USERNAME=no-reply@example.com
-TGO_SMTP_PASSWORD=app-password-here
-TGO_SMTP_USE_TLS=true
-TGO_SMTP_FROM_ADDRESS=no-reply@example.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=no-reply@example.com
+SMTP_PASSWORD=app-password-here
+SMTP_USE_TLS=true
+SMTP_FROM_ADDRESS=no-reply@example.com
 ```
 
 Set these in your `.env` file (copy from `.env.example`).
@@ -201,7 +201,7 @@ make dev
 
 **Solution**: Update `.env`:
 ```bash
-TGO_PG_DSN=postgresql+asyncpg://tgo_user:tgo_pass@127.0.0.1:5442/tgo
+PG_DSN=postgresql+asyncpg://tgo_user:tgo_pass@127.0.0.1:5442/tgo
 ```
 
 ### "No module named 'app'" during migrations

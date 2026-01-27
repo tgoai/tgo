@@ -1357,6 +1357,7 @@
     "aiFeatures": "AI 功能",
     "agents": "AI员工团队",
     "tools": "工具",
+    "deviceControl": "设备控制",
     "workflows": "工作流",
     "visitors": "访客管理",
     "knowledge": "知识库",
@@ -3279,7 +3280,8 @@
       "category": {
         "toolServer": "Tool 服务器",
         "custom": "自定义工具",
-        "plugin": "插件工具"
+        "plugin": "插件工具",
+        "deviceControl": "设备控制"
       },
       "confirmSelection": "确认选择 ({{count}})",
       "loadFailedDesc": "无法加载工具列表，请稍后重试",
@@ -3699,6 +3701,74 @@
       "knowledgeBaseUploaded": "上传知识库",
       "agentCreated": "创建 AI 员工并关联知识库",
       "messageReceived": "接收来自平台的消息"
+    }
+  },
+  "deviceControl": {
+    "title": "设备控制",
+    "subtitle": "管理 AI 员工可控制的远程设备",
+    "addDevice": "添加设备",
+    "search": {
+      "placeholder": "搜索设备..."
+    },
+    "banner": {
+      "title": "远程设备控制",
+      "description": "连接您的电脑或移动设备，让 AI 员工能够直接操控屏幕，完成更复杂的自动化任务。"
+    },
+    "stats": {
+      "total": "总设备",
+      "online": "在线",
+      "offline": "离线"
+    },
+    "filter": {
+      "all": "全部",
+      "online": "在线",
+      "offline": "离线"
+    },
+    "empty": {
+      "title": "还没有连接的设备",
+      "description": "点击\"添加设备\"按钮生成绑定码，然后在控制端软件中输入绑定码来连接您的设备。",
+      "noResults": "没有找到匹配的设备",
+      "tryOther": "尝试其他搜索条件或筛选"
+    },
+    "device": {
+      "online": "在线",
+      "offline": "离线",
+      "disconnect": "断开连接",
+      "resolution": "分辨率",
+      "lastSeen": "最后在线",
+      "now": "现在",
+      "neverConnected": "从未连接",
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "daysAgo": "{{count}} 天前"
+    },
+    "bindCode": {
+      "title": "添加设备",
+      "description": "在控制端软件中输入以下绑定码来连接您的设备",
+      "expiresIn": "有效期剩余",
+      "expired": "绑定码已过期",
+      "howTo": "如何连接？",
+      "step1": "下载并安装控制端软件",
+      "step2": "打开软件并输入上方绑定码",
+      "step3": "连接成功后设备将出现在列表中"
+    },
+    "edit": {
+      "title": "编辑设备",
+      "deviceName": "设备名称",
+      "deviceNamePlaceholder": "输入设备名称",
+      "nameRequired": "请输入设备名称",
+      "os": "操作系统",
+      "resolution": "屏幕分辨率",
+      "status": "状态"
+    },
+    "delete": {
+      "title": "确认删除",
+      "message": "确定要删除设备 \"{{name}}\" 吗？此操作无法撤销。"
+    },
+    "disconnect": {
+      "title": "确认断开",
+      "message": "确定要断开设备 \"{{name}}\" 的连接吗？"
     }
   },
   "ws": {

@@ -1,0 +1,102 @@
+# Docker Compose for local development - Infrastructure only
+# This file starts only the infrastructure services (PostgreSQL, Redis, WuKongIM)
+# while backend and frontend services run locally with hot-reload.
+#
+# Usage: make infra-up (or: docker compose -f docker-compose.dev.yml up -d)
+
+name: tgo-dev
+
+services:
+  # Postgres with pgvector extension for RAG
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: tgo-dev-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tgo}
+      POSTGRES_USER: ${POSTGRES_USER:-tgo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tgo}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis cache
+  redis:
+    image: redis:7-alpine
+    container_name: tgo-dev-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./data/redis:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # WuKongIM service
+  wukongim:
+    image: registry.cn-shanghai.aliyuncs.com/wukongim/wukongim:v2.2.3-dev
+    container_name: tgo-dev-wukongim
+    environment:
+      # WuKongIM cluster configuration
+      WK_CLUSTER_NODEID: 1001
+      WK_CLUSTER_SERVERADDR: wukongim:11110
+      WK_CLUSTER_APIURL: http://wukongim:5001
+      WK_INTRANET_TCPADDR: wukongim:5100
+      WK_MODE: release
+      WK_EXTERNAL_IP: ${SERVER_HOST:-127.0.0.1}
+      # Point to local tgo-api running on host machine
+      WK_WEBHOOK_HTTPADDR: http://host.docker.internal:8000/v1/integrations/wukongim/webhook
+    volumes:
+      - ./data/wukongim:/root/wukongim
+    ports:
+      - "5001:5001"   # api
+      - "5100:5100"   # tcp
+      - "5200:5200"   # websocket
+      - "5300:5300"   # admin
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -Y off -O /dev/null http://localhost:5001/health > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    # Enable host.docker.internal on Linux
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Celery Flower (optional, for monitoring Celery tasks)
+  flower:
+    image: mher/flower:2.0
+    container_name: tgo-dev-flower
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/2
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      FLOWER_PORT: 5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+  # Adminer for database management
+  adminer:
+    image: adminer:latest
+    container_name: tgo-dev-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped

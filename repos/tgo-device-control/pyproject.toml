@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "tgo-device-control"
+version = "1.0.0"
+description = "TGO Device Control Service - Manages remote device connections for AI agents"
+authors = ["TGO-Tech <tech@tgo-tech.com>"]
+readme = "README.md"
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
+pydantic = "^2.5.0"
+pydantic-settings = "^2.1.0"
+httpx = "^0.28.1"
+sqlalchemy = "^2.0.23"
+alembic = "^1.12.1"
+psycopg2-binary = "^2.9.9"
+asyncpg = "^0.29.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+websockets = "^12.0"
+redis = "^5.0.0"
+mcp = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-asyncio = "^0.21.1"
+black = "^23.11.0"
+isort = "^5.12.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88

@@ -380,53 +380,14 @@ async def _load_document_content(file_info: Any, file_id: str) -> List[Any]:
             )
             return documents
 
-        # Fallback: for PDFs with no extractable text, try Unstructured + OCR
-        if content_type == "application/pdf":
-            try:
-                try:
-                    from langchain_community.document_loaders import UnstructuredFileLoader
-                except Exception:
-                    from langchain_community.document_loaders.unstructured import UnstructuredFileLoader  # type: ignore
-
-                # First try auto strategy (uses text when available, OCR for images)
-                ocr_languages = "chi_sim+eng"
-                ocr_loader = UnstructuredFileLoader(
-                    file_path,
-                    mode="elements",
-                    strategy="auto",
-                    ocr_languages=ocr_languages,
-                )
-                ocr_docs = await loop.run_in_executor(None, ocr_loader.load)
-                if _is_effective(ocr_docs):
-                    log_processing_step(
-                        file_id,
-                        ProcessingStep.EXTRACTING_CONTENT,
-                        f"Extracted content via OCR fallback (strategy=auto), docs={len(ocr_docs)}"
-                    )
-                    return ocr_docs
-
-                # Second try a stronger OCR-only strategy
-                ocr_only_loader = UnstructuredFileLoader(
-                    file_path,
-                    mode="elements",
-                    strategy="hi_res",
-                    ocr_languages=ocr_languages,
-                )
-                ocr_only_docs = await loop.run_in_executor(None, ocr_only_loader.load)
-                if _is_effective(ocr_only_docs):
-                    log_processing_step(
-                        file_id,
-                        ProcessingStep.EXTRACTING_CONTENT,
-                        f"Extracted content via OCR fallback (strategy=hi_res), docs={len(ocr_only_docs)}"
-                    )
-                    return ocr_only_docs
-
-            except Exception as ocr_e:
-                # Log but continue to raise a clear processing error below
-                logger.warning(
-                    "OCR fallback failed",
-                    extra={"file_id": file_id, "error": str(ocr_e)}
-                )
+        # Fallback check for PDFs with no extractable text
+        if content_type == "application/pdf" and not _is_effective(documents):
+            raise DocumentProcessingError(
+                "PDF appears to be scanned/image-based. Text extraction not supported for this PDF type. "
+                "Please use a text-based PDF or enable OCR service.",
+                file_id,
+                ProcessingStep.EXTRACTING_CONTENT,
+            )
 
         # If still no content, raise explicit error
         raise DocumentProcessingError(

@@ -39,7 +39,7 @@ celery = "^5.3.4"
 aiofiles = "^25.1.0"
 python-magic = "^0.4.27"
 # Document processing
-unstructured = {extras = ["docx", "pdf"], version = "^0.18.13"}
+unstructured = {extras = ["docx"], version = "^0.18.13"}
 docx2txt = "^0.8"  # Fallback for Word document loading
 # HTTP client
 httpx = {extras = ["socks"], version = "^0.28.1"}
