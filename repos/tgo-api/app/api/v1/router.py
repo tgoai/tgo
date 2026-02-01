@@ -17,6 +17,7 @@ from app.api.v1.endpoints import (
     plugins,
     plugin_tools,
     projects,
+    remote_agents,
     wukongim,
     wukongim_webhook,
     rag_collections,
@@ -265,4 +266,11 @@ api_router.include_router(
     device_control.router,
     prefix="/device-control",
     tags=["Device Control"],
+)
+
+# Remote Agents endpoints (manage remote agents from AgentOS)
+api_router.include_router(
+    remote_agents.router,
+    prefix="/remote-agents",
+    tags=["Remote Agents"],
 )

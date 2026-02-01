@@ -95,6 +95,7 @@ help:
 	@echo "  make dev-workflow     Start tgo-workflow   (port $(WORKFLOW_PORT))"
 	@echo "  make dev-plugin       Start tgo-plugin     (port $(PLUGIN_PORT))"
 	@echo "  make dev-device       Start tgo-device     (port $(DEVICE_PORT))"
+	@echo "  make dev-agentos      Start AgentOS        (port 7778)"
 	@echo ""
 	@echo "$(GREEN)Frontend Services (run in separate terminals):$(RESET)"
 	@echo "  make dev-frontend     Start all frontend services (requires tmux)"
@@ -333,6 +334,28 @@ dev-device: check-env
 		exit 1; \
 	fi
 
+# AgentOS for Computer Use Agent
+dev-agentos: check-env
+	@echo "$(CYAN)Starting Device Control AgentOS on port 7778...$(RESET)"
+	@if [ -d $(DEVICE_DIR) ]; then \
+		cd $(DEVICE_DIR) && set -a && source ../../$(ENV_FILE) && set +a && \
+			AGENTOS_ENABLED=true \
+			AGENTOS_PORT=7778 \
+			AGENTOS_HOST=0.0.0.0 \
+			REDIS_URL=redis://localhost:6379/3 \
+			DATABASE_URL=postgresql+asyncpg://tgo:tgo@localhost:5432/tgo \
+			poetry run python -m app.agent_os; \
+	else \
+		echo "$(RED)tgo-device-control not found$(RESET)"; \
+		exit 1; \
+	fi
+
+# Start AgentOS via Docker
+dev-agentos-docker: check-env
+	@echo "$(CYAN)Starting Device Control AgentOS via Docker...$(RESET)"
+	@docker compose -f $(COMPOSE_DEV) --profile agentos up -d tgo-device-control-agentos
+	@echo "$(GREEN)AgentOS started on port 7778$(RESET)"
+
 # ==========================================================
 # Batch Start Commands (requires tmux)
 # ==========================================================
@@ -375,7 +398,7 @@ stop-all:
 dev-web: check-env
 	@echo "$(CYAN)Starting tgo-web on port $(WEB_PORT)...$(RESET)"
 	@cd $(WEB_DIR) && \
-		VITE_API_BASE_URL=https://api.tgo-ai.com \
+		VITE_API_BASE_URL=http://localhost:$(API_PORT) \
 		VITE_DEBUG_MODE=true \
 		npm run dev -- --port $(WEB_PORT)
 

@@ -70,11 +70,6 @@ class Device(Base):
         default=DeviceStatus.OFFLINE,
         nullable=False,
     )
-    bind_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    bind_code_expires_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-    )
     device_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),

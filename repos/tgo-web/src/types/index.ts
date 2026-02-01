@@ -55,6 +55,7 @@ export interface AgentAdvancedConfig {
   add_datetime_to_context?: boolean; // 是否添加日期时间到上下文
   tool_call_limit?: number;          // 单次运行工具调用次数限制
   num_history_runs?: number;         // 历史会话轮数限制
+  bound_device_id?: string;          // 绑定的设备ID (仅 computer_use 类型)
 }
 
 export enum PlatformType {
@@ -135,6 +136,7 @@ export interface Agent {
   successRate: number;
   responseTime: string;
   tags: string[];
+  agent_category?: AgentCategory; // 员工类型: normal 或 computer_use
   tools: string[]; // 工具ID列表
   toolConfigs?: Record<string, Record<string, any>>; // 工具配置
   knowledgeBases: string[]; // 知识库ID列表 (for backward compatibility)
@@ -147,16 +149,25 @@ export interface Agent {
 export type AgentStatus = 'active' | 'inactive' | 'training' | 'error';
 export type AgentType = 'coordinator' | 'expert';
 
+/**
+ * Agent category enumeration
+ * - normal: Regular agent with tools, knowledge bases, and workflows
+ * - computer_use: Device control agent that can only bind devices
+ */
+export type AgentCategory = 'normal' | 'computer_use';
+
 // AI员工创建表单数据类型
 export interface CreateAgentFormData {
   name: string;
   profession: string; // 职业/角色字段
   description: string;
   llmModel: string;
+  agentCategory: AgentCategory; // 员工类型: normal 或 computer_use
   tools: string[];
   toolConfigs: Record<string, Record<string, any>>; // 工具配置
   knowledgeBases: string[];
   workflows: string[]; // 工作流ID列表
+  boundDeviceId: string | null; // 绑定的设备ID (仅 computer_use 类型)
   // 高级配置
   markdown?: boolean;
   add_datetime_to_context?: boolean;
@@ -255,6 +266,7 @@ export interface AgentWithDetailsResponse {
   ai_provider_id?: string | null;
   is_default: boolean;
   config?: Record<string, any> | null;
+  agent_category?: AgentCategory; // Agent category: normal or computer_use
   team_id?: string | null;
   created_at: string;
   updated_at: string;
@@ -279,11 +291,13 @@ export interface AgentCreateRequest {
   model: string; // pure model name (e.g., 'gpt-4o'), no provider prefix
   is_default?: boolean;
   config?: AgentAdvancedConfig | null;
+  agent_category?: AgentCategory; // Agent category: normal or computer_use
   team_id?: string | null;
   ai_provider_id?: string | null; // AI provider UUID (credentials)
   tools?: AgentToolCreateRequest[] | null;
   collections?: string[] | null; // Collection IDs (UUID strings)
   workflows?: string[] | null; // Workflow IDs
+  bound_device_id?: string | null; // Device ID (only for computer_use category)
 }
 
 // Agent Update Request Type (based on API spec - all fields optional)
@@ -293,11 +307,13 @@ export interface AgentUpdateRequest {
   model?: string | null; // pure model name (no provider prefix)
   is_default?: boolean | null;
   config?: AgentAdvancedConfig | null;
+  agent_category?: AgentCategory | null; // Agent category: normal or computer_use
   team_id?: string | null;
   ai_provider_id?: string | null; // AI provider UUID (credentials)
   tools?: AgentToolCreateRequest[] | null;
   collections?: string[] | null; // Collection IDs (UUID strings)
   workflows?: string[] | null; // Workflow IDs
+  bound_device_id?: string | null; // Device ID (only for computer_use category)
 }
 
 // Agent List Response Type (now returns detailed agents with tools and collections)

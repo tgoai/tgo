@@ -100,3 +100,49 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+
+  # Device Control AgentOS (Computer Use Agent)
+  # This service exposes the Computer Use Agent via Agno AgentOS protocol
+  tgo-device-control-agentos:
+    build:
+      context: ./repos/tgo-device-control
+      dockerfile: Dockerfile.agentos
+    container_name: tgo-dev-device-control-agentos
+    environment:
+      # AgentOS Configuration
+      AGENTOS_ENABLED: "true"
+      AGENTOS_PORT: 7778
+      AGENTOS_HOST: 0.0.0.0
+      # Planning Model (requires OpenAI API key)
+      PLANNING_MODEL: gpt-4o
+      GROUNDING_MODEL: openai
+      MAX_AGENT_ROUNDS: 20
+      # Database (shared with main device-control service)
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      # OpenAI API Key (required for agent models)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-false}
+    ports:
+      - "7778:7778"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - agentos
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7778/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

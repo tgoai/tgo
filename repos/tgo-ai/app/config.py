@@ -98,6 +98,16 @@ class Settings(BaseSettings):
         description="API Key for the Store service"
     )
 
+    # Device Control AgentOS Configuration
+    device_control_agentos_url: str = Field(
+        default="http://localhost:7778",
+        description="Base URL for the Device Control AgentOS (Computer Use Agent)"
+    )
+    device_control_agent_id: str = Field(
+        default="computer-use-agent",
+        description="Agent ID for the Computer Use Agent in Device Control AgentOS"
+    )
+
     # Server Configuration
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8081, description="Server port")

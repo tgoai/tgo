@@ -98,6 +98,13 @@ class Agent(BaseModel):
         comment="Agent ID in the remote store",
     )
 
+    agent_category: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="normal",
+        comment="Agent category: normal or computer_use",
+    )
+
     # Relationships
     project: Mapped["Project"] = relationship(
         "Project",

@@ -13,6 +13,13 @@ if TYPE_CHECKING:
     from app.schemas.ai_workflows import WorkflowSummary
 
 
+# Agent Category Enum
+class AgentCategory(str, Enum):
+    """Agent category enumeration."""
+    NORMAL = "normal"
+    COMPUTER_USE = "computer_use"
+
+
 # Model-related Enums and Schemas
 class ModelType(str, Enum):
     """Enumeration of supported model types."""
@@ -410,6 +417,10 @@ class AgentCreateRequest(BaseSchema):
         None,
         description="Agent ID in the remote store"
     )
+    agent_category: AgentCategory = Field(
+        default=AgentCategory.NORMAL,
+        description="Agent category: normal or computer_use"
+    )
     team_id: Optional[UUID] = Field(
         None,
         description="Team ID to associate the agent with (optional)"
@@ -442,6 +453,11 @@ class AgentCreateRequest(BaseSchema):
                 "987fcdeb-51a2-43d1-9f6e-123456789abc"
             ]
         ]
+    )
+    bound_device_id: Optional[str] = Field(
+        None,
+        description="Device ID to bind (only for computer_use category)",
+        examples=["device-uuid-1"]
     )
 
 
@@ -490,6 +506,10 @@ class AgentUpdateRequest(BaseSchema):
         None,
         description="Update remote agent ID"
     )
+    agent_category: Optional[AgentCategory] = Field(
+        None,
+        description="Updated agent category: normal or computer_use"
+    )
     tools: Optional[List[AgentToolCreateRequest]] = Field(
         None,
         description="Updated tools to bind to the agent"
@@ -513,6 +533,11 @@ class AgentUpdateRequest(BaseSchema):
                 "987fcdeb-51a2-43d1-9f6e-123456789abc"
             ]
         ]
+    )
+    bound_device_id: Optional[str] = Field(
+        None,
+        description="Updated device ID to bind (only for computer_use category). Replaces existing binding.",
+        examples=["device-uuid-1"]
     )
 
 
@@ -561,6 +586,10 @@ class AgentResponse(BaseSchema):
     store_agent_id: Optional[str] = Field(
         None,
         description="Agent ID in the remote store"
+    )
+    agent_category: AgentCategory = Field(
+        default=AgentCategory.NORMAL,
+        description="Agent category: normal or computer_use"
     )
     team_id: Optional[UUID] = Field(None, description="Associated team ID")
     created_at: datetime = Field(..., description="Record creation timestamp")

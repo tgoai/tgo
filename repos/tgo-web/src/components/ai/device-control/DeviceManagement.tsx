@@ -14,11 +14,14 @@ import {
   Wifi,
   WifiOff,
   AlertCircle,
+  Activity,
+  X,
 } from 'lucide-react';
 import DeviceCard from './DeviceCard';
 import BindCodeModal from './BindCodeModal';
 import EditDeviceModal from './EditDeviceModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { ComputerUseSessionMonitor } from '../remote-agent';
 import { useDeviceControlStore } from '@/stores/deviceControlStore';
 import type { Device, DeviceStatus } from '@/types/deviceControl';
 
@@ -35,6 +38,10 @@ const DeviceManagement: React.FC = () => {
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [deviceToDisconnect, setDeviceToDisconnect] = useState<Device | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  
+  // Session monitor state
+  const [showSessionMonitor, setShowSessionMonitor] = useState(false);
+  const [monitoringSessionId, setMonitoringSessionId] = useState<string | null>(null);
 
   const {
     devices,
@@ -163,6 +170,18 @@ const DeviceManagement: React.FC = () => {
             <RefreshCw
               className={`w-5 h-5 text-gray-500 ${isLoading ? 'animate-spin' : ''}`}
             />
+          </button>
+
+          {/* Session Monitor */}
+          <button
+            onClick={() => setShowSessionMonitor(true)}
+            className="flex items-center gap-2 px-3 py-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-colors group"
+            title={t('deviceControl.sessionMonitor.title', '会话监控')}
+          >
+            <Activity className="w-5 h-5 text-purple-500 group-hover:text-purple-600" />
+            <span className="hidden lg:inline text-sm font-medium text-gray-600 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+              {t('deviceControl.sessionMonitor.title', '会话监控')}
+            </span>
           </button>
 
           <div className="h-8 w-px bg-gray-200 dark:bg-gray-800 mx-1 hidden sm:block" />
@@ -413,6 +432,72 @@ const DeviceManagement: React.FC = () => {
         }}
         isLoading={isDisconnecting}
       />
+
+      {/* Session Monitor Modal */}
+      {showSessionMonitor && (
+        <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center p-4 sm:p-6">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-gray-900/60 dark:bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
+            onClick={() => setShowSessionMonitor(false)}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-purple-600 to-indigo-600">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 backdrop-blur-md rounded-xl">
+                  <Activity className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">
+                    {t('deviceControl.sessionMonitor.modalTitle', 'Computer Use 会话监控')}
+                  </h2>
+                  <p className="text-purple-100 text-xs opacity-80">
+                    {t('deviceControl.sessionMonitor.modalSubtitle', '实时查看 AI 控制设备的执行状态')}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSessionMonitor(false)}
+                className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {monitoringSessionId ? (
+                <ComputerUseSessionMonitor
+                  sessionId={monitoringSessionId}
+                  onClose={() => setMonitoringSessionId(null)}
+                  autoRefresh={true}
+                  refreshInterval={2000}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-2xl mb-4">
+                    <Activity className="w-12 h-12 text-purple-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    {t('deviceControl.sessionMonitor.noSession', '暂无活动会话')}
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 max-w-md mb-6">
+                    {t('deviceControl.sessionMonitor.noSessionDesc', '当 AI 员工开始控制设备执行任务时，您可以在此处实时监控执行进度和操作步骤。')}
+                  </p>
+                  <div className="flex flex-col gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <p>💡 {t('deviceControl.sessionMonitor.tip1', '确保设备处于在线状态')}</p>
+                    <p>🤖 {t('deviceControl.sessionMonitor.tip2', '在团队配置中添加远程代理')}</p>
+                    <p>💬 {t('deviceControl.sessionMonitor.tip3', '通过对话让 AI 员工执行设备操作任务')}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

@@ -112,10 +112,12 @@ export const useAIStore = create<AIState>()(
           profession: '',
           description: '',
           llmModel: '',
+          agentCategory: 'normal',
           tools: [],
           toolConfigs: {},
           knowledgeBases: [],
           workflows: [],
+          boundDeviceId: null,
           markdown: true,
           add_datetime_to_context: true,
           tool_call_limit: 10,
@@ -308,10 +310,12 @@ export const useAIStore = create<AIState>()(
             profession: '',
             description: '',
             llmModel: '',
+            agentCategory: 'normal',
             tools: [],
             toolConfigs: {},
             knowledgeBases: [],
             workflows: [],
+            boundDeviceId: null,
             markdown: true,
             add_datetime_to_context: true,
             tool_call_limit: 10,
@@ -323,6 +327,7 @@ export const useAIStore = create<AIState>()(
         validateCreateAgentForm: () => {
           const { createAgentFormData } = get();
           const errors: FormValidationErrors = {};
+          const isComputerUseAgent = createAgentFormData.agentCategory === 'computer_use';
 
           if (!createAgentFormData.name.trim()) {
             errors.name = i18n.t('agents.validation.nameRequired', 'AI员工名称不能为空');
@@ -332,12 +337,15 @@ export const useAIStore = create<AIState>()(
             errors.profession = i18n.t('agents.validation.professionRequired', '职业/角色不能为空');
           }
 
-          if (!createAgentFormData.description.trim()) {
-            errors.description = i18n.t('agents.validation.descriptionRequired', 'AI员工描述不能为空');
-          }
+          // Computer use agents don't require description or model
+          if (!isComputerUseAgent) {
+            if (!createAgentFormData.description.trim()) {
+              errors.description = i18n.t('agents.validation.descriptionRequired', 'AI员工描述不能为空');
+            }
 
-          if (!createAgentFormData.llmModel) {
-            errors.llmModel = i18n.t('agents.validation.modelRequired', '请选择LLM模型');
+            if (!createAgentFormData.llmModel) {
+              errors.llmModel = i18n.t('agents.validation.modelRequired', '请选择LLM模型');
+            }
           }
 
           set({ createAgentErrors: errors }, false, 'validateCreateAgentForm');

@@ -13,6 +13,46 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.runtime.tools.builder.agent_builder import AgentBuilder, StoreRemoteAgent
+
+
+class ComputerUseRemoteAgent(RemoteAgent):
+    """RemoteAgent wrapper that passes device_id via HTTP Header for Computer Use agents.
+    
+    This extends Agno's native RemoteAgent to automatically include the bound device_id
+    in the X-Device-ID HTTP header when the agent is invoked, allowing the tgo-device-control
+    AgentOS to know which device to control.
+    """
+    
+    def __init__(
+        self,
+        base_url: str,
+        agent_id: str,
+        device_id: str,
+        timeout: float = 120.0,
+        **kwargs,
+    ):
+        super().__init__(base_url=base_url, agent_id=agent_id, timeout=timeout, **kwargs)
+        self._device_id = device_id
+    
+    def _get_auth_headers(self, auth_token: Optional[str] = None) -> Optional[Dict[str, str]]:
+        """Add X-Device-ID header along with any base auth headers."""
+        headers: Dict[str, str] = {}
+        # Call parent to get existing headers if any
+        try:
+            if hasattr(super(), "_get_auth_headers"):
+                headers = super()._get_auth_headers(auth_token) or {}
+            elif hasattr(super(), "get_auth_headers"):
+                headers = super().get_auth_headers(auth_token) or {}
+        except Exception:
+            pass
+        
+        # Inject device ID via header
+        headers["X-Device-ID"] = self._device_id
+        return headers
+    
+    def get_auth_headers(self, auth_token: Optional[str] = None) -> Optional[Dict[str, str]]:
+        """Public version of get_auth_headers."""
+        return self._get_auth_headers(auth_token)
 from app.services.api_service import api_service_client
 
 from app.config import settings
@@ -367,12 +407,69 @@ class AgnoTeamBuilder:
         role: str,
     ) -> Union[Agent, RemoteAgent]:
         """Convert an internal agent definition into an agno Agent or RemoteAgent."""
-        # 1. Handle Remote Store Agents
-        # if getattr(internal_agent, "is_remote_store_agent", False):
-        #     return await self._build_remote_agent(internal_agent, context, role)
+        # 1. Handle Computer Use Agents (device control)
+        if getattr(internal_agent, "agent_category", "normal") == "computer_use":
+            return await self._build_computer_use_agent(internal_agent, context, role)
 
         # 2. Handle Local Agents
         return await self._build_local_agent(internal_agent, context, config_overrides, role)
+
+    async def _build_computer_use_agent(
+        self,
+        internal_agent: InternalAgent,
+        context: CoordinationContext,
+        role: str,
+    ) -> ComputerUseRemoteAgent:
+        """Build a Computer Use Agent using ComputerUseRemoteAgent wrapper.
+        
+        Computer Use Agents are special agents that control remote devices
+        through the tgo-device-control AgentOS service. The device_id is
+        automatically injected into messages when the agent runs.
+        """
+        # Get bound device ID from config
+        agent_config = internal_agent.config or {}
+        device_id = agent_config.get("bound_device_id")
+        
+        if not device_id:
+            self._logger.warning(
+                f"Computer Use Agent {internal_agent.name} has no bound device",
+                agent_id=str(internal_agent.id),
+            )
+            raise ValueError(f"Computer Use Agent {internal_agent.name} must have a bound device")
+        
+        self._logger.info(
+            f"Building Computer Use Agent with device {device_id}",
+            agent_id=str(internal_agent.id),
+            agent_name=internal_agent.name,
+            device_id=device_id,
+        )
+        
+        # Create ComputerUseRemoteAgent pointing to tgo-device-control AgentOS
+        # The device_id is automatically injected into messages
+        agent_id = str(internal_agent.id) if internal_agent.id else str(uuid.uuid4())
+        
+        # Store device_id in metadata for reference
+        metadata = {
+            "role": role,
+            "team_agent": True,
+            "is_remote": True,
+            "agent_category": "computer_use",
+            "device_id": device_id,
+        }
+        
+        remote_agent = ComputerUseRemoteAgent(
+            base_url=settings.device_control_agentos_url,
+            agent_id=settings.device_control_agent_id,
+            device_id=device_id,
+            timeout=120.0,  # Computer use tasks may take longer
+        )
+        
+        # Override agent properties
+        remote_agent.id = agent_id
+        remote_agent.name = internal_agent.name or "Computer Use Agent"
+        remote_agent.metadata = metadata
+        
+        return remote_agent
 
     async def _build_remote_agent(
         self, 

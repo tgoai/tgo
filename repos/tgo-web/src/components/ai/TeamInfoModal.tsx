@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuX, LuUsers, LuSave, LuMessageSquare, LuCpu, LuInfo, LuChevronRight, LuChevronDown, LuChevronUp, LuSettings } from 'react-icons/lu';
+import { LuX, LuUsers, LuSave, LuMessageSquare, LuCpu, LuInfo, LuChevronRight, LuChevronDown, LuChevronUp, LuSettings, LuMonitor } from 'react-icons/lu';
 import { Loader2, Sparkles } from 'lucide-react';
 import { aiTeamsApiService, TeamWithDetailsResponse, TeamUpdateRequest } from '@/services/aiTeamsApi';
 import { useToast } from '@/hooks/useToast';
 import AIProvidersApiService from '@/services/aiProvidersApi';
 import Toggle from '@/components/ui/Toggle';
+import { RemoteAgentSelector, ComputerUseConfig } from './remote-agent';
+import type { RemoteAgentTeamConfig } from '@/types/remoteAgent';
+import type { RemoteAgentInfo } from '@/services/remoteAgentsApi';
 
 interface TeamInfoModalProps {
   isOpen: boolean;
@@ -20,6 +23,7 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
 
   const [isSaving, setIsSaving] = useState(false);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [isRemoteAgentsOpen, setIsRemoteAgentsOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -34,6 +38,11 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
     add_datetime_to_context: true,
     tool_call_limit: 10,
   });
+
+  // Remote agents state
+  const [selectedRemoteAgents, setSelectedRemoteAgents] = useState<RemoteAgentTeamConfig[]>([]);
+  const [configuringAgent, setConfiguringAgent] = useState<RemoteAgentInfo | null>(null);
+  const [computerUseConfig, setComputerUseConfig] = useState<Record<string, Partial<RemoteAgentTeamConfig>>>({});
 
   // Track if form has been modified
   const [isDirty, setIsDirty] = useState(false);
@@ -98,7 +107,7 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
     }
   }, [team, llmOptions]);
 
-  const handleInputChange = (field: keyof typeof formData, value: any) => {
+  const handleInputChange = (field: keyof typeof formData, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setIsDirty(true);
     
@@ -106,6 +115,31 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
     if (field === 'model') {
       const selectedOption = llmOptions.find(opt => opt.value === value);
       setSelectedProviderId(selectedOption?.providerId || null);
+    }
+  };
+
+  // Handle remote agents change
+  const handleRemoteAgentsChange = (agents: RemoteAgentTeamConfig[]) => {
+    setSelectedRemoteAgents(agents);
+    setIsDirty(true);
+  };
+
+  // Handle configure agent
+  const handleConfigureAgent = (agent: RemoteAgentInfo) => {
+    setConfiguringAgent(agent);
+  };
+
+  // Handle computer use config change
+  const handleComputerUseConfigChange = (config: Partial<RemoteAgentTeamConfig>) => {
+    if (configuringAgent) {
+      setComputerUseConfig(prev => ({
+        ...prev,
+        [configuringAgent.agent_id]: {
+          ...prev[configuringAgent.agent_id],
+          ...config,
+        },
+      }));
+      setIsDirty(true);
     }
   };
 
@@ -379,6 +413,71 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
                         />
                       </div>
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Remote Agents */}
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={() => setIsRemoteAgentsOpen(!isRemoteAgentsOpen)}
+                  className="flex items-center justify-between w-full px-6 py-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-2xl border border-purple-100 dark:border-purple-800/50 hover:border-purple-300 dark:hover:border-purple-700 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <LuMonitor className={`w-5 h-5 ${isRemoteAgentsOpen ? 'text-purple-600' : 'text-purple-400'} transition-colors`} />
+                    <div>
+                      <span className="font-bold text-gray-700 dark:text-gray-300">
+                        {t('team.remoteAgents.title', '远程代理')}
+                      </span>
+                      {selectedRemoteAgents.length > 0 && (
+                        <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 rounded-full">
+                          {selectedRemoteAgents.length}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {isRemoteAgentsOpen ? (
+                    <LuChevronUp className="w-5 h-5 text-gray-400" />
+                  ) : (
+                    <LuChevronDown className="w-5 h-5 text-gray-400" />
+                  )}
+                </button>
+
+                {isRemoteAgentsOpen && (
+                  <div className="px-2 py-2 space-y-4 animate-in slide-in-from-top-2 duration-200">
+                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-2xl border border-purple-100/50 dark:border-purple-800/50">
+                      <p className="text-xs text-purple-600 dark:text-purple-400 leading-relaxed">
+                        {t('team.remoteAgents.hint', '💡 远程代理是运行在其他服务上的 AI Agent，可以执行设备控制等特殊任务。添加后它们将作为团队成员参与协作。')}
+                      </p>
+                    </div>
+
+                    <RemoteAgentSelector
+                      selectedAgents={selectedRemoteAgents}
+                      onChange={handleRemoteAgentsChange}
+                      onConfigureAgent={handleConfigureAgent}
+                    />
+
+                    {/* Computer Use Configuration Panel */}
+                    {configuringAgent && configuringAgent.type === 'computer_use' && (
+                      <div className="mt-4 p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-bold text-gray-700 dark:text-gray-300">
+                            {t('team.remoteAgents.configTitle', '配置: {{name}}', { name: configuringAgent.name })}
+                          </h4>
+                          <button
+                            onClick={() => setConfiguringAgent(null)}
+                            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <LuX className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <ComputerUseConfig
+                          config={computerUseConfig[configuringAgent.agent_id] || {}}
+                          onChange={handleComputerUseConfigChange}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

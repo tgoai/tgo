@@ -35,7 +35,7 @@ class DeviceBase(BaseModel):
 class DeviceCreateRequest(DeviceBase):
     """Request schema for creating a device."""
 
-    bind_code: str = Field(..., description="6-digit bind code")
+    pass
 
 
 class DeviceUpdateRequest(BaseModel):

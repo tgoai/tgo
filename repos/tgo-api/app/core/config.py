@@ -555,6 +555,16 @@ class Settings(BaseSettings):
         gt=0,
     )
 
+    # Device Control AgentOS (Computer Use Agent)
+    DEVICE_CONTROL_AGENTOS_URL: str = Field(
+        default="http://localhost:7778",
+        description="URL of the Device Control AgentOS server",
+    )
+    DEVICE_CONTROL_AGENT_ID: str = Field(
+        default="computer-use-agent",
+        description="Agent ID for the Computer Use Agent",
+    )
+
     # Environment
     ENVIRONMENT: str = Field(
         default="development",

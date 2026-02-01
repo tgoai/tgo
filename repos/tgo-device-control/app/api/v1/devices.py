@@ -105,12 +105,12 @@ async def disconnect_device(
     db: AsyncSession = Depends(get_async_db),
 ):
     """Force disconnect a device."""
-    from app.services.device_manager import device_manager
+    from app.services.tcp_connection_manager import tcp_connection_manager
 
     service = DeviceService(db)
     device = await service.get_device(device_id=device_id, project_id=project_id)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
-    await device_manager.disconnect_device(str(device_id))
+    await tcp_connection_manager.unregister_connection(str(device_id))
     return {"success": True, "message": "Device disconnected"}

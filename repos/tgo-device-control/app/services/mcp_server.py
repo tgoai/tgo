@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from app.config import settings
 from app.core.logging import get_logger
 from app.schemas.mcp import MCPToolDefinition
-from app.services.device_manager import device_manager
+from app.services.tcp_connection_manager import tcp_connection_manager
 
 logger = get_logger("services.mcp_server")
 
@@ -338,7 +338,11 @@ class MCPServer:
         project_id: Optional[str] = None,
         device_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Execute a tool on a device."""
+        """Execute a tool on a device.
+        
+        This method uses the TCP connection manager to call tools directly
+        on connected devices via the tools/call protocol.
+        """
         # Get device ID from arguments if not provided
         device_id = device_id or arguments.get("device_id")
 
@@ -349,7 +353,7 @@ class MCPServer:
             }
 
         # Get device connection
-        connection = device_manager.get_device(device_id, project_id)
+        connection = tcp_connection_manager.get_connection(device_id)
         if not connection:
             return {
                 "content": [
@@ -358,33 +362,33 @@ class MCPServer:
                 "isError": True,
             }
 
-        # Map tool name to device method
-        method_mapping = {
-            "computer_screenshot": "screenshot",
-            "computer_mouse_click": "mouse_click",
-            "computer_mouse_double_click": "mouse_double_click",
-            "computer_mouse_move": "mouse_move",
-            "computer_mouse_drag": "mouse_drag",
-            "computer_keyboard_type": "keyboard_type",
-            "computer_keyboard_hotkey": "keyboard_hotkey",
-            "computer_keyboard_press": "keyboard_press",
+        # Map tool name to device tool name
+        tool_mapping = {
+            "computer_screenshot": "see",
+            "computer_mouse_click": "click",
+            "computer_mouse_double_click": "click",
+            "computer_mouse_move": "move",
+            "computer_mouse_drag": "drag",
+            "computer_keyboard_type": "type",
+            "computer_keyboard_hotkey": "hotkey",
+            "computer_keyboard_press": "type",
             "computer_scroll": "scroll",
             "computer_get_screen_size": "get_screen_size",
             "computer_get_cursor_position": "get_cursor_position",
         }
 
-        device_method = method_mapping.get(tool_name)
-        if not device_method:
+        device_tool = tool_mapping.get(tool_name)
+        if not device_tool:
             return {
                 "content": [{"type": "text", "text": f"Error: Unknown tool {tool_name}"}],
                 "isError": True,
             }
 
-        # Remove device_id from arguments (already used)
-        tool_args = {k: v for k, v in arguments.items() if k != "device_id"}
+        # Transform arguments for device tool format
+        tool_args = self._transform_arguments(tool_name, arguments)
 
-        # Send request to device
-        result = await connection.send_request(device_method, tool_args)
+        # Call tool on device via tools/call
+        result = await connection.call_tool(device_tool, tool_args)
 
         if result is None:
             return {
@@ -392,34 +396,45 @@ class MCPServer:
                 "isError": True,
             }
 
-        # Format result
-        if isinstance(result, dict):
-            if result.get("error"):
-                return {
-                    "content": [{"type": "text", "text": f"Error: {result['error']}"}],
-                    "isError": True,
-                }
+        # Return result as-is (already in MCP format from device)
+        return result
 
-            # For screenshot, include image URL
-            if tool_name == "computer_screenshot" and result.get("screenshot_url"):
-                return {
-                    "content": [
-                        {
-                            "type": "image",
-                            "data": result.get("screenshot_base64", ""),
-                            "mimeType": "image/png",
-                        },
-                        {
-                            "type": "text",
-                            "text": f"Screenshot captured: {result['screenshot_url']}",
-                        },
-                    ],
-                }
+    def _transform_arguments(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Transform arguments from MCP server format to device tool format."""
+        # Remove device_id from arguments (already used)
+        args = {k: v for k, v in arguments.items() if k != "device_id"}
 
-            return {
-                "content": [{"type": "text", "text": str(result)}],
-            }
+        # Special transformations based on tool
+        if tool_name == "computer_mouse_click":
+            # Convert x,y to coords format
+            if "x" in args and "y" in args:
+                args["coords"] = f"{args.pop('x')},{args.pop('y')}"
+        elif tool_name == "computer_mouse_double_click":
+            if "x" in args and "y" in args:
+                args["coords"] = f"{args.pop('x')},{args.pop('y')}"
+                args["double"] = True
+        elif tool_name == "computer_mouse_drag":
+            # Convert start/end coords
+            if "start_x" in args and "start_y" in args:
+                args["from"] = f"{args.pop('start_x')},{args.pop('start_y')}"
+            if "end_x" in args and "end_y" in args:
+                args["to"] = f"{args.pop('end_x')},{args.pop('end_y')}"
+        elif tool_name == "computer_mouse_move":
+            if "x" in args and "y" in args:
+                args["coords"] = f"{args.pop('x')},{args.pop('y')}"
+        elif tool_name == "computer_keyboard_press":
+            # Convert key to text
+            if "key" in args:
+                args["text"] = args.pop("key")
+        elif tool_name == "computer_scroll":
+            # Convert x,y to coords
+            if "x" in args and "y" in args:
+                args["on"] = f"{args.pop('x')},{args.pop('y')}"
+            if "amount" in args:
+                args["ticks"] = args.pop("amount")
 
-        return {
-            "content": [{"type": "text", "text": str(result)}],
-        }
+        return args

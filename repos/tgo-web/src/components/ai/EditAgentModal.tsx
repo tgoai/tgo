@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Save, RotateCcw, Bot, Wrench, FolderOpen, XCircle, User, Briefcase, GitBranch, Sparkles, Layout, ChevronRight, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Save, RotateCcw, Bot, Wrench, FolderOpen, XCircle, User, Briefcase, GitBranch, Sparkles, Layout, ChevronRight, Settings, ChevronDown, ChevronUp, Monitor } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 // import { getIconComponent, getIconColor } from '@/components/knowledge/IconPicker';
 import { useAIStore } from '@/stores';
 import { useKnowledgeStore } from '@/stores';
+import { useDeviceControlStore } from '@/stores/deviceControlStore';
 
 import { useToast } from '@/hooks/useToast';
 // import { transformToolSummaryList } from '@/utils/toolsTransform';
@@ -15,8 +16,9 @@ import SectionHeader from '@/components/ui/SectionHeader';
 import { AIAgentsApiService, AIAgentsTransformUtils } from '@/services/aiAgentsApi';
 import ToolSelectionModal from './ToolSelectionModal';
 import KnowledgeBaseSelectionModal from './KnowledgeBaseSelectionModal';
+import DeviceSelectionModal from './DeviceSelectionModal';
 import { WorkflowSelectionModal } from '@/components/workflow';
-import type { Agent, AiTool, AgentToolResponse, KnowledgeBaseItem, AgentToolDetailed, AgentToolUnion, ToolSummary } from '@/types';
+import type { Agent, AiTool, AgentToolResponse, KnowledgeBaseItem, AgentToolDetailed, AgentToolUnion, ToolSummary, AgentCategory } from '@/types';
 import type { WorkflowSummary } from '@/types/workflow';
 import AgentToolsSection from '@/components/ui/AgentToolsSection';
 import AgentKnowledgeBasesSection from '@/components/ui/AgentKnowledgeBasesSection';
@@ -43,6 +45,7 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
   const { updateAgent, refreshAgents } = useAIStore();
   const { knowledgeBases, fetchKnowledgeBases } = useKnowledgeStore();
   const { aiTools, loadTools } = useProjectToolsStore();
+  const { devices, loadDevices } = useDeviceControlStore();
   const { showToast } = useToast();
   const { t } = useTranslation();
 
@@ -90,6 +93,7 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
     removeTool,
     removeKnowledgeBase,
     removeWorkflow,
+    removeDevice,
     reset,
   } = useAgentForm();
 
@@ -101,6 +105,7 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
   const [showToolSelectionModal, setShowToolSelectionModal] = useState(false);
   const [showKnowledgeBaseSelectionModal, setShowKnowledgeBaseSelectionModal] = useState(false);
   const [showWorkflowSelectionModal, setShowWorkflowSelectionModal] = useState(false);
+  const [showDeviceSelectionModal, setShowDeviceSelectionModal] = useState(false);
 
   // Fetch agent data from API
   const fetchAgent = async (id: string): Promise<void> => {
@@ -154,6 +159,15 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
     }
   }, [isOpen, workflows.length, loadWorkflows]);
 
+  // Load devices when agent category is computer_use
+  useEffect(() => {
+    if (isOpen && formData.agentCategory === 'computer_use' && devices.length === 0) {
+      loadDevices().catch((e) => {
+        console.warn('Failed to load devices for EditAgentModal:', e);
+      });
+    }
+  }, [isOpen, formData.agentCategory, devices.length, loadDevices]);
+
   // 初始化表单数据（直接基于 agent.tools，无需依赖工具商店列表）
   useEffect(() => {
     if (agent && !isLoadingAgent) {
@@ -166,15 +180,23 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
       // Handle workflows - extract IDs if objects are returned
       const workflowIds = (agent.workflows || []).map((w: any) => typeof w === 'string' ? w : w.id);
 
+      // Get agent category (default to 'normal')
+      const agentCategory: AgentCategory = (agent as any).agent_category || 'normal';
+
+      // Get bound device ID from config (for computer_use agents)
+      const boundDeviceId: string | null = agent.config?.bound_device_id || null;
+
       reset({
         name: agent.name,
         profession: agent.role || t('agents.copy.defaultProfession', '专家'),
         description: agent.description,
         llmModel: agent.llmModel || 'gemini-1.5-pro',
+        agentCategory,
         tools: toolIds,
         toolConfigs: agent.toolConfigs || {},
         knowledgeBases: kbIds,
         workflows: workflowIds,
+        boundDeviceId: boundDeviceId,
         // 高级配置
         markdown: agent.config?.markdown ?? true,
         add_datetime_to_context: agent.config?.add_datetime_to_context ?? true,
@@ -297,6 +319,12 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
     return workflows.filter((wf) => formData.workflows.includes(wf.id));
   }, [workflows, formData.workflows]);
 
+  // 已绑定的设备列表 (for computer_use agents)
+  const boundDevice = useMemo(() => {
+    if (!formData.boundDeviceId) return null;
+    return devices.find(device => device.id === formData.boundDeviceId);
+  }, [devices, formData.boundDeviceId]);
+
   // 输入处理由 hook 提供
 
   // 处理工具移除
@@ -307,6 +335,9 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
 
   // 处理工作流移除
   const handleWorkflowRemove = (workflowId: string) => { removeWorkflow(workflowId); };
+
+  // 处理设备移除
+  const handleDeviceRemove = () => { removeDevice(''); };
 
   // 知识库图标颜色由通用组件处理
 
@@ -401,15 +432,30 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
         }
       }
 
+      // Build config object with bound_devices for computer_use agents
+      const configForUpdate: Record<string, any> = {
+        markdown: formData.markdown,
+        add_datetime_to_context: formData.add_datetime_to_context,
+        tool_call_limit: formData.tool_call_limit,
+        num_history_runs: formData.num_history_runs,
+      };
+
+      // Include bound_device_id in config for computer_use agents
+      if (formData.agentCategory === 'computer_use') {
+        configForUpdate.bound_device_id = formData.boundDeviceId;
+      }
+
       await updateAgent(agentId, {
         name: formData.name,
         description: formData.description,
         llmModel: normalized,
         role: formData.profession,
-        tools: formData.tools,
-        toolConfigs: formData.toolConfigs,
-        knowledgeBases: formData.knowledgeBases,
-        workflows: formData.workflows,
+        agent_category: formData.agentCategory,
+        tools: formData.agentCategory === 'normal' ? formData.tools : [], // Clear tools for computer_use
+        toolConfigs: formData.agentCategory === 'normal' ? formData.toolConfigs : {},
+        knowledgeBases: formData.agentCategory === 'normal' ? formData.knowledgeBases : [], // Clear KB for computer_use
+        workflows: formData.agentCategory === 'normal' ? formData.workflows : [], // Clear workflows for computer_use
+        config: configForUpdate,
       }, mergedAvailable);
       // 强制刷新列表，确保卡片立即展示最新 tools/collections
       await refreshAgents();
@@ -435,15 +481,23 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
       // Handle workflows - extract IDs if objects are returned
       const workflowIds = (agent.workflows || []).map((w: any) => typeof w === 'string' ? w : w.id);
 
+      // Get agent category (default to 'normal')
+      const agentCategory: AgentCategory = (agent as any).agent_category || 'normal';
+
+      // Get bound device ID from config (for computer_use agents)
+      const boundDeviceIdFromConfig: string | null = agent.config?.bound_device_id || null;
+
       reset({
         name: agent.name,
         profession: agent.role || t('agents.copy.defaultProfession', '专家'),
         description: agent.description,
         llmModel: agent.llmModel || 'gemini-1.5-pro',
+        agentCategory,
         tools: toolIds,
         toolConfigs: agent.toolConfigs || {},
         knowledgeBases: kbIds,
         workflows: workflowIds,
+        boundDeviceId: boundDeviceIdFromConfig,
         // 高级配置
         markdown: agent.config?.markdown ?? true,
         add_datetime_to_context: agent.config?.add_datetime_to_context ?? true,
@@ -527,6 +581,45 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
                     </h3>
                   </div>
                   <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
+                    {/* 员工类型指示器（只读） */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
+                        {t('agents.form.agentCategory', '员工类型')}
+                      </label>
+                      <div className={`flex items-center gap-3 p-4 rounded-2xl border-2 ${
+                        formData.agentCategory === 'normal'
+                          ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800'
+                          : 'border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-800'
+                      }`}>
+                        <div className={`p-2 rounded-xl ${
+                          formData.agentCategory === 'normal'
+                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600'
+                            : 'bg-purple-100 dark:bg-purple-900/40 text-purple-600'
+                        }`}>
+                          {formData.agentCategory === 'normal' ? (
+                            <Bot className="w-5 h-5" />
+                          ) : (
+                            <Monitor className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <p className={`font-bold text-sm ${
+                            formData.agentCategory === 'normal'
+                              ? 'text-blue-700 dark:text-blue-400'
+                              : 'text-purple-700 dark:text-purple-400'
+                          }`}>
+                            {formData.agentCategory === 'normal'
+                              ? t('agents.category.normal', '普通员工')
+                              : t('agents.category.computerUse', '设备控制')}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {formData.agentCategory === 'normal'
+                              ? t('agents.category.normalDesc', '绑定工具、知识库和工作流')
+                              : t('agents.category.computerUseDesc', '通过绑定设备实现远程操控')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* AI员工名称 */}
                       <div className="space-y-2">
@@ -563,215 +656,289 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
                   </div>
                 </div>
 
-                {/* 模型配置 Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 px-1">
-                    <Layout className="w-5 h-5 text-purple-600" />
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
-                      {t('agents.create.sections.modelConfig', '模型配置')}
-                    </h3>
-                  </div>
-                  <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
-                        {t('agents.form.llmModel', 'LLM模型')} <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={resolvedLlmModel}
-                          onChange={(e) => handleInputChange('llmModel', e.target.value)}
-                          className="w-full appearance-none px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 transition-all outline-none"
-                          disabled={isUpdating || llmLoading}
-                        >
-                          {llmLoading ? (
-                            <option value="">{t('agents.create.models.loading', '正在加载模型...')}</option>
-                          ) : llmError ? (
-                            <option value="">{t('agents.create.models.error', '加载模型失败')}</option>
-                          ) : llmOptions.length === 0 ? (
-                            <option value="">{t('agents.create.models.empty', '暂无可用模型')}</option>
-                          ) : (
-                            <>
-                              {!resolvedLlmModel && (
-                                <option value="">{t('agents.create.models.selectPlaceholder', '请选择模型')}</option>
-                              )}
-                              {/* Fallback option in case current value is a providerKey:model not present in options */}
-                              {formData.llmModel && !llmOptions.some(o => o.value === formData.llmModel) && formData.llmModel.includes(':') && (
-                                <option value={formData.llmModel}>
-                                  {formData.llmModel.split(':').slice(1).join(':')} · {formData.llmModel.split(':')[0]}
-                                </option>
-                              )}
-                              {llmOptions.map(option => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </>
-                          )}
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                          <ChevronRight className="w-4 h-4 rotate-90" />
-                        </div>
-                      </div>
-                      {llmError && (
-                        <p className="text-[11px] text-red-500 flex items-center gap-1 mt-1 ml-1">
-                          <XCircle className="w-3 h-3" /> {t('agents.create.models.loadFailedInline', '模型加载失败: {{error}}', { error: llmError })}
-                        </p>
-                      )}
+                {/* 模型配置 Section - 仅普通员工需要 */}
+                {formData.agentCategory === 'normal' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 px-1">
+                      <Layout className="w-5 h-5 text-purple-600" />
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
+                        {t('agents.create.sections.modelConfig', '模型配置')}
+                      </h3>
                     </div>
-                  </div>
-                </div>
-
-                {/* 能力描述 Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 px-1">
-                    <Sparkles className="w-5 h-5 text-green-600" />
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
-                      {t('agents.create.sections.description', '能力描述')}
-                    </h3>
-                  </div>
-                  <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
-                        {t('agents.form.detailedDescription', '详细提示词/指令')} <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        value={formData.description}
-                        onChange={(e) => handleInputChange('description', e.target.value)}
-                        rows={6}
-                        className="w-full px-4 py-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all outline-none resize-none"
-                        placeholder={t('agents.create.placeholders.description', '请详细描述AI员工的功能、职责和特点...')}
-                        required
-                      disabled={isUpdating}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Advanced Configuration Section */}
-              <div className="space-y-4">
-                <button
-                  type="button"
-                  onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-                  className="flex items-center justify-between w-full px-6 py-4 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-all group shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <Settings className={`w-5 h-5 ${isAdvancedOpen ? 'text-blue-600' : 'text-gray-400'} transition-colors`} />
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
-                      {t('agents.config.advanced', '高级配置')}
-                    </h3>
-                  </div>
-                  {isAdvancedOpen ? (
-                    <ChevronUp className="w-5 h-5 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
-                  )}
-                </button>
-
-                {isAdvancedOpen && (
-                  <div className="p-6 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-6 animate-in slide-in-from-top-2 duration-200">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Markdown */}
-                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-50 dark:border-gray-700">
-                        <div>
-                          <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('config.markdown', 'Markdown 格式')}</p>
-                          <p className="text-xs text-gray-500">{t('config.markdownDesc', '使用 Markdown 格式化输出内容')}</p>
-                        </div>
-                        <Toggle
-                          checked={!!formData.markdown}
-                          onChange={(checked) => handleInputChange('markdown', checked)}
-                        />
-                      </div>
-
-                      {/* Add Datetime */}
-                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-50 dark:border-gray-700">
-                        <div>
-                          <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('config.addDatetime', '添加日期时间')}</p>
-                          <p className="text-xs text-gray-500">{t('config.addDatetimeDesc', '在上下文中包含当前日期时间')}</p>
-                        </div>
-                        <Toggle
-                          checked={!!formData.add_datetime_to_context}
-                          onChange={(checked) => handleInputChange('add_datetime_to_context', checked)}
-                        />
-                      </div>
-
-                      {/* History Runs */}
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
-                          {t('config.numHistoryRuns', '历史会话轮数')}
+                          {t('agents.form.llmModel', 'LLM模型')} <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={20}
-                          value={formData.num_history_runs}
-                          onChange={(e) => handleInputChange('num_history_runs', parseInt(e.target.value) || 0)}
-                          className="w-full px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                        />
-                      </div>
-
-                      {/* Tool Call Limit */}
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
-                          {t('config.toolCallLimit', '工具调用限制')}
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={50}
-                          value={formData.tool_call_limit}
-                          onChange={(e) => handleInputChange('tool_call_limit', parseInt(e.target.value) || 0)}
-                          className="w-full px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                        />
+                        <div className="relative">
+                          <select
+                            value={resolvedLlmModel}
+                            onChange={(e) => handleInputChange('llmModel', e.target.value)}
+                            className="w-full appearance-none px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 transition-all outline-none"
+                            disabled={isUpdating || llmLoading}
+                          >
+                            {llmLoading ? (
+                              <option value="">{t('agents.create.models.loading', '正在加载模型...')}</option>
+                            ) : llmError ? (
+                              <option value="">{t('agents.create.models.error', '加载模型失败')}</option>
+                            ) : llmOptions.length === 0 ? (
+                              <option value="">{t('agents.create.models.empty', '暂无可用模型')}</option>
+                            ) : (
+                              <>
+                                {!resolvedLlmModel && (
+                                  <option value="">{t('agents.create.models.selectPlaceholder', '请选择模型')}</option>
+                                )}
+                                {/* Fallback option in case current value is a providerKey:model not present in options */}
+                                {formData.llmModel && !llmOptions.some(o => o.value === formData.llmModel) && formData.llmModel.includes(':') && (
+                                  <option value={formData.llmModel}>
+                                    {formData.llmModel.split(':').slice(1).join(':')} · {formData.llmModel.split(':')[0]}
+                                  </option>
+                                )}
+                                {llmOptions.map(option => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </>
+                            )}
+                          </select>
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                            <ChevronRight className="w-4 h-4 rotate-90" />
+                          </div>
+                        </div>
+                        {llmError && (
+                          <p className="text-[11px] text-red-500 flex items-center gap-1 mt-1 ml-1">
+                            <XCircle className="w-3 h-3" /> {t('agents.create.models.loadFailedInline', '模型加载失败: {{error}}', { error: llmError })}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* 资源关联 Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 px-1">
-                    <Briefcase className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
-                      {t('agents.create.sections.resources', '资源关联')}
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-1 gap-6">
-                    {/* Tool工具 */}
-                    <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                      <SectionHeader icon={<Wrench className="w-4 h-4 text-orange-600" />} title={t('agents.create.sections.tools', 'Tool工具')} />
-                      <AgentToolsSection
-                        tools={addedAiTools}
-                        toolConfigs={formData.toolConfigs}
-                        onAdd={() => setShowToolSelectionModal(true)}
-                        onRemove={handleToolRemove}
-                        disabled={isUpdating}
-                      />
+                {/* 能力描述 Section - 仅普通员工需要 */}
+                {formData.agentCategory === 'normal' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 px-1">
+                      <Sparkles className="w-5 h-5 text-green-600" />
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
+                        {t('agents.create.sections.description', '能力描述')}
+                      </h3>
                     </div>
-
-                    {/* 知识库 */}
                     <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                      <SectionHeader icon={<FolderOpen className="w-4 h-4 text-teal-600" />} title={t('agents.form.knowledge_bases', '知识库')} />
-                      <AgentKnowledgeBasesSection
-                        items={addedKnowledgeBases}
-                        onAdd={() => setShowKnowledgeBaseSelectionModal(true)}
-                        onRemove={handleKnowledgeBaseRemove}
-                        disabled={isUpdating}
-                      />
-                    </div>
-
-                    {/* 工作流 */}
-                    <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                      <SectionHeader icon={<GitBranch className="w-4 h-4 text-purple-600" />} title={t('workflow.title', '工作流')} />
-                      <AgentWorkflowsSection
-                        workflows={addedWorkflows}
-                        onAdd={() => setShowWorkflowSelectionModal(true)}
-                        onRemove={handleWorkflowRemove}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
+                          {t('agents.form.detailedDescription', '详细提示词/指令')} <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                          value={formData.description}
+                          onChange={(e) => handleInputChange('description', e.target.value)}
+                          rows={6}
+                          className="w-full px-4 py-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all outline-none resize-none"
+                          placeholder={t('agents.create.placeholders.description', '请详细描述AI员工的功能、职责和特点...')}
+                          required
                         disabled={isUpdating}
                       />
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* Advanced Configuration Section - 仅普通员工需要 */}
+              {formData.agentCategory === 'normal' && (
+                <div className="space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+                    className="flex items-center justify-between w-full px-6 py-4 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-all group shadow-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Settings className={`w-5 h-5 ${isAdvancedOpen ? 'text-blue-600' : 'text-gray-400'} transition-colors`} />
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
+                        {t('agents.config.advanced', '高级配置')}
+                      </h3>
+                    </div>
+                    {isAdvancedOpen ? (
+                      <ChevronUp className="w-5 h-5 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                    )}
+                  </button>
+
+                  {isAdvancedOpen && (
+                    <div className="p-6 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-6 animate-in slide-in-from-top-2 duration-200">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Markdown */}
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-50 dark:border-gray-700">
+                          <div>
+                            <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('config.markdown', 'Markdown 格式')}</p>
+                            <p className="text-xs text-gray-500">{t('config.markdownDesc', '使用 Markdown 格式化输出内容')}</p>
+                          </div>
+                          <Toggle
+                            checked={!!formData.markdown}
+                            onChange={(checked) => handleInputChange('markdown', checked)}
+                          />
+                        </div>
+
+                        {/* Add Datetime */}
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-50 dark:border-gray-700">
+                          <div>
+                            <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('config.addDatetime', '添加日期时间')}</p>
+                            <p className="text-xs text-gray-500">{t('config.addDatetimeDesc', '在上下文中包含当前日期时间')}</p>
+                          </div>
+                          <Toggle
+                            checked={!!formData.add_datetime_to_context}
+                            onChange={(checked) => handleInputChange('add_datetime_to_context', checked)}
+                          />
+                        </div>
+
+                        {/* History Runs */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
+                            {t('config.numHistoryRuns', '历史会话轮数')}
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={20}
+                            value={formData.num_history_runs}
+                            onChange={(e) => handleInputChange('num_history_runs', parseInt(e.target.value) || 0)}
+                            className="w-full px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                          />
+                        </div>
+
+                        {/* Tool Call Limit */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
+                            {t('config.toolCallLimit', '工具调用限制')}
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={50}
+                            value={formData.tool_call_limit}
+                            onChange={(e) => handleInputChange('tool_call_limit', parseInt(e.target.value) || 0)}
+                            className="w-full px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 资源关联 Section - 根据员工类型条件渲染 */}
+                {formData.agentCategory === 'normal' ? (
+                  /* 普通员工：工具、知识库、工作流 */
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 px-1">
+                      <Briefcase className="w-5 h-5 text-orange-600" />
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
+                        {t('agents.create.sections.resources', '资源关联')}
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-6">
+                      {/* Tool工具 */}
+                      <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                        <SectionHeader icon={<Wrench className="w-4 h-4 text-orange-600" />} title={t('agents.create.sections.tools', 'Tool工具')} />
+                        <AgentToolsSection
+                          tools={addedAiTools}
+                          toolConfigs={formData.toolConfigs}
+                          onAdd={() => setShowToolSelectionModal(true)}
+                          onRemove={handleToolRemove}
+                          disabled={isUpdating}
+                        />
+                      </div>
+
+                      {/* 知识库 */}
+                      <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                        <SectionHeader icon={<FolderOpen className="w-4 h-4 text-teal-600" />} title={t('agents.form.knowledge_bases', '知识库')} />
+                        <AgentKnowledgeBasesSection
+                          items={addedKnowledgeBases}
+                          onAdd={() => setShowKnowledgeBaseSelectionModal(true)}
+                          onRemove={handleKnowledgeBaseRemove}
+                          disabled={isUpdating}
+                        />
+                      </div>
+
+                      {/* 工作流 */}
+                      <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                        <SectionHeader icon={<GitBranch className="w-4 h-4 text-purple-600" />} title={t('workflow.title', '工作流')} />
+                        <AgentWorkflowsSection
+                          workflows={addedWorkflows}
+                          onAdd={() => setShowWorkflowSelectionModal(true)}
+                          onRemove={handleWorkflowRemove}
+                          disabled={isUpdating}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* 设备控制员工：设备绑定 */}
+                    <div className="flex items-center gap-2 px-1">
+                      <Monitor className="w-5 h-5 text-purple-600" />
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
+                        {t('agents.create.sections.deviceBinding', '设备绑定')}
+                      </h3>
+                    </div>
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        {t('agents.create.deviceBindingHint', '设备控制员工需要绑定至少一个设备才能运行。绑定的设备将用于远程操控任务。')}
+                      </p>
+
+                      {/* 已绑定设备 */}
+                      {boundDevice ? (
+                        <div className="space-y-2 mb-4">
+                          <div
+                            key={boundDevice.id}
+                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                                <Monitor className="w-4 h-4 text-purple-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                  {boundDevice.device_name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {boundDevice.os} {boundDevice.os_version}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleDeviceRemove}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              disabled={isUpdating}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 mb-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
+                          <Monitor className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {t('agents.create.noDevicesBound', '暂未绑定设备')}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 添加/更换设备按钮 */}
+                      <button
+                        type="button"
+                        onClick={() => setShowDeviceSelectionModal(true)}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 rounded-2xl hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                        disabled={isUpdating}
+                      >
+                        <Monitor className="w-4 h-4" />
+                        {boundDevice ? t('agents.create.changeDevice', '更换设备') : t('agents.create.addDevice', '添加设备')}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -840,6 +1007,16 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
         selectedWorkflows={formData.workflows}
         onConfirm={(selectedWorkflowIds) => {
           setFormData({ workflows: selectedWorkflowIds });
+        }}
+      />
+
+      {/* Device Selection Modal (for computer_use agents) */}
+      <DeviceSelectionModal
+        isOpen={showDeviceSelectionModal}
+        onClose={() => setShowDeviceSelectionModal(false)}
+        selectedDeviceId={formData.boundDeviceId}
+        onConfirm={(selectedDeviceId) => {
+          setFormData({ boundDeviceId: selectedDeviceId });
         }}
       />
     </div>

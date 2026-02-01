@@ -93,6 +93,7 @@ class Agent(BaseModel):
     is_remote_store_agent: bool = Field(default=False, description="Whether this is a remote agent from store")
     remote_agent_url: Optional[str] = Field(None, description="URL of the remote AgentOS server")
     store_agent_id: Optional[str] = Field(None, description="Agent ID in the remote store")
+    agent_category: str = Field(default="normal", description="Agent category: normal or computer_use")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 

@@ -1,5 +1,6 @@
 """Agent-related Pydantic schemas."""
 
+import enum
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -9,6 +10,12 @@ from pydantic import ConfigDict
 from app.schemas.base import BaseSchema, IDMixin, PaginatedResponse, TimestampMixin
 from app.schemas.tool import AgentToolDetail
 from pydantic import computed_field
+
+
+class AgentCategory(str, enum.Enum):
+    """Agent category enumeration."""
+    NORMAL = "normal"
+    COMPUTER_USE = "computer_use"
 
 
 class AgentToolBase(BaseSchema):
@@ -86,7 +93,10 @@ class AgentBase(BaseSchema):
         default=None,
         description="Agent ID in the remote store",
     )
-
+    agent_category: AgentCategory = Field(
+        default=AgentCategory.NORMAL,
+        description="Agent category: normal or computer_use",
+    )
 
 
 class AgentCreate(AgentBase):
@@ -113,6 +123,11 @@ class AgentCreate(AgentBase):
         default_factory=list,
         description="Workflow IDs to associate with the agent (UUID strings)",
         examples=[["123e4567-e89b-12d3-a456-426614174000", "987fcdeb-51a2-43d1-9f6e-123456789abc"]],
+    )
+    bound_device_id: Optional[uuid.UUID] = Field(
+        default=None,
+        description="Device ID to bind (only for computer_use category)",
+        examples=["123e4567-e89b-12d3-a456-426614174000"],
     )
 
     @field_validator("collections", "workflows")
@@ -173,6 +188,10 @@ class AgentUpdate(BaseSchema):
         default=None,
         description="Update remote agent ID",
     )
+    agent_category: Optional[AgentCategory] = Field(
+        default=None,
+        description="Updated agent category: normal or computer_use",
+    )
     tools: Optional[List[AgentToolCreate]] = Field(
         default=None,
         description="Updated tools to bind to the agent",
@@ -186,6 +205,11 @@ class AgentUpdate(BaseSchema):
         default=None,
         description="Updated workflow IDs to associate with the agent (UUID strings). Replaces existing associations.",
         examples=[["123e4567-e89b-12d3-a456-426614174000", "987fcdeb-51a2-43d1-9f6e-123456789abc"]],
+    )
+    bound_device_id: Optional[uuid.UUID] = Field(
+        default=None,
+        description="Updated device ID to bind (only for computer_use category). Replaces existing binding.",
+        examples=["123e4567-e89b-12d3-a456-426614174000"],
     )
 
     @field_validator("collections", "workflows")

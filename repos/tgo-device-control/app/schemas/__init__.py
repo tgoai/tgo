@@ -13,15 +13,40 @@ from app.schemas.mcp import (
     MCPToolCallRequest,
     MCPToolCallResponse,
 )
+from app.schemas.agentos import (
+    AgentRunEventType,
+    ActionInfo,
+    AgentRunEvent,
+    AgentRunRequest,
+    AgentConfig,
+    AgentRunResponse,
+    AgentListResponse,
+    CancelRunRequest,
+    CancelRunResponse,
+    ToolInfo,
+)
 
 __all__ = [
+    # Device schemas
     "DeviceResponse",
     "DeviceListResponse",
     "DeviceCreateRequest",
     "DeviceUpdateRequest",
     "BindCodeResponse",
+    # MCP schemas
     "MCPToolDefinition",
     "MCPToolsListResponse",
     "MCPToolCallRequest",
     "MCPToolCallResponse",
+    # AgentOS schemas
+    "AgentRunEventType",
+    "ActionInfo",
+    "AgentRunEvent",
+    "AgentRunRequest",
+    "AgentConfig",
+    "AgentRunResponse",
+    "AgentListResponse",
+    "CancelRunRequest",
+    "CancelRunResponse",
+    "ToolInfo",
 ]

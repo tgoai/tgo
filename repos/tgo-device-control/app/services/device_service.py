@@ -1,18 +1,16 @@
 """Device Service - Database operations for devices."""
 
-import random
-import string
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional, Tuple, List
 
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core.logging import get_logger
 from app.models.device import Device, DeviceSession, DeviceStatus, DeviceType
 from app.schemas.device import DeviceResponse, DeviceUpdateRequest
+from app.services.bind_code_service import bind_code_service
 
 logger = get_logger("services.device_service")
 
@@ -74,48 +72,12 @@ class DeviceService:
             return DeviceResponse.model_validate(device)
         return None
 
-    async def get_device_by_bind_code(self, bind_code: str) -> Optional[Device]:
-        """Get a device by bind code (for registration)."""
-        now = datetime.now(timezone.utc)
-        query = select(Device).where(
-            and_(
-                Device.bind_code == bind_code,
-                Device.bind_code_expires_at > now,
-            )
-        )
-        result = await self.db.execute(query)
-        return result.scalar_one_or_none()
-
     async def generate_bind_code(
         self,
         project_id: uuid.UUID,
     ) -> Tuple[str, datetime]:
-        """Generate a new bind code and create a placeholder device."""
-        # Generate random code
-        code_length = settings.BIND_CODE_LENGTH
-        bind_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=code_length))
-
-        # Calculate expiry
-        expires_at = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.BIND_CODE_EXPIRY_MINUTES
-        )
-
-        # Create placeholder device
-        device = Device(
-            project_id=project_id,
-            device_name="Pending",
-            device_type=DeviceType.DESKTOP,
-            os="unknown",
-            status=DeviceStatus.OFFLINE,
-            bind_code=bind_code,
-            bind_code_expires_at=expires_at,
-        )
-
-        self.db.add(device)
-        await self.db.commit()
-
-        logger.info(f"Generated bind code {bind_code} for project {project_id}")
-        return bind_code, expires_at
+        """Generate a new bind code using Redis."""
+        return await bind_code_service.generate(project_id)
 
     async def register_device(
         self,
@@ -127,29 +89,30 @@ class DeviceService:
         screen_resolution: Optional[str],
     ) -> Optional[Device]:
         """Register a device using a bind code."""
-        device = await self.get_device_by_bind_code(bind_code)
-        if not device:
+        # Validate bind code from Redis
+        project_id = await bind_code_service.validate(bind_code)
+        if not project_id:
             logger.warning(f"Invalid or expired bind code: {bind_code}")
             return None
 
-        # Update device info
-        device.device_name = device_name
-        device.device_type = DeviceType(device_type)
-        device.os = os
-        device.os_version = os_version
-        device.screen_resolution = screen_resolution
-        device.status = DeviceStatus.ONLINE
-        device.bind_code = None
-        device.bind_code_expires_at = None
-        device.last_seen_at = datetime.now(timezone.utc)
+        # Create new device record
+        device = Device(
+            project_id=project_id,
+            device_name=device_name,
+            device_type=DeviceType(device_type),
+            os=os,
+            os_version=os_version,
+            screen_resolution=screen_resolution,
+            status=DeviceStatus.ONLINE,
+            last_seen_at=datetime.now(timezone.utc),
+            device_token=str(uuid.uuid4()),
+        )
 
-        # Generate device token
-        device.device_token = str(uuid.uuid4())
-
+        self.db.add(device)
         await self.db.commit()
         await self.db.refresh(device)
 
-        logger.info(f"Device registered: {device_name} ({device.id})")
+        logger.info(f"Device registered: {device_name} ({device.id}) for project {project_id}")
         return device
 
     async def update_device(
