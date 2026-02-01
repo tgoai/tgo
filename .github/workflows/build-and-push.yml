@@ -11,6 +11,11 @@ on:
         description: 'Services to build (comma-separated, or leave empty for all except tgo-rag). Example: tgo-api,tgo-web'
         required: false
         default: ''
+      push_latest:
+        description: 'Whether to push the "latest" tag for this build'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -146,12 +151,18 @@ jobs:
           EVENT_NAME="${{ github.event_name }}"
           
           # Determine if we should skip 'latest' tag
-          # Skip for: workflow_dispatch (manual), or -dev suffix tags
+          # Skip for: workflow_dispatch (manual) unless push_latest is true, or -dev suffix tags
+          PUSH_LATEST_INPUT="${{ github.event.inputs.push_latest }}"
           if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
-            # Manual trigger: use branch name as tag, skip 'latest'
-            echo "IS_DEV_BUILD=true" >> $GITHUB_ENV
+            # Manual trigger: use branch name as tag
             echo "BUILD_TYPE=manual" >> $GITHUB_ENV
-            echo "🔧 Manual build from branch: $REF_NAME (will not update 'latest' tag)"
+            if [ "$PUSH_LATEST_INPUT" == "true" ]; then
+              echo "IS_DEV_BUILD=false" >> $GITHUB_ENV
+              echo "🔧 Manual build from branch: $REF_NAME (✓ will update 'latest' tag per request)"
+            else
+              echo "IS_DEV_BUILD=true" >> $GITHUB_ENV
+              echo "🔧 Manual build from branch: $REF_NAME (will not update 'latest' tag)"
+            fi
           elif [[ "$REF_NAME" == *-dev ]]; then
             # Dev tag: skip 'latest'
             echo "IS_DEV_BUILD=true" >> $GITHUB_ENV
@@ -312,7 +323,11 @@ jobs:
             manual)
               echo "🔧 Manual build from branch '${{ github.ref_name }}'"
               echo "📦 Image tag: ${{ env.IMAGE_VERSION }}"
-              echo "⚠️ 'latest' tag was NOT updated"
+              if [ "${{ env.IS_DEV_BUILD }}" == "false" ]; then
+                echo "✓ 'latest' tag was updated per manual request"
+              else
+                echo "⚠️ 'latest' tag was NOT updated"
+              fi
               ;;
             dev)
               echo "🧪 Dev build: ${{ env.IMAGE_VERSION }}"
