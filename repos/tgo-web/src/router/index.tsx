@@ -8,7 +8,6 @@ import AIInterface from '../pages/AIInterface';
 import AgentManagement from '../components/ai/AgentManagement';
 import Tools from '../components/ai/Tools';
 import { DeviceManagement } from '../components/ai/device-control';
-import { DeviceDebugChat } from '../components/ai/device-debug';
 import WorkflowManagement from '../pages/WorkflowManagement';
 import WorkflowEditorPage from '../pages/WorkflowEditorPage';
 import LoginPage from '../pages/LoginPage';
@@ -137,10 +136,6 @@ export const router = createBrowserRouter([
           {
             path: 'device-control',
             element: <DeviceManagement />
-          },
-          {
-            path: 'device-debug/:deviceId',
-            element: <DeviceDebugChat />
           },
           {
             path: 'workflows',

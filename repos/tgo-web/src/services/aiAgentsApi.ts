@@ -164,11 +164,8 @@ export class AIAgentsTransformUtils {
     formData: import('@/types').CreateAgentFormData,
     availableTools?: ToolSummary[],
   ): AgentCreateRequest {
-    const isComputerUseAgent = formData.agentCategory === 'computer_use';
-
     // Transform Tool tools to the API format (always pass array, never null)
-    // For computer_use agents, don't include tools
-    const tools = !isComputerUseAgent && formData.tools.length > 0 ?
+    const tools = formData.tools.length > 0 ?
       AIAgentsTransformUtils.transformToolsToAgentTools(
         formData.tools,
         formData.toolConfigs,
@@ -176,32 +173,25 @@ export class AIAgentsTransformUtils {
       ) : [];
 
     // Transform knowledge bases to collections (UUID strings, always pass array, never null)
-    // For computer_use agents, don't include knowledge bases
-    const collections = !isComputerUseAgent && formData.knowledgeBases && formData.knowledgeBases.length > 0 ?
+    const collections = formData.knowledgeBases && formData.knowledgeBases.length > 0 ?
       formData.knowledgeBases : [];
 
-    // For computer_use agents, don't include workflows
-    const workflowIds = !isComputerUseAgent ? (formData.workflows || []) : [];
+    const workflowIds = formData.workflows || [];
 
     // Split UI model value (providerId:modelName) into separate fields
     const rawModel = formData.llmModel || '';
     const hasProvider = rawModel.includes(':');
     const providerId = hasProvider ? rawModel.split(':')[0] : null;
-    const modelName = hasProvider ? rawModel.split(':').slice(1).join(':') : (isComputerUseAgent ? 'computer-use' : rawModel);
+    const modelName = hasProvider ? rawModel.split(':').slice(1).join(':') : rawModel;
 
     // Build config object
     const configObj: Record<string, any> = {
       profession: formData.profession,
-      markdown: isComputerUseAgent ? true : formData.markdown,
-      add_datetime_to_context: isComputerUseAgent ? true : formData.add_datetime_to_context,
-      tool_call_limit: isComputerUseAgent ? 20 : formData.tool_call_limit,
-      num_history_runs: isComputerUseAgent ? 10 : formData.num_history_runs,
+      markdown: formData.markdown,
+      add_datetime_to_context: formData.add_datetime_to_context,
+      tool_call_limit: formData.tool_call_limit,
+      num_history_runs: formData.num_history_runs,
     };
-
-    // For computer_use agents, include bound_device_id in config
-    if (isComputerUseAgent && formData.boundDeviceId) {
-      configObj.bound_device_id = formData.boundDeviceId;
-    }
 
     return {
       name: formData.name,
@@ -209,16 +199,12 @@ export class AIAgentsTransformUtils {
       ai_provider_id: providerId,
       model: modelName, // pure model name (no provider prefix)
       is_default: false, // Default to false
-      agent_category: formData.agentCategory || 'normal', // Agent category
       config: configObj,
       team_id: null, // Optional - can be set later if needed
       tools: tools,
       collections: collections,
       workflows: workflowIds,
-      // Include bound_device_id at top level for API compatibility
-      ...(isComputerUseAgent && formData.boundDeviceId
-        ? { bound_device_id: formData.boundDeviceId }
-        : {}),
+      bound_device_id: formData.boundDeviceId || null,
     };
   }
 
@@ -255,20 +241,20 @@ export class AIAgentsTransformUtils {
       successRate: 0.95, // Default success rate
       responseTime: '1.2s', // Default response time
       tags: [apiAgent.model], // Use model as tag
-      agent_category: apiAgent.agent_category || 'normal', // Agent category
       tools: toolIds,
       toolConfigs: toolConfigs,
       knowledgeBases: knowledgeBases,
       collections: collections,
       agentTools: tools,
       workflows: (apiAgent as any).workflows || [],
+      boundDeviceId: apiAgent.bound_device_id || undefined,
+      boundDevice: apiAgent.bound_device || null,
       config: {
         profession: apiAgent.config?.profession,
         markdown: apiAgent.config?.markdown,
         add_datetime_to_context: apiAgent.config?.add_datetime_to_context,
         tool_call_limit: apiAgent.config?.tool_call_limit,
         num_history_runs: apiAgent.config?.num_history_runs,
-        bound_device_id: apiAgent.config?.bound_device_id, // Preserve bound device ID
       },
     };
   }
@@ -354,37 +340,28 @@ export class AIAgentsTransformUtils {
     const rawModel = agent.llmModel || '';
     const hasProvider = rawModel.includes(':');
     const providerId = hasProvider ? rawModel.split(':')[0] : null;
-    const modelName = rawModel ? (hasProvider ? rawModel.split(':').slice(1).join(':') : rawModel) : (agent.agent_category === 'computer_use' ? 'computer-use' : null);
+    const modelName = rawModel ? (hasProvider ? rawModel.split(':').slice(1).join(':') : rawModel) : null;
 
-    // Build config object, including bound_devices for computer_use agents
+    // Build config object
     const configObj: Record<string, any> = {
       profession: agent.role,
       capabilities: agent.capabilities,
-      markdown: agent.agent_category === 'computer_use' ? true : agent.config?.markdown,
-      add_datetime_to_context: agent.agent_category === 'computer_use' ? true : agent.config?.add_datetime_to_context,
-      tool_call_limit: agent.agent_category === 'computer_use' ? 20 : agent.config?.tool_call_limit,
-      num_history_runs: agent.agent_category === 'computer_use' ? 10 : agent.config?.num_history_runs,
+      markdown: agent.config?.markdown,
+      add_datetime_to_context: agent.config?.add_datetime_to_context,
+      tool_call_limit: agent.config?.tool_call_limit,
+      num_history_runs: agent.config?.num_history_runs,
     };
-
-    // For computer_use agents, include bound_device_id in config
-    if (agent.agent_category === 'computer_use' && agent.config?.bound_device_id) {
-      configObj.bound_device_id = agent.config.bound_device_id;
-    }
 
     return {
       name: agent.name,
       instruction: agent.description,
       ...(providerId ? { ai_provider_id: providerId } : {}),
       ...(modelName ? { model: modelName } : {}),
-      ...(agent.agent_category ? { agent_category: agent.agent_category } : {}),
       config: configObj,
       tools: tools,
       collections: collections,
       workflows: agent.workflows || [],
-      // Include bound_device_id at top level for API compatibility
-      ...(agent.agent_category === 'computer_use' && agent.config?.bound_device_id
-        ? { bound_device_id: agent.config.bound_device_id }
-        : {}),
+      bound_device_id: agent.boundDeviceId || null,
     } as AgentUpdateRequest;
   }
 

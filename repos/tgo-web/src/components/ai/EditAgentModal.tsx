@@ -18,11 +18,12 @@ import ToolSelectionModal from './ToolSelectionModal';
 import KnowledgeBaseSelectionModal from './KnowledgeBaseSelectionModal';
 import DeviceSelectionModal from './DeviceSelectionModal';
 import { WorkflowSelectionModal } from '@/components/workflow';
-import type { Agent, AiTool, AgentToolResponse, KnowledgeBaseItem, AgentToolDetailed, AgentToolUnion, ToolSummary, AgentCategory } from '@/types';
+import type { Agent, AiTool, AgentToolResponse, KnowledgeBaseItem, AgentToolDetailed, AgentToolUnion, ToolSummary } from '@/types';
 import type { WorkflowSummary } from '@/types/workflow';
 import AgentToolsSection from '@/components/ui/AgentToolsSection';
 import AgentKnowledgeBasesSection from '@/components/ui/AgentKnowledgeBasesSection';
 import AgentWorkflowsSection from '@/components/ui/AgentWorkflowsSection';
+import AgentDeviceSection from '@/components/ui/AgentDeviceSection';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useAgentForm } from '@/hooks/useAgentForm';
 import { useProjectToolsStore } from '@/stores/projectToolsStore';
@@ -45,7 +46,6 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
   const { updateAgent, refreshAgents } = useAIStore();
   const { knowledgeBases, fetchKnowledgeBases } = useKnowledgeStore();
   const { aiTools, loadTools } = useProjectToolsStore();
-  const { devices, loadDevices } = useDeviceControlStore();
   const { showToast } = useToast();
   const { t } = useTranslation();
 
@@ -92,13 +92,16 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
     handleInputChange,
     removeTool,
     removeKnowledgeBase,
-    removeWorkflow,
     removeDevice,
+    removeWorkflow,
     reset,
   } = useAgentForm();
 
   // Workflow store
   const { workflows, loadWorkflows } = useWorkflowStore();
+
+  // Device store
+  const { devices, loadDevices } = useDeviceControlStore();
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -106,6 +109,18 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
   const [showKnowledgeBaseSelectionModal, setShowKnowledgeBaseSelectionModal] = useState(false);
   const [showWorkflowSelectionModal, setShowWorkflowSelectionModal] = useState(false);
   const [showDeviceSelectionModal, setShowDeviceSelectionModal] = useState(false);
+
+  // Compute bound device object for display
+  // Priority: 1) API-returned agent.boundDevice  2) store lookup by ID
+  const boundDevice = useMemo(() => {
+    if (!formData.boundDeviceId) return null;
+    // If agent from API has full device object and IDs match, use it directly
+    if (agent?.boundDevice && agent.boundDevice.id === formData.boundDeviceId) {
+      return agent.boundDevice;
+    }
+    // Fallback: lookup from device store
+    return devices.find(d => d.id === formData.boundDeviceId) || null;
+  }, [agent?.boundDevice, devices, formData.boundDeviceId]);
 
   // Fetch agent data from API
   const fetchAgent = async (id: string): Promise<void> => {
@@ -150,6 +165,15 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
     }
   }, [isOpen]);
 
+  // Ensure devices are loaded when modal opens (for bound device display fallback)
+  useEffect(() => {
+    if (isOpen && devices.length === 0) {
+      loadDevices().catch((e) => {
+        console.warn('Failed to load devices for EditAgentModal:', e);
+      });
+    }
+  }, [isOpen, devices.length, loadDevices]);
+
   // Ensure workflows are loaded when modal opens
   useEffect(() => {
     if (isOpen && workflows.length === 0) {
@@ -158,15 +182,6 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
       });
     }
   }, [isOpen, workflows.length, loadWorkflows]);
-
-  // Load devices when agent category is computer_use
-  useEffect(() => {
-    if (isOpen && formData.agentCategory === 'computer_use' && devices.length === 0) {
-      loadDevices().catch((e) => {
-        console.warn('Failed to load devices for EditAgentModal:', e);
-      });
-    }
-  }, [isOpen, formData.agentCategory, devices.length, loadDevices]);
 
   // 初始化表单数据（直接基于 agent.tools，无需依赖工具商店列表）
   useEffect(() => {
@@ -180,23 +195,16 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
       // Handle workflows - extract IDs if objects are returned
       const workflowIds = (agent.workflows || []).map((w: any) => typeof w === 'string' ? w : w.id);
 
-      // Get agent category (default to 'normal')
-      const agentCategory: AgentCategory = (agent as any).agent_category || 'normal';
-
-      // Get bound device ID from config (for computer_use agents)
-      const boundDeviceId: string | null = agent.config?.bound_device_id || null;
-
       reset({
         name: agent.name,
         profession: agent.role || t('agents.copy.defaultProfession', '专家'),
         description: agent.description,
         llmModel: agent.llmModel || 'gemini-1.5-pro',
-        agentCategory,
         tools: toolIds,
         toolConfigs: agent.toolConfigs || {},
         knowledgeBases: kbIds,
         workflows: workflowIds,
-        boundDeviceId: boundDeviceId,
+        boundDeviceId: agent.boundDeviceId || '',
         // 高级配置
         markdown: agent.config?.markdown ?? true,
         add_datetime_to_context: agent.config?.add_datetime_to_context ?? true,
@@ -319,12 +327,6 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
     return workflows.filter((wf) => formData.workflows.includes(wf.id));
   }, [workflows, formData.workflows]);
 
-  // 已绑定的设备列表 (for computer_use agents)
-  const boundDevice = useMemo(() => {
-    if (!formData.boundDeviceId) return null;
-    return devices.find(device => device.id === formData.boundDeviceId);
-  }, [devices, formData.boundDeviceId]);
-
   // 输入处理由 hook 提供
 
   // 处理工具移除
@@ -335,9 +337,6 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
 
   // 处理工作流移除
   const handleWorkflowRemove = (workflowId: string) => { removeWorkflow(workflowId); };
-
-  // 处理设备移除
-  const handleDeviceRemove = () => { removeDevice(''); };
 
   // 知识库图标颜色由通用组件处理
 
@@ -432,7 +431,7 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
         }
       }
 
-      // Build config object with bound_devices for computer_use agents
+      // Build config object
       const configForUpdate: Record<string, any> = {
         markdown: formData.markdown,
         add_datetime_to_context: formData.add_datetime_to_context,
@@ -440,21 +439,16 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
         num_history_runs: formData.num_history_runs,
       };
 
-      // Include bound_device_id in config for computer_use agents
-      if (formData.agentCategory === 'computer_use') {
-        configForUpdate.bound_device_id = formData.boundDeviceId;
-      }
-
       await updateAgent(agentId, {
         name: formData.name,
         description: formData.description,
         llmModel: normalized,
         role: formData.profession,
-        agent_category: formData.agentCategory,
-        tools: formData.agentCategory === 'normal' ? formData.tools : [], // Clear tools for computer_use
-        toolConfigs: formData.agentCategory === 'normal' ? formData.toolConfigs : {},
-        knowledgeBases: formData.agentCategory === 'normal' ? formData.knowledgeBases : [], // Clear KB for computer_use
-        workflows: formData.agentCategory === 'normal' ? formData.workflows : [], // Clear workflows for computer_use
+        tools: formData.tools,
+        toolConfigs: formData.toolConfigs,
+        knowledgeBases: formData.knowledgeBases,
+        workflows: formData.workflows,
+        boundDeviceId: formData.boundDeviceId || undefined,
         config: configForUpdate,
       }, mergedAvailable);
       // 强制刷新列表，确保卡片立即展示最新 tools/collections
@@ -481,23 +475,16 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
       // Handle workflows - extract IDs if objects are returned
       const workflowIds = (agent.workflows || []).map((w: any) => typeof w === 'string' ? w : w.id);
 
-      // Get agent category (default to 'normal')
-      const agentCategory: AgentCategory = (agent as any).agent_category || 'normal';
-
-      // Get bound device ID from config (for computer_use agents)
-      const boundDeviceIdFromConfig: string | null = agent.config?.bound_device_id || null;
-
       reset({
         name: agent.name,
         profession: agent.role || t('agents.copy.defaultProfession', '专家'),
         description: agent.description,
         llmModel: agent.llmModel || 'gemini-1.5-pro',
-        agentCategory,
         tools: toolIds,
         toolConfigs: agent.toolConfigs || {},
         knowledgeBases: kbIds,
         workflows: workflowIds,
-        boundDeviceId: boundDeviceIdFromConfig,
+        boundDeviceId: agent.boundDeviceId || '',
         // 高级配置
         markdown: agent.config?.markdown ?? true,
         add_datetime_to_context: agent.config?.add_datetime_to_context ?? true,
@@ -581,45 +568,6 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
                     </h3>
                   </div>
                   <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
-                    {/* 员工类型指示器（只读） */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
-                        {t('agents.form.agentCategory', '员工类型')}
-                      </label>
-                      <div className={`flex items-center gap-3 p-4 rounded-2xl border-2 ${
-                        formData.agentCategory === 'normal'
-                          ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800'
-                          : 'border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-800'
-                      }`}>
-                        <div className={`p-2 rounded-xl ${
-                          formData.agentCategory === 'normal'
-                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600'
-                            : 'bg-purple-100 dark:bg-purple-900/40 text-purple-600'
-                        }`}>
-                          {formData.agentCategory === 'normal' ? (
-                            <Bot className="w-5 h-5" />
-                          ) : (
-                            <Monitor className="w-5 h-5" />
-                          )}
-                        </div>
-                        <div className="text-left">
-                          <p className={`font-bold text-sm ${
-                            formData.agentCategory === 'normal'
-                              ? 'text-blue-700 dark:text-blue-400'
-                              : 'text-purple-700 dark:text-purple-400'
-                          }`}>
-                            {formData.agentCategory === 'normal'
-                              ? t('agents.category.normal', '普通员工')
-                              : t('agents.category.computerUse', '设备控制')}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {formData.agentCategory === 'normal'
-                              ? t('agents.category.normalDesc', '绑定工具、知识库和工作流')
-                              : t('agents.category.computerUseDesc', '通过绑定设备实现远程操控')}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* AI员工名称 */}
                       <div className="space-y-2">
@@ -656,9 +604,8 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
                   </div>
                 </div>
 
-                {/* 模型配置 Section - 仅普通员工需要 */}
-                {formData.agentCategory === 'normal' && (
-                  <div className="space-y-4">
+                {/* 模型配置 Section */}
+                <div className="space-y-4">
                     <div className="flex items-center gap-2 px-1">
                       <Layout className="w-5 h-5 text-purple-600" />
                       <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
@@ -714,11 +661,9 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
                       </div>
                     </div>
                   </div>
-                )}
 
-                {/* 能力描述 Section - 仅普通员工需要 */}
-                {formData.agentCategory === 'normal' && (
-                  <div className="space-y-4">
+                {/* 能力描述 Section */}
+                <div className="space-y-4">
                     <div className="flex items-center gap-2 px-1">
                       <Sparkles className="w-5 h-5 text-green-600" />
                       <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
@@ -742,11 +687,9 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Advanced Configuration Section - 仅普通员工需要 */}
-              {formData.agentCategory === 'normal' && (
-                <div className="space-y-4">
+              {/* Advanced Configuration Section */}
+              <div className="space-y-4">
                   <button
                     type="button"
                     onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
@@ -825,12 +768,9 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
                     </div>
                   )}
                 </div>
-              )}
 
-              {/* 资源关联 Section - 根据员工类型条件渲染 */}
-                {formData.agentCategory === 'normal' ? (
-                  /* 普通员工：工具、知识库、工作流 */
-                  <div className="space-y-4">
+              {/* 资源关联 Section */}
+                <div className="space-y-4">
                     <div className="flex items-center gap-2 px-1">
                       <Briefcase className="w-5 h-5 text-orange-600" />
                       <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
@@ -871,74 +811,19 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
                           disabled={isUpdating}
                         />
                       </div>
+
+                      {/* 绑定设备 */}
+                      <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                        <SectionHeader icon={<Monitor className="w-4 h-4 text-purple-600" />} title={t('agents.deviceSection.title', '绑定设备')} />
+                        <AgentDeviceSection
+                          device={boundDevice}
+                          onAdd={() => setShowDeviceSelectionModal(true)}
+                          onRemove={removeDevice}
+                          disabled={isUpdating}
+                        />
+                      </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* 设备控制员工：设备绑定 */}
-                    <div className="flex items-center gap-2 px-1">
-                      <Monitor className="w-5 h-5 text-purple-600" />
-                      <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
-                        {t('agents.create.sections.deviceBinding', '设备绑定')}
-                      </h3>
-                    </div>
-                    <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                        {t('agents.create.deviceBindingHint', '设备控制员工需要绑定至少一个设备才能运行。绑定的设备将用于远程操控任务。')}
-                      </p>
-
-                      {/* 已绑定设备 */}
-                      {boundDevice ? (
-                        <div className="space-y-2 mb-4">
-                          <div
-                            key={boundDevice.id}
-                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                                <Monitor className="w-4 h-4 text-purple-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                  {boundDevice.device_name}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {boundDevice.os} {boundDevice.os_version}
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={handleDeviceRemove}
-                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                              disabled={isUpdating}
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 mb-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
-                          <Monitor className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {t('agents.create.noDevicesBound', '暂未绑定设备')}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* 添加/更换设备按钮 */}
-                      <button
-                        type="button"
-                        onClick={() => setShowDeviceSelectionModal(true)}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 rounded-2xl hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                        disabled={isUpdating}
-                      >
-                        <Monitor className="w-4 h-4" />
-                        {boundDevice ? t('agents.create.changeDevice', '更换设备') : t('agents.create.addDevice', '添加设备')}
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1010,15 +895,15 @@ const EditAgentModal: React.FC<EditAgentModalProps> = ({
         }}
       />
 
-      {/* Device Selection Modal (for computer_use agents) */}
       <DeviceSelectionModal
         isOpen={showDeviceSelectionModal}
         onClose={() => setShowDeviceSelectionModal(false)}
-        selectedDeviceId={formData.boundDeviceId}
-        onConfirm={(selectedDeviceId) => {
-          setFormData({ boundDeviceId: selectedDeviceId });
+        selectedDeviceId={formData.boundDeviceId || null}
+        onConfirm={(deviceId) => {
+          setFormData({ boundDeviceId: deviceId || '' });
         }}
       />
+
     </div>
   );
 };

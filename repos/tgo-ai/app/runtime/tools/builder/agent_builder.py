@@ -788,6 +788,19 @@ class AgentBuilder:
                     error_type=type(exc).__name__,
                 )
 
+        # Build device MCP tools if agent has a bound device
+        if internal_agent and getattr(internal_agent, "bound_device_id", None):
+            try:
+                device_tools = await self._build_device_mcp_tools(internal_agent)
+                tools.extend(device_tools)
+            except Exception as exc:  # noqa: BLE001
+                self._logger.warning(
+                    "Device MCP tool setup failed, continuing without device tools",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                    device_id=getattr(internal_agent, "bound_device_id", None),
+                )
+
         return tools
 
     def _build_ui_template_tools(self) -> List[Any]:
@@ -1214,7 +1227,12 @@ class AgentBuilder:
         return instances
 
     async def _build_mcp_server_instances(self, tools_by_endpoint: Dict[str, List[AgentTool]], headers: Dict[str, str]) -> tuple[List[Any], List[str]]:
-        """Helper to construct individual MCP server instances (HTTP/SSE/stdio)."""
+        """Helper to construct individual MCP server instances (HTTP/SSE/stdio).
+
+        Routing logic:
+        - STORE tools → ``_fetch_mcp_tools_from_endpoint`` (ToolStore gateway with API Key auth)
+        - LOCAL tools → ``MCPTools`` standard MCP direct connection (internal services)
+        """
         instances = []
         stdio_cmds = []
         for endpoint, endpoint_tools in tools_by_endpoint.items():
@@ -1225,21 +1243,57 @@ class AgentBuilder:
                     continue
 
                 server_url = endpoint.rstrip("/")
-                if headers:
-                    # Dynamically fetch definitions if we have headers (likely ToolStore)
+
+                # Use tool_source_type to decide connection mode (not headers)
+                is_store_tool = any(
+                    t.tool_source_type == "STORE"
+                    for t in endpoint_tools
+                )
+
+                if is_store_tool and headers:
+                    # ToolStore gateway path – needs API Key authentication
                     fetched = await self._fetch_mcp_tools_from_endpoint(server_url, headers)
                     if fetched:
                         instances.extend(fetched)
                     else:
                         self._logger.warning("Dynamic MCP fetch failed", endpoint=endpoint)
                 else:
-                    # Static connection
-                    mcp = MCPTools(transport="streamable-http" if transport == "http" else "sse", url=server_url)
+                    # Standard MCP direct connection (LOCAL tools / internal services)
+                    mcp = MCPTools(
+                        transport="streamable-http" if transport == "http" else "sse",
+                        url=server_url,
+                    )
                     await mcp.connect()
                     instances.append(mcp)
             except Exception as exc:
                 self._logger.warning(f"Failed to setup MCP server {endpoint}", error=str(exc))
         return instances, stdio_cmds
+
+    async def _build_device_mcp_tools(self, internal_agent: "InternalAgent") -> List[Any]:
+        """Create MCPTools connection for the agent's bound device.
+
+        Reads ``bound_device_id`` from the internal agent and resolves the
+        device-control MCP endpoint template to establish a Streamable HTTP
+        connection.
+
+        Returns:
+            List containing a single connected MCPTools instance, or empty if
+            no device is bound.
+        """
+        device_id = internal_agent.bound_device_id
+        if not device_id:
+            return []
+
+        endpoint = settings.device_control_mcp_endpoint.replace("{device_id}", str(device_id))
+        self._logger.info(
+            "Connecting to device MCP",
+            device_id=device_id,
+            endpoint=endpoint,
+        )
+
+        mcp = MCPTools(transport="streamable-http", url=endpoint)
+        await mcp.connect()
+        return [mcp]
 
     async def _build_multi_mcp_stdio(self, stdio_cmds: List[str]) -> List[Any]:
         """Helper to construct MultiMCPTools for stdio servers."""

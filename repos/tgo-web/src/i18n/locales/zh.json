@@ -1191,6 +1191,29 @@
       "emptyTitle": "暂未添加知识库",
       "emptyDescription": "点击「添加知识库」按钮选择知识库"
     },
+    "deviceSection": {
+      "title": "绑定设备",
+      "addButton": "选择设备",
+      "boundCount": "1 已绑定",
+      "emptyTitle": "暂未绑定设备",
+      "emptyDescription": "点击「选择设备」按钮绑定一个远程设备",
+      "unbind": "解绑设备"
+    },
+    "deviceSelectModal": {
+      "title": "选择设备",
+      "searchPlaceholder": "搜索设备...",
+      "noDevices": "暂无可用设备",
+      "confirmSelection": "确认选择",
+      "manageDevices": "管理设备",
+      "statusOnline": "在线",
+      "statusOffline": "离线",
+      "totalDevices": "共 {{count}} 台设备",
+      "selectedOne": "已选择 1 台",
+      "selectedNone": "未选择",
+      "loading": "正在加载设备...",
+      "loadFailedDesc": "无法加载设备列表，请稍后重试",
+      "retryFailedDesc": "无法加载设备列表，请检查网络连接"
+    },
     "toolsList": {
       "label": "关联工具"
     },
@@ -3783,58 +3806,6 @@
       "title": "确认断开",
       "message": "确定要断开设备 \"{{name}}\" 的连接吗？"
     }
-  },
-  "deviceDebug": {
-    "title": "设备调试",
-    "error": "错误",
-    "deviceNotFound": "设备未找到",
-    "loadError": "加载设备失败",
-    "online": "在线",
-    "offline": "离线",
-    "connected": "已连接",
-    "disconnected": "未连接",
-    "deviceInfo": "设备信息",
-    "desktop": "桌面设备",
-    "mobile": "移动设备",
-    "status": "状态",
-    "sessionStats": "会话统计",
-    "toolCalls": "工具调用",
-    "screenshots": "截图数",
-    "iterations": "迭代次数",
-    "errors": "错误数",
-    "quickCommands": {
-      "title": "快捷指令",
-      "screenshot": "截取屏幕",
-      "desktop": "返回桌面",
-      "browser": "打开浏览器",
-      "refresh": "刷新屏幕"
-    },
-    "clearSession": "清空会话",
-    "emptyState": {
-      "title": "开始调试",
-      "description": "输入指令开始控制设备"
-    },
-    "processing": "处理中...",
-    "parameters": "参数",
-    "success": "成功",
-    "failed": "失败",
-    "screenshotCaptured": "已截取屏幕",
-    "latestScreenshot": "最新截图",
-    "capturedAt": "截取时间",
-    "via": "工具",
-    "allScreenshots": "全部截图",
-    "noScreenshot": "暂无截图",
-    "executionTimeline": "执行时间线",
-    "noSteps": "暂无执行步骤",
-    "toolCall": "工具调用",
-    "thinking": "思考中",
-    "completed": "已完成",
-    "errorOccurred": "发生错误",
-    "result": "结果",
-    "screenshot": "截图",
-    "inputPlaceholder": "输入指令（例如：打开 Chrome 访问 google.com）",
-    "deviceDisconnected": "设备未连接",
-    "inputHelp": "按回车发送，Shift+回车换行"
   },
   "ws": {
     "error": {

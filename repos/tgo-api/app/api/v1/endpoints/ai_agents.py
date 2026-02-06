@@ -1,6 +1,6 @@
 """AI Agents proxy endpoints."""
 
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, HTTPException
@@ -12,7 +12,6 @@ from app.core.security import get_authenticated_project
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from app.schemas.ai import (
-    AgentCategory,
     AgentCreateRequest,
     AgentListResponse,
     AgentResponse,
@@ -22,50 +21,47 @@ from app.schemas.ai import (
 )
 from app.models.ai_provider import AIProvider
 from app.services.ai_client import ai_client
+from app.services.device_control_client import device_control_client
 
 logger = get_logger("endpoints.ai_agents")
 router = APIRouter()
 
 
-def _validate_computer_use_agent(
-    agent_category: AgentCategory,
-    tools: Optional[list],
-    collections: Optional[list],
-    workflows: Optional[list],
-    bound_device_id: Optional[str],
+async def _enrich_agent_with_device(
+    agent_data: Dict[str, Any],
+    project_id: str,
 ) -> None:
-    """Validate Computer Use agent constraints.
-    
-    Computer Use agents:
-    - Cannot bind tools, collections, or workflows
-    - Must bind exactly one device
+    """Enrich a single agent dict with bound_device info from tgo-device-control.
+
+    Mutates *agent_data* in-place by adding a ``bound_device`` key when the
+    agent has a non-empty ``bound_device_id``.
     """
-    if agent_category != AgentCategory.COMPUTER_USE:
+    device_id = agent_data.get("bound_device_id")
+    if not device_id:
         return
-    
-    # Check for forbidden bindings
-    if tools:
-        raise HTTPException(
-            status_code=400,
-            detail="Computer Use agents cannot bind tools"
+
+    try:
+        device = await device_control_client.get_device(
+            device_id=str(device_id),
+            project_id=project_id,
         )
-    if collections:
-        raise HTTPException(
-            status_code=400,
-            detail="Computer Use agents cannot bind knowledge base collections"
+        if device:
+            agent_data["bound_device"] = device
+    except Exception:
+        logger.warning(
+            "Failed to fetch bound device info",
+            extra={"device_id": device_id, "project_id": project_id},
+            exc_info=True,
         )
-    if workflows:
-        raise HTTPException(
-            status_code=400,
-            detail="Computer Use agents cannot bind workflows"
-        )
-    
-    # Require exactly one device
-    if not bound_device_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Computer Use agents must bind a device"
-        )
+
+
+async def _enrich_agents_with_devices(
+    agents: List[Dict[str, Any]],
+    project_id: str,
+) -> None:
+    """Enrich a list of agent dicts with bound_device info."""
+    for agent_data in agents:
+        await _enrich_agent_with_device(agent_data, project_id)
 
 
 @router.get(
@@ -123,6 +119,10 @@ async def list_agents(
         offset=offset,
     )
 
+    # Enrich agents with bound device info from tgo-device-control
+    if isinstance(result, dict) and isinstance(result.get("data"), list):
+        await _enrich_agents_with_devices(result["data"], str(project.id))
+
     # Return raw JSON to avoid strict validation while keeping OpenAPI schema
     return JSONResponse(content=result)
 
@@ -148,15 +148,6 @@ async def create_agent(
     """Create agent in AI service."""
     project, _ = project_and_api_key
     
-    # Validate Computer Use agent constraints
-    _validate_computer_use_agent(
-        agent_category=agent_data.agent_category,
-        tools=agent_data.tools,
-        collections=agent_data.collections,
-        workflows=agent_data.workflows,
-        bound_device_id=agent_data.bound_device_id,
-    )
-    
     logger.info(
         "Creating AI agent",
         extra={
@@ -164,7 +155,6 @@ async def create_agent(
             "model": agent_data.model,
             "team_id": str(agent_data.team_id) if agent_data.team_id else None,
             "is_default": agent_data.is_default,
-            "agent_category": agent_data.agent_category.value,
             "workflow_count": len(agent_data.workflows) if agent_data.workflows else 0,
             "bound_device_id": agent_data.bound_device_id,
         }
@@ -192,14 +182,6 @@ async def create_agent(
     if "team_id" not in payload or payload.get("team_id") is None:
         if project.default_team_id:
             payload["team_id"] = project.default_team_id
-
-    # For Computer Use agents, store bound_device_id in config
-    if agent_data.agent_category == AgentCategory.COMPUTER_USE and agent_data.bound_device_id:
-        config = payload.get("config") or {}
-        config["bound_device_id"] = agent_data.bound_device_id
-        payload["config"] = config
-        # Remove bound_device_id from payload (it's stored in config)
-        payload.pop("bound_device_id", None)
 
     result = await ai_client.create_agent(
         project_id=str(project.id),
@@ -255,6 +237,11 @@ async def get_agent(
         include_collections=include_collections,
         include_workflows=include_workflows,
     )
+
+    # Enrich with bound device info from tgo-device-control
+    if isinstance(result, dict):
+        await _enrich_agent_with_device(result, str(project.id))
+
     # Return raw JSON to avoid strict validation, while keeping docs via response_model
     return JSONResponse(content=result)
 
@@ -280,16 +267,6 @@ async def update_agent(
     """Update agent in AI service."""
     project, _ = project_and_api_key
     
-    # If agent_category is being updated to computer_use, validate constraints
-    if agent_data.agent_category == AgentCategory.COMPUTER_USE:
-        _validate_computer_use_agent(
-            agent_category=agent_data.agent_category,
-            tools=agent_data.tools,
-            collections=agent_data.collections,
-            workflows=agent_data.workflows,
-            bound_device_id=agent_data.bound_device_id,
-        )
-    
     logger.info(
         "Updating AI agent",
         extra={
@@ -298,7 +275,6 @@ async def update_agent(
             "model": agent_data.model,
             "team_id": str(agent_data.team_id) if agent_data.team_id else None,
             "is_default": agent_data.is_default,
-            "agent_category": agent_data.agent_category.value if agent_data.agent_category else None,
             "workflow_count": len(agent_data.workflows) if agent_data.workflows else 0,
             "bound_device_id": agent_data.bound_device_id,
         }
@@ -321,14 +297,6 @@ async def update_agent(
         if not provider:
             raise HTTPException(status_code=404, detail="AIProvider not found for current project")
         payload["llm_provider_id"] = str(ai_provider_id)
-
-    # For Computer Use agents, store bound_device_id in config
-    if agent_data.agent_category == AgentCategory.COMPUTER_USE and agent_data.bound_device_id:
-        config = payload.get("config") or {}
-        config["bound_device_id"] = agent_data.bound_device_id
-        payload["config"] = config
-        # Remove bound_device_id from payload (it's stored in config)
-        payload.pop("bound_device_id", None)
 
     result = await ai_client.update_agent(
         project_id=str(project.id),

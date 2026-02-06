@@ -864,6 +864,29 @@
       "emptyTitle": "No knowledge bases added",
       "emptyDescription": "Click \"Add Knowledge Base\" to select knowledge bases"
     },
+    "deviceSection": {
+      "title": "Bound Device",
+      "addButton": "Select Device",
+      "boundCount": "1 Bound",
+      "emptyTitle": "No device bound",
+      "emptyDescription": "Click \"Select Device\" to bind a remote device",
+      "unbind": "Unbind Device"
+    },
+    "deviceSelectModal": {
+      "title": "Select Device",
+      "searchPlaceholder": "Search devices...",
+      "noDevices": "No devices available",
+      "confirmSelection": "Confirm Selection",
+      "manageDevices": "Manage Devices",
+      "statusOnline": "Online",
+      "statusOffline": "Offline",
+      "totalDevices": "{{count}} devices total",
+      "selectedOne": "1 selected",
+      "selectedNone": "None selected",
+      "loading": "Loading devices...",
+      "loadFailedDesc": "Failed to load device list. Please try again later.",
+      "retryFailedDesc": "Failed to load device list. Please check your network connection."
+    },
     "toolsList": {
       "label": "Associated Tools"
     },
@@ -3772,58 +3795,6 @@
       "title": "Confirm Disconnect",
       "message": "Are you sure you want to disconnect device \"{{name}}\"?"
     }
-  },
-  "deviceDebug": {
-    "title": "Device Debug",
-    "error": "Error",
-    "deviceNotFound": "Device not found",
-    "loadError": "Failed to load device",
-    "online": "Online",
-    "offline": "Offline",
-    "connected": "Connected",
-    "disconnected": "Disconnected",
-    "deviceInfo": "Device Info",
-    "desktop": "Desktop",
-    "mobile": "Mobile",
-    "status": "Status",
-    "sessionStats": "Session Stats",
-    "toolCalls": "Tool Calls",
-    "screenshots": "Screenshots",
-    "iterations": "Iterations",
-    "errors": "Errors",
-    "quickCommands": {
-      "title": "Quick Commands",
-      "screenshot": "Take Screenshot",
-      "desktop": "Go to Desktop",
-      "browser": "Open Browser",
-      "refresh": "Refresh Screen"
-    },
-    "clearSession": "Clear Session",
-    "emptyState": {
-      "title": "Start Debugging",
-      "description": "Enter a command to start controlling the device"
-    },
-    "processing": "Processing...",
-    "parameters": "Parameters",
-    "success": "Success",
-    "failed": "Failed",
-    "screenshotCaptured": "Screenshot captured",
-    "latestScreenshot": "Latest Screenshot",
-    "capturedAt": "Captured at",
-    "via": "Via",
-    "allScreenshots": "All Screenshots",
-    "noScreenshot": "No screenshot yet",
-    "executionTimeline": "Execution Timeline",
-    "noSteps": "No execution steps yet",
-    "toolCall": "Tool Call",
-    "thinking": "Thinking",
-    "completed": "Completed",
-    "errorOccurred": "Error Occurred",
-    "result": "Result",
-    "screenshot": "Screenshot",
-    "inputPlaceholder": "Enter a command (e.g., \"Open Chrome and go to google.com\")",
-    "deviceDisconnected": "Device is disconnected",
-    "inputHelp": "Press Enter to send, Shift+Enter for new line"
   },
   "ws": {
     "error": {

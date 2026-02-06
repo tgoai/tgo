@@ -1,17 +1,15 @@
 import { useCallback, useState } from 'react';
-import type { AgentCategory } from '@/types';
 
 export interface AgentFormState {
   name: string;
   profession: string;
   description: string;
   llmModel: string;
-  agentCategory: AgentCategory;
   tools: string[];
   toolConfigs: Record<string, Record<string, any>>;
   knowledgeBases: string[];
   workflows: string[];
-  boundDeviceId: string | null;
+  boundDeviceId: string;
   // 高级配置
   markdown?: boolean;
   add_datetime_to_context?: boolean;
@@ -35,10 +33,10 @@ export interface UseAgentFormResult {
   setToolConfig: (toolId: string, config: Record<string, any>) => void;
   // Knowledge bases
   removeKnowledgeBase: (kbId: string) => void;
+  // Device
+  removeDevice: () => void;
   // Workflows
   removeWorkflow: (workflowId: string) => void;
-  // Devices (for computer_use agents)
-  removeDevice: (deviceId?: string) => void;
   // Reset
   reset: (next?: Partial<AgentFormState>) => void;
 }
@@ -48,12 +46,11 @@ const defaultForm: AgentFormState = {
   profession: '',
   description: '',
   llmModel: 'gemini-1.5-pro',
-  agentCategory: 'normal',
   tools: [],
   toolConfigs: {},
   knowledgeBases: [],
   workflows: [],
-  boundDeviceId: null,
+  boundDeviceId: '',
   markdown: true,
   add_datetime_to_context: true,
   tool_call_limit: 10,
@@ -108,16 +105,16 @@ export function useAgentForm(options: UseAgentFormOptions = {}): UseAgentFormRes
     setFormData({ knowledgeBases: newKBs });
   }, [formData.knowledgeBases, setFormData]);
 
+  // Device
+  const removeDevice = useCallback(() => {
+    setFormData({ boundDeviceId: '' });
+  }, [setFormData]);
+
   // Workflows
   const removeWorkflow = useCallback((workflowId: string) => {
     const newWorkflows = (formData.workflows || []).filter(id => id !== workflowId);
     setFormData({ workflows: newWorkflows });
   }, [formData.workflows, setFormData]);
-
-  // Devices (for computer_use agents)
-  const removeDevice = useCallback((_deviceId?: string) => {
-    setFormData({ boundDeviceId: null });
-  }, [setFormData]);
 
   // Reset API
   const reset = useCallback((next?: Partial<AgentFormState>) => {
@@ -139,8 +136,8 @@ export function useAgentForm(options: UseAgentFormOptions = {}): UseAgentFormRes
     removeTool,
     setToolConfig,
     removeKnowledgeBase,
-    removeWorkflow,
     removeDevice,
+    removeWorkflow,
     reset,
   };
 }

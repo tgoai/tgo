@@ -22,6 +22,7 @@ import type { WorkflowSummary } from '@/types/workflow';
 import AgentToolsSection from '@/components/ui/AgentToolsSection';
 import AgentKnowledgeBasesSection from '@/components/ui/AgentKnowledgeBasesSection';
 import AgentWorkflowsSection from '@/components/ui/AgentWorkflowsSection';
+import AgentDeviceSection from '@/components/ui/AgentDeviceSection';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useAgentForm } from '@/hooks/useAgentForm';
 import AIProvidersApiService from '@/services/aiProvidersApi';
@@ -125,16 +126,23 @@ const CreateAgentModal: React.FC = () => {
   // Workflow selection modal state
   const [showWorkflowSelectionModal, setShowWorkflowSelectionModal] = useState(false);
 
-  // Device selection modal state (for computer_use agents)
+  // Device selection modal state
   const [showDeviceSelectionModal, setShowDeviceSelectionModal] = useState(false);
-
-  // Device store for displaying bound devices
-  const { devices, loadDevices } = useDeviceControlStore();
 
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   // Workflow store
   const { workflows, loadWorkflows } = useWorkflowStore();
+
+  // Device store
+  const { devices, loadDevices } = useDeviceControlStore();
+
+  // Load devices when modal is open (for bound device display)
+  useEffect(() => {
+    if (showCreateAgentModal && devices.length === 0) {
+      loadDevices().catch(() => {});
+    }
+  }, [showCreateAgentModal, devices.length, loadDevices]);
 
   // Load workflows when modal is open
   useEffect(() => {
@@ -148,11 +156,18 @@ const CreateAgentModal: React.FC = () => {
     handleInputChange,
     removeTool,
     removeKnowledgeBase,
+    removeDevice,
     removeWorkflow,
   } = useAgentForm({
     controlledFormData: createAgentFormData,
     onFormDataChange: setCreateAgentFormData,
   });
+
+  // Compute bound device object for display
+  const boundDevice = useMemo(() => {
+    if (!createAgentFormData.boundDeviceId) return null;
+    return devices.find(d => d.id === createAgentFormData.boundDeviceId) || null;
+  }, [devices, createAgentFormData.boundDeviceId]);
 
 
 
@@ -178,19 +193,6 @@ const CreateAgentModal: React.FC = () => {
   const addedWorkflows = useMemo<WorkflowSummary[]>(() => {
     return workflows.filter(wf => createAgentFormData.workflows.includes(wf.id));
   }, [workflows, createAgentFormData.workflows]);
-
-  // 已绑定的设备列表 (for computer_use agents)
-  const boundDevice = useMemo(() => {
-    if (!createAgentFormData.boundDeviceId) return null;
-    return devices.find(device => device.id === createAgentFormData.boundDeviceId);
-  }, [devices, createAgentFormData.boundDeviceId]);
-
-  // Load devices when modal is open and category is computer_use
-  useEffect(() => {
-    if (showCreateAgentModal && createAgentFormData.agentCategory === 'computer_use' && devices.length === 0) {
-      loadDevices().catch(() => {});
-    }
-  }, [showCreateAgentModal, createAgentFormData.agentCategory, devices.length, loadDevices]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,22 +251,20 @@ const CreateAgentModal: React.FC = () => {
         return;
       }
 
-      // Validate selected model and keep UI value (providerId:modelName) - Only for normal agents
+      // Validate selected model and keep UI value (providerId:modelName)
       const uiModel = createAgentFormData.llmModel;
-      if (createAgentFormData.agentCategory === 'normal') {
-        if (!uiModel || !uiModel.includes(':')) {
-          showToast(
-            'error',
-            t('agents.create.models.selectPlaceholder', '请选择模型'),
-            t('agents.create.models.invalid', '请选择一个有效的模型（需包含提供商）')
-          );
-          // Ensure the user sees the model field
-          if (llmSelectRef.current) {
-            llmSelectRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            llmSelectRef.current.focus({ preventScroll: true });
-          }
-          return;
+      if (!uiModel || !uiModel.includes(':')) {
+        showToast(
+          'error',
+          t('agents.create.models.selectPlaceholder', '请选择模型'),
+          t('agents.create.models.invalid', '请选择一个有效的模型（需包含提供商）')
+        );
+        // Ensure the user sees the model field
+        if (llmSelectRef.current) {
+          llmSelectRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          llmSelectRef.current.focus({ preventScroll: true });
         }
+        return;
       }
       // Pass UI model value directly; transform will extract ai_provider_id and pure model name
       // Convert aiTools to ToolSummary format for compatibility with createAgent
@@ -372,89 +372,6 @@ const CreateAgentModal: React.FC = () => {
                   </h3>
                 </div>
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
-                  {/* 员工类型选择 */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase">
-                      {t('agents.form.agentCategory', '员工类型')} <span className="text-red-500">*</span>
-                    </label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCreateAgentFormData({
-                            agentCategory: 'normal',
-                            boundDeviceId: null,
-                          });
-                        }}
-                        disabled={isCreatingAgent}
-                        className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
-                          createAgentFormData.agentCategory === 'normal'
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                        }`}
-                      >
-                        <div className={`p-2 rounded-xl ${
-                          createAgentFormData.agentCategory === 'normal'
-                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
-                        }`}>
-                          <Bot className="w-5 h-5" />
-                        </div>
-                        <div className="text-left">
-                          <p className={`font-bold text-sm ${
-                            createAgentFormData.agentCategory === 'normal'
-                              ? 'text-blue-700 dark:text-blue-400'
-                              : 'text-gray-700 dark:text-gray-300'
-                          }`}>
-                            {t('agents.category.normal', '普通员工')}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {t('agents.category.normalDesc', '绑定工具、知识库和工作流')}
-                          </p>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCreateAgentFormData({
-                            agentCategory: 'computer_use',
-                            tools: [],
-                            toolConfigs: {},
-                            knowledgeBases: [],
-                            workflows: [],
-                          });
-                        }}
-                        disabled={isCreatingAgent}
-                        className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
-                          createAgentFormData.agentCategory === 'computer_use'
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                        }`}
-                      >
-                        <div className={`p-2 rounded-xl ${
-                          createAgentFormData.agentCategory === 'computer_use'
-                            ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-600'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
-                        }`}>
-                          <Monitor className="w-5 h-5" />
-                        </div>
-                        <div className="text-left">
-                          <p className={`font-bold text-sm ${
-                            createAgentFormData.agentCategory === 'computer_use'
-                              ? 'text-purple-700 dark:text-purple-400'
-                              : 'text-gray-700 dark:text-gray-300'
-                          }`}>
-                            {t('agents.category.computerUse', '设备控制')}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {t('agents.category.computerUseDesc', '通过绑定设备实现远程操控')}
-                          </p>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* AI员工名称 */}
                     <div className="space-y-2">
@@ -505,9 +422,8 @@ const CreateAgentModal: React.FC = () => {
                 </div>
               </div>
 
-              {/* 模型配置 Section - 仅普通员工需要 */}
-              {createAgentFormData.agentCategory === 'normal' && (
-                <div className="space-y-4">
+              {/* 模型配置 Section */}
+              <div className="space-y-4">
                   <div className="flex items-center gap-2 px-1">
                     <Layout className="w-5 h-5 text-purple-600" />
                     <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
@@ -565,11 +481,9 @@ const CreateAgentModal: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* 能力描述 Section - 仅普通员工需要 */}
-              {createAgentFormData.agentCategory === 'normal' && (
-                <div className="space-y-4">
+              {/* 能力描述 Section */}
+              <div className="space-y-4">
                   <div className="flex items-center gap-2 px-1">
                     <Sparkles className="w-5 h-5 text-green-600" />
                     <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
@@ -600,11 +514,9 @@ const CreateAgentModal: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Advanced Configuration Section - 仅普通员工需要 */}
-              {createAgentFormData.agentCategory === 'normal' && (
-                <div className="space-y-4">
+              {/* Advanced Configuration Section */}
+              <div className="space-y-4">
                   <button
                     type="button"
                     onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
@@ -683,12 +595,9 @@ const CreateAgentModal: React.FC = () => {
                     </div>
                   )}
                 </div>
-              )}
 
-              {/* 资源关联 Section - 根据员工类型条件渲染 */}
-              {createAgentFormData.agentCategory === 'normal' ? (
-                /* 普通员工：工具、知识库、工作流 */
-                <div className="space-y-4">
+              {/* 资源关联 Section */}
+              <div className="space-y-4">
                   <div className="flex items-center gap-2 px-1">
                     <Briefcase className="w-5 h-5 text-orange-600" />
                     <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
@@ -729,78 +638,19 @@ const CreateAgentModal: React.FC = () => {
                         disabled={isCreatingAgent}
                       />
                     </div>
+
+                    {/* 绑定设备 */}
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                      <SectionHeader icon={<Monitor className="w-4 h-4 text-purple-600" />} title={t('agents.deviceSection.title', '绑定设备')} />
+                      <AgentDeviceSection
+                        device={boundDevice}
+                        onAdd={() => setShowDeviceSelectionModal(true)}
+                        onRemove={removeDevice}
+                        disabled={isCreatingAgent}
+                      />
+                    </div>
                   </div>
                 </div>
-              ) : (
-                /* 设备控制员工：设备绑定 */
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 px-1">
-                    <Monitor className="w-5 h-5 text-purple-600" />
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-sm">
-                      {t('agents.create.sections.deviceBinding', '设备绑定')}
-                    </h3>
-                  </div>
-                  <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      {t('agents.create.deviceBindingHint', '设备控制员工需要绑定至少一个设备才能运行。绑定的设备将用于远程操控任务。')}
-                    </p>
-
-                    {/* 已绑定设备 */}
-                    {boundDevice ? (
-                      <div className="space-y-2 mb-4">
-                        <div
-                          key={boundDevice.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                              <Monitor className="w-4 h-4 text-purple-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                {boundDevice.device_name}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {boundDevice.os} {boundDevice.os_version}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCreateAgentFormData({
-                                boundDeviceId: null
-                              });
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                            disabled={isCreatingAgent}
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 mb-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
-                        <Monitor className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {t('agents.create.noDevicesBound', '暂未绑定设备')}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* 添加/更换设备按钮 */}
-                    <button
-                      type="button"
-                      onClick={() => setShowDeviceSelectionModal(true)}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 rounded-2xl hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                      disabled={isCreatingAgent}
-                    >
-                      <Monitor className="w-4 h-4" />
-                      {boundDevice ? t('agents.create.changeDevice', '更换设备') : t('agents.create.addDevice', '添加设备')}
-                    </button>
-                  </div>
-                </div>
-              )}
 
             </div>
           </div>
@@ -876,15 +726,16 @@ const CreateAgentModal: React.FC = () => {
         }}
       />
 
-      {/* Device Selection Modal (for computer_use agents) */}
+      {/* Device Selection Modal */}
       <DeviceSelectionModal
         isOpen={showDeviceSelectionModal}
         onClose={() => setShowDeviceSelectionModal(false)}
-        selectedDeviceId={createAgentFormData.boundDeviceId}
-        onConfirm={(selectedDeviceId) => {
-          setCreateAgentFormData({ boundDeviceId: selectedDeviceId });
+        selectedDeviceId={createAgentFormData.boundDeviceId || null}
+        onConfirm={(deviceId) => {
+          setCreateAgentFormData({ boundDeviceId: deviceId || '' });
         }}
       />
+
     </div>
   );
 };

@@ -98,14 +98,10 @@ class Settings(BaseSettings):
         description="API Key for the Store service"
     )
 
-    # Device Control AgentOS Configuration
-    device_control_agentos_url: str = Field(
-        default="http://localhost:7778",
-        description="Base URL for the Device Control AgentOS (Computer Use Agent)"
-    )
-    device_control_agent_id: str = Field(
-        default="computer-use-agent",
-        description="Agent ID for the Computer Use Agent in Device Control AgentOS"
+    # Device Control MCP Configuration
+    device_control_mcp_endpoint: str = Field(
+        default="http://tgo-device-control:8085/mcp/{device_id}",
+        description="Device Control MCP endpoint URL template. {device_id} is replaced at runtime."
     )
 
     # Server Configuration

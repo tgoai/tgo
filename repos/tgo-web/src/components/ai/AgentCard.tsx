@@ -5,6 +5,7 @@ import { Pencil, Trash2, MessageCircle, MoreVertical, Copy, Power, Bot } from 'l
 import AgentToolTag from '@/components/ui/AgentToolTag';
 import KnowledgeBaseTag from '@/components/ui/KnowledgeBaseTag';
 import WorkflowTag from '@/components/ui/WorkflowTag';
+import DeviceTag from '@/components/ui/DeviceTag';
 import { generateDefaultAvatar, hasValidAvatar } from '@/utils/avatarUtils';
 import { useAIStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
@@ -262,6 +263,15 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onAction, onToolClick }) =
               </div>
             ) : null}
           </div>
+
+          {/* 绑定设备 */}
+          {agent.boundDevice && (
+            <div className="min-h-[24px]">
+              <div className="flex flex-wrap gap-1.5">
+                <DeviceTag device={agent.boundDevice} size="xs" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

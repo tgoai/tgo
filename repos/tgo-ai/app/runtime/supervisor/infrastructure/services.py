@@ -114,6 +114,11 @@ def _convert_agent(
                         transport_type=tool.transport_type,
                         endpoint=tool.endpoint,
                         base_config=tool.config or {},
+                        tool_source_type=(
+                            str(tool.tool_source_type.value)
+                            if hasattr(tool.tool_source_type, 'value')
+                            else str(tool.tool_source_type)
+                        ) if tool.tool_source_type else None,
                     )
                 )
             except Exception as e:
@@ -216,6 +221,7 @@ def _convert_agent(
             is_remote_store_agent=getattr(agent, "is_remote_store_agent", False),
             remote_agent_url=getattr(agent, "remote_agent_url", None),
             store_agent_id=getattr(agent, "store_agent_id", None),
+            bound_device_id=getattr(agent, "bound_device_id", None),
             created_at=agent.created_at or datetime.now(timezone.utc),
             updated_at=agent.updated_at or datetime.now(timezone.utc),
             llm_provider_credentials=provider_credentials,

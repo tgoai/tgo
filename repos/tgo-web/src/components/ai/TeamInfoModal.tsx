@@ -6,7 +6,7 @@ import { aiTeamsApiService, TeamWithDetailsResponse, TeamUpdateRequest } from '@
 import { useToast } from '@/hooks/useToast';
 import AIProvidersApiService from '@/services/aiProvidersApi';
 import Toggle from '@/components/ui/Toggle';
-import { RemoteAgentSelector, ComputerUseConfig } from './remote-agent';
+import { RemoteAgentSelector } from './remote-agent';
 import type { RemoteAgentTeamConfig } from '@/types/remoteAgent';
 import type { RemoteAgentInfo } from '@/services/remoteAgentsApi';
 
@@ -41,8 +41,7 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
 
   // Remote agents state
   const [selectedRemoteAgents, setSelectedRemoteAgents] = useState<RemoteAgentTeamConfig[]>([]);
-  const [configuringAgent, setConfiguringAgent] = useState<RemoteAgentInfo | null>(null);
-  const [computerUseConfig, setComputerUseConfig] = useState<Record<string, Partial<RemoteAgentTeamConfig>>>({});
+  const [_configuringAgent, setConfiguringAgent] = useState<RemoteAgentInfo | null>(null);
 
   // Track if form has been modified
   const [isDirty, setIsDirty] = useState(false);
@@ -127,20 +126,6 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
   // Handle configure agent
   const handleConfigureAgent = (agent: RemoteAgentInfo) => {
     setConfiguringAgent(agent);
-  };
-
-  // Handle computer use config change
-  const handleComputerUseConfigChange = (config: Partial<RemoteAgentTeamConfig>) => {
-    if (configuringAgent) {
-      setComputerUseConfig(prev => ({
-        ...prev,
-        [configuringAgent.agent_id]: {
-          ...prev[configuringAgent.agent_id],
-          ...config,
-        },
-      }));
-      setIsDirty(true);
-    }
   };
 
   const handleSave = async () => {
@@ -458,26 +443,6 @@ const TeamInfoModal: React.FC<TeamInfoModalProps> = ({ isOpen, onClose, team, on
                       onConfigureAgent={handleConfigureAgent}
                     />
 
-                    {/* Computer Use Configuration Panel */}
-                    {configuringAgent && configuringAgent.type === 'computer_use' && (
-                      <div className="mt-4 p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="font-bold text-gray-700 dark:text-gray-300">
-                            {t('team.remoteAgents.configTitle', '配置: {{name}}', { name: configuringAgent.name })}
-                          </h4>
-                          <button
-                            onClick={() => setConfiguringAgent(null)}
-                            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                          >
-                            <LuX className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <ComputerUseConfig
-                          config={computerUseConfig[configuringAgent.agent_id] || {}}
-                          onChange={handleComputerUseConfigChange}
-                        />
-                      </div>
-                    )}
                   </div>
                 )}
               </div>

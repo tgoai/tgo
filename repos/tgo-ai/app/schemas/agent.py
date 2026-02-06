@@ -97,6 +97,10 @@ class AgentBase(BaseSchema):
         default=AgentCategory.NORMAL,
         description="Agent category: normal or computer_use",
     )
+    bound_device_id: Optional[str] = Field(
+        default=None,
+        description="Bound device ID for automatic device control MCP connection",
+    )
 
 
 class AgentCreate(AgentBase):
@@ -124,12 +128,6 @@ class AgentCreate(AgentBase):
         description="Workflow IDs to associate with the agent (UUID strings)",
         examples=[["123e4567-e89b-12d3-a456-426614174000", "987fcdeb-51a2-43d1-9f6e-123456789abc"]],
     )
-    bound_device_id: Optional[uuid.UUID] = Field(
-        default=None,
-        description="Device ID to bind (only for computer_use category)",
-        examples=["123e4567-e89b-12d3-a456-426614174000"],
-    )
-
     @field_validator("collections", "workflows")
     @classmethod
     def validate_ids(cls, v: Optional[List[str]]) -> Optional[List[str]]:
@@ -206,10 +204,9 @@ class AgentUpdate(BaseSchema):
         description="Updated workflow IDs to associate with the agent (UUID strings). Replaces existing associations.",
         examples=[["123e4567-e89b-12d3-a456-426614174000", "987fcdeb-51a2-43d1-9f6e-123456789abc"]],
     )
-    bound_device_id: Optional[uuid.UUID] = Field(
+    bound_device_id: Optional[str] = Field(
         default=None,
-        description="Updated device ID to bind (only for computer_use category). Replaces existing binding.",
-        examples=["123e4567-e89b-12d3-a456-426614174000"],
+        description="Updated bound device ID for device control. Set to empty string to unbind.",
     )
 
     @field_validator("collections", "workflows")

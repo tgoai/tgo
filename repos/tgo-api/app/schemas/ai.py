@@ -456,7 +456,7 @@ class AgentCreateRequest(BaseSchema):
     )
     bound_device_id: Optional[str] = Field(
         None,
-        description="Device ID to bind (only for computer_use category)",
+        description="Device ID to bind for device control MCP connection",
         examples=["device-uuid-1"]
     )
 
@@ -536,7 +536,7 @@ class AgentUpdateRequest(BaseSchema):
     )
     bound_device_id: Optional[str] = Field(
         None,
-        description="Updated device ID to bind (only for computer_use category). Replaces existing binding.",
+        description="Updated device ID to bind for device control. Set to empty string to unbind.",
         examples=["device-uuid-1"]
     )
 

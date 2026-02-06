@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Monitor, Wifi, WifiOff, RefreshCw, Settings } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, Settings } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import {
@@ -69,10 +69,7 @@ export function RemoteAgentSelector({
     return selectedAgents.some((a) => a.agent_id === agentId);
   };
 
-  const getAgentIcon = (agent: RemoteAgentInfo) => {
-    if (agent.type === 'computer_use') {
-      return <Monitor className="w-5 h-5" />;
-    }
+  const getAgentIcon = (_agent: RemoteAgentInfo) => {
     return <Settings className="w-5 h-5" />;
   };
 
@@ -184,11 +181,7 @@ export function RemoteAgentSelector({
                 />
 
                 <div
-                  className={`p-2 rounded-lg ${
-                    agent.type === 'computer_use'
-                      ? 'bg-blue-100 text-blue-600'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
+                  className="p-2 rounded-lg bg-gray-100 text-gray-600"
                 >
                   {getAgentIcon(agent)}
                 </div>

@@ -20,10 +20,6 @@ asyncpg = "^0.29.0"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 websockets = "^12.0"
 redis = "^5.0.0"
-mcp = "^1.0.0"
-# Agno SDK for AgentOS
-agno = "^2.2.23"
-openai = "^1.40.0"
 sse-starlette = "<3.0.0"
 
 [tool.poetry.group.dev.dependencies]

@@ -62,6 +62,7 @@ class AgentService:
             remote_agent_url=agent_data.remote_agent_url,
             store_agent_id=agent_data.store_agent_id,
             config=agent_data.config,
+            bound_device_id=agent_data.bound_device_id,
         )
 
         self.db.add(agent)

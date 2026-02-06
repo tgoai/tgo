@@ -105,6 +105,12 @@ class Agent(BaseModel):
         comment="Agent category: normal or computer_use",
     )
 
+    bound_device_id: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Bound device ID for device control MCP connection",
+    )
+
     # Relationships
     project: Mapped["Project"] = relationship(
         "Project",

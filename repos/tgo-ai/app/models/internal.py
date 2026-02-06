@@ -33,6 +33,10 @@ class AgentTool(BaseModel):
         default_factory=dict,
         description="Base tool configuration from Tool model",
     )
+    tool_source_type: Optional[str] = Field(
+        None,
+        description="Tool source type (LOCAL or STORE) for routing decisions",
+    )
 
     @property
     def input_schema(self) -> Dict[str, Any]:
@@ -94,6 +98,7 @@ class Agent(BaseModel):
     remote_agent_url: Optional[str] = Field(None, description="URL of the remote AgentOS server")
     store_agent_id: Optional[str] = Field(None, description="Agent ID in the remote store")
     agent_category: str = Field(default="normal", description="Agent category: normal or computer_use")
+    bound_device_id: Optional[str] = Field(None, description="Bound device ID for device control MCP connection")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 

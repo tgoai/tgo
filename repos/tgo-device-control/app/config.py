@@ -45,16 +45,6 @@ class Settings(BaseSettings):
         description="Bind code expiry time in minutes",
     )
 
-    # AI Service Configuration (for MCP tool registration)
-    AI_SERVICE_URL: str = Field(
-        default="http://localhost:8081",
-        description="URL of the TGO AI service",
-    )
-    AI_SERVICE_TIMEOUT: int = Field(
-        default=30,
-        description="Timeout for AI service requests in seconds",
-    )
-
     # API Service Configuration
     API_SERVICE_URL: str = Field(
         default="http://localhost:8000",
@@ -101,44 +91,6 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = Field(default="development")
     DEBUG: bool = Field(default=False)
-
-    # AgentOS Configuration
-    AGENTOS_ENABLED: bool = Field(
-        default=True,
-        description="Enable AgentOS server for Remote Agent access",
-    )
-    AGENTOS_PORT: int = Field(
-        default=7778,
-        description="Port for AgentOS server",
-    )
-    AGENTOS_HOST: str = Field(
-        default="0.0.0.0",
-        description="Host for AgentOS server",
-    )
-
-    # MCP Agent Configuration
-    AGENT_MODEL: str = Field(
-        default="gpt-4o",
-        description="LLM model for MCP Agent reasoning and decision making",
-    )
-    AGENT_MAX_ITERATIONS: int = Field(
-        default=20,
-        description="Maximum iterations for agent loop before stopping",
-    )
-    AGENT_SYSTEM_PROMPT: Optional[str] = Field(
-        default=None,
-        description="Custom system prompt for the agent (uses default if not set)",
-    )
-
-    # OpenAI Configuration (for Agent models)
-    OPENAI_API_KEY: Optional[str] = Field(
-        default=None,
-        description="OpenAI API key for agent models",
-    )
-    OPENAI_BASE_URL: Optional[str] = Field(
-        default=None,
-        description="Custom OpenAI API base URL",
-    )
 
     # TCP JSON-RPC Server Configuration (for Peekaboo devices)
     TCP_RPC_HOST: str = Field(
