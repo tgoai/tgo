@@ -121,7 +121,7 @@ class ChatService:
         request: ChatCompletionRequest,
         project_id: uuid.UUID,
     ) -> ChatCompletionResponse:
-        """Create a non-streaming chat completion with agentic loop."""
+        """Create a non-streaming chat completion with optional agentic loop."""
         provider = await self._get_provider(request.provider_id, project_id)
         provider_kind = (provider.provider_kind or "").lower()
 
@@ -129,6 +129,31 @@ class ChatService:
         merged_tools = await self._merge_tools(request, project_id)
         request.tools = merged_tools
 
+        max_rounds = request.max_tool_rounds if request.max_tool_rounds is not None else 5
+
+        self._logger.info(
+            "Creating chat completion",
+            provider_id=str(request.provider_id),
+            provider_kind=provider_kind,
+            model=request.model,
+            tools_count=len(merged_tools) if merged_tools else 0,
+            auto_execute_tools=request.auto_execute_tools,
+            max_tool_rounds=max_rounds,
+        )
+
+        # When auto_execute_tools=False, behave like standard OpenAI API:
+        # call LLM once and return the raw response (including any tool_calls).
+        if not request.auto_execute_tools:
+            if provider_kind in self.OPENAI_PROVIDERS:
+                return await self._openai_completion(request, provider)
+            elif provider_kind == self.ANTHROPIC_PROVIDER:
+                return await self._anthropic_completion(request, provider)
+            elif provider_kind == self.GOOGLE_PROVIDER:
+                return await self._google_completion(request, provider)
+            else:
+                raise UnsupportedProviderError(provider_kind)
+
+        # auto_execute_tools=True: run agentic loop with internal tool execution
         # Create tool executor and register tools
         executor = ToolExecutor(self.db, project_id)
         # Set context for plugin tools
@@ -138,15 +163,6 @@ class ChatService:
         )
         await executor.register_tools(request.tool_ids, request.collection_ids)
 
-        self._logger.info(
-            "Creating chat completion",
-            provider_id=str(request.provider_id),
-            provider_kind=provider_kind,
-            model=request.model,
-            tools_count=len(merged_tools) if merged_tools else 0,
-        )
-
-        max_rounds = request.max_tool_rounds if request.max_tool_rounds is not None else 5
         total_usage = Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
         
         for round_idx in range(max_rounds):
@@ -226,7 +242,7 @@ class ChatService:
         request: ChatCompletionRequest,
         project_id: uuid.UUID,
     ) -> AsyncIterator[str]:
-        """Create a streaming chat completion with agentic loop."""
+        """Create a streaming chat completion with optional agentic loop."""
         provider = await self._get_provider(request.provider_id, project_id)
         provider_kind = (provider.provider_kind or "").lower()
 
@@ -234,9 +250,7 @@ class ChatService:
         merged_tools = await self._merge_tools(request, project_id)
         request.tools = merged_tools
 
-        # Create tool executor
-        executor = ToolExecutor(self.db, project_id)
-        await executor.register_tools(request.tool_ids, request.collection_ids)
+        max_rounds = request.max_tool_rounds if request.max_tool_rounds is not None else 5
 
         self._logger.info(
             "Creating streaming chat completion",
@@ -244,10 +258,31 @@ class ChatService:
             provider_kind=provider_kind,
             model=request.model,
             tools_count=len(merged_tools) if merged_tools else 0,
+            auto_execute_tools=request.auto_execute_tools,
+            max_tool_rounds=max_rounds,
         )
 
-        max_rounds = request.max_tool_rounds if request.max_tool_rounds is not None else 5
-        
+        # When auto_execute_tools=False, behave like standard OpenAI API:
+        # stream LLM response as-is (including tool_call chunks).
+        if not request.auto_execute_tools:
+            if provider_kind in self.OPENAI_PROVIDERS:
+                stream_gen = self._openai_stream(request, provider)
+            elif provider_kind == self.ANTHROPIC_PROVIDER:
+                stream_gen = self._anthropic_stream(request, provider)
+            elif provider_kind == self.GOOGLE_PROVIDER:
+                stream_gen = self._google_stream(request, provider)
+            else:
+                raise UnsupportedProviderError(provider_kind)
+
+            async for raw_chunk in stream_gen:
+                yield raw_chunk
+            return
+
+        # auto_execute_tools=True: run agentic loop with internal tool execution
+        # Create tool executor
+        executor = ToolExecutor(self.db, project_id)
+        await executor.register_tools(request.tool_ids, request.collection_ids)
+
         for round_idx in range(max_rounds):
             self._logger.debug(f"Starting streaming tool round {round_idx + 1}/{max_rounds}")
             

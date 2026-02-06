@@ -327,10 +327,10 @@ class TcpConnectionManager:
         """Background task to monitor connection heartbeats."""
         while True:
             try:
-                await asyncio.sleep(settings.WS_HEARTBEAT_INTERVAL)
+                await asyncio.sleep(settings.HEARTBEAT_INTERVAL)
 
                 now = datetime.utcnow()
-                timeout = settings.WS_HEARTBEAT_TIMEOUT
+                timeout = settings.HEARTBEAT_TIMEOUT
                 disconnected: List[str] = []
 
                 for agent_id, connection in list(self._connections.items()):

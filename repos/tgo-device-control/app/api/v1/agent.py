@@ -116,8 +116,11 @@ async def run_agent(request: AgentRunRequest):
 
     # Create agent
     agent = McpAgent(
+        provider_id=request.provider_id,
         model=request.model,
+        project_id=request.project_id,
         max_iterations=request.max_iterations,
+        system_prompt=request.system_prompt,
     )
 
     if request.stream:

@@ -1,0 +1,14 @@
+feat(device-control): add model config and device debug chat
+
+- Add project-level device control model config (provider_id, model) in
+  project_ai_config and API; add device-level AI model config
+  (ai_provider_id, model) on dc_devices
+- Add device debug chat: streaming /device-control/chat endpoint,
+  DeviceDebugChat UI with messages, screenshots, execution timeline,
+  and device info sidebar; route /ai/device-debug/:deviceId and debug
+  entry from DeviceCard
+- Extend device control API and client for debug chat and config;
+  update tgo-ai chat schema and service for device control model
+- Add Alembic migrations: 0024 (api_project_ai_configs),
+  0003 (dc_devices)
+- i18n and UI updates for device control and device debug (en/zh)

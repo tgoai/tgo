@@ -3,7 +3,7 @@
  * Main page for managing connected devices
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -16,17 +16,29 @@ import {
   AlertCircle,
   Activity,
   X,
+  Settings,
+  Cpu,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from 'lucide-react';
 import DeviceCard from './DeviceCard';
 import BindCodeModal from './BindCodeModal';
 import EditDeviceModal from './EditDeviceModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { ComputerUseSessionMonitor } from '../remote-agent';
+import { ToastContext } from '@/components/ui/ToastContainer';
 import { useDeviceControlStore } from '@/stores/deviceControlStore';
+import { useAuthStore } from '@/stores/authStore';
+import AIProvidersApiService from '@/services/aiProvidersApi';
+import ProjectConfigApiService from '@/services/projectConfigApi';
 import type { Device, DeviceStatus } from '@/types/deviceControl';
 
 const DeviceManagement: React.FC = () => {
   const { t } = useTranslation();
+  const toast = useContext(ToastContext);
+  const projectId = useAuthStore(s => s.user?.project_id);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<DeviceStatus | 'all'>('all');
   const [showBindCodeModal, setShowBindCodeModal] = useState(false);
@@ -43,6 +55,13 @@ const DeviceManagement: React.FC = () => {
   const [showSessionMonitor, setShowSessionMonitor] = useState(false);
   const [monitoringSessionId, setMonitoringSessionId] = useState<string | null>(null);
 
+  // Global model settings state
+  const [showModelSettings, setShowModelSettings] = useState(false);
+  const [modelOptions, setModelOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [modelLoading, setModelLoading] = useState(false);
+  const [globalModelSelection, setGlobalModelSelection] = useState('');
+  const [isSavingModel, setIsSavingModel] = useState(false);
+
   const {
     devices,
     isLoading,
@@ -52,6 +71,72 @@ const DeviceManagement: React.FC = () => {
     disconnectDevice,
     clearError,
   } = useDeviceControlStore();
+
+  // Load model options and current config
+  useEffect(() => {
+    if (!projectId) return;
+
+    const loadModelConfig = async () => {
+      setModelLoading(true);
+      try {
+        // Load available chat models
+        const aiProvidersSvc = new AIProvidersApiService();
+        const modelsRes = await aiProvidersSvc.listProjectModels({
+          model_type: 'chat',
+          is_active: true,
+        });
+        const options = (modelsRes.data || []).map((m: { provider_id: string; model_id: string; model_name: string; provider_name: string }) => ({
+          value: `${m.provider_id}:${m.model_id}`,
+          label: `${m.model_name} · ${m.provider_name}`,
+        }));
+        setModelOptions(options);
+
+        // Load current config
+        const configSvc = new ProjectConfigApiService();
+        const config = await configSvc.getAIConfig(projectId);
+        if (config.device_control_provider_id && config.device_control_model) {
+          setGlobalModelSelection(`${config.device_control_provider_id}:${config.device_control_model}`);
+        }
+      } catch (err) {
+        console.error('Failed to load model config:', err);
+      } finally {
+        setModelLoading(false);
+      }
+    };
+
+    loadModelConfig();
+  }, [projectId]);
+
+  // Save global model selection
+  const handleSaveGlobalModel = async () => {
+    if (!projectId) return;
+
+    setIsSavingModel(true);
+    try {
+      const configSvc = new ProjectConfigApiService();
+      
+      let providerId: string | null = null;
+      let model: string | null = null;
+      
+      if (globalModelSelection) {
+        const parts = globalModelSelection.split(':');
+        providerId = parts[0];
+        model = parts.slice(1).join(':');
+      }
+
+      await configSvc.upsertAIConfig(projectId, {
+        device_control_provider_id: providerId,
+        device_control_model: model,
+      });
+
+      toast?.showToast('success', t('common.saveSuccess', '保存成功'));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('common.saveFailed', '保存失败');
+      toast?.showToast('error', message);
+    } finally {
+      setIsSavingModel(false);
+    }
+  };
 
   // Load devices on mount
   useEffect(() => {
@@ -217,6 +302,75 @@ const DeviceManagement: React.FC = () => {
                 )}
               </p>
             </div>
+          </div>
+
+          {/* Global Model Settings */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() => setShowModelSettings(!showModelSettings)}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
+                  <Settings className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                    {t('deviceControl.settings.title', '设备控制设置')}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('deviceControl.settings.subtitle', '配置 AI 控制设备时使用的模型')}
+                  </p>
+                </div>
+              </div>
+              {showModelSettings ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+
+            {showModelSettings && (
+              <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700">
+                <div className="pt-4 space-y-4">
+                  {/* Global Model Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <div className="flex items-center gap-2">
+                        <Cpu className="w-4 h-4" />
+                        {t('deviceControl.settings.globalModel', '全局控制模型')}
+                      </div>
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <select
+                        value={globalModelSelection}
+                        onChange={(e) => setGlobalModelSelection(e.target.value)}
+                        disabled={modelLoading}
+                        className="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors disabled:opacity-50"
+                      >
+                        <option value="">{t('deviceControl.settings.selectModel', '选择模型')}</option>
+                        {modelOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleSaveGlobalModel}
+                        disabled={isSavingModel || modelLoading}
+                        className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isSavingModel && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {t('common.save', '保存')}
+                      </button>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      {t('deviceControl.settings.globalModelHint', '未配置专属模型的设备将使用此模型进行 AI 控制')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Stats */}

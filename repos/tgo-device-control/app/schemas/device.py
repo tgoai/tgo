@@ -42,6 +42,8 @@ class DeviceUpdateRequest(BaseModel):
     """Request schema for updating a device."""
 
     device_name: Optional[str] = None
+    ai_provider_id: Optional[str] = Field(None, description="AI Provider ID for this device")
+    model: Optional[str] = Field(None, description="LLM model identifier for this device")
 
 
 class DeviceResponse(DeviceBase):
@@ -52,6 +54,8 @@ class DeviceResponse(DeviceBase):
     status: DeviceStatus
     last_seen_at: Optional[datetime] = None
     created_at: datetime
+    ai_provider_id: Optional[str] = Field(None, description="AI Provider ID for this device")
+    model: Optional[str] = Field(None, description="LLM model identifier for this device")
 
     class Config:
         from_attributes = True

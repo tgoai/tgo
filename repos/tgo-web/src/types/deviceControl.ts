@@ -20,6 +20,9 @@ export interface Device {
   status: DeviceStatus;
   last_seen_at?: string;
   created_at: string;
+  // AI model configuration (optional per-device override)
+  ai_provider_id?: string;
+  model?: string;
 }
 
 /**
@@ -43,6 +46,9 @@ export interface BindCodeResponse {
  */
 export interface DeviceUpdateRequest {
   device_name?: string;
+  // AI model configuration (optional per-device override)
+  ai_provider_id?: string | null;
+  model?: string | null;
 }
 
 /**

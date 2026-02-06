@@ -1,13 +1,14 @@
 /**
  * EditDeviceModal Component
- * Modal for editing device name
+ * Modal for editing device name and model configuration
  */
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Monitor, Smartphone, Save } from 'lucide-react';
+import { X, Monitor, Smartphone, Save, Cpu } from 'lucide-react';
 import type { Device } from '@/types/deviceControl';
 import { useDeviceControlStore } from '@/stores/deviceControlStore';
+import AIProvidersApiService from '@/services/aiProvidersApi';
 
 interface EditDeviceModalProps {
   isOpen: boolean;
@@ -22,15 +23,51 @@ const EditDeviceModal: React.FC<EditDeviceModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [deviceName, setDeviceName] = useState('');
+  const [modelSelection, setModelSelection] = useState('');
+  const [modelOptions, setModelOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [modelLoading, setModelLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { updateDevice } = useDeviceControlStore();
 
+  // Load model options
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadModels = async () => {
+      setModelLoading(true);
+      try {
+        const aiProvidersSvc = new AIProvidersApiService();
+        const modelsRes = await aiProvidersSvc.listProjectModels({
+          model_type: 'chat',
+          is_active: true,
+        });
+        const options = (modelsRes.data || []).map((m: { provider_id: string; model_id: string; model_name: string; provider_name: string }) => ({
+          value: `${m.provider_id}:${m.model_id}`,
+          label: `${m.model_name} · ${m.provider_name}`,
+        }));
+        setModelOptions(options);
+      } catch (err) {
+        console.error('Failed to load models:', err);
+      } finally {
+        setModelLoading(false);
+      }
+    };
+
+    loadModels();
+  }, [isOpen]);
+
   // Initialize form when device changes
   useEffect(() => {
     if (device) {
       setDeviceName(device.device_name);
+      // Set model selection from device
+      if (device.ai_provider_id && device.model) {
+        setModelSelection(`${device.ai_provider_id}:${device.model}`);
+      } else {
+        setModelSelection('');
+      }
       setError(null);
     }
   }, [device]);
@@ -46,7 +83,21 @@ const EditDeviceModal: React.FC<EditDeviceModalProps> = ({
     setError(null);
 
     try {
-      await updateDevice(device.id, deviceName.trim());
+      // Parse model selection
+      let aiProviderId: string | null = null;
+      let model: string | null = null;
+      
+      if (modelSelection) {
+        const parts = modelSelection.split(':');
+        aiProviderId = parts[0];
+        model = parts.slice(1).join(':');
+      }
+
+      await updateDevice(device.id, {
+        device_name: deviceName.trim(),
+        ai_provider_id: aiProviderId,
+        model: model,
+      });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error', '操作失败'));
@@ -101,6 +152,32 @@ const EditDeviceModal: React.FC<EditDeviceModalProps> = ({
               placeholder={t('deviceControl.edit.deviceNamePlaceholder', '输入设备名称')}
               className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
             />
+          </div>
+
+          {/* Device Model Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <div className="flex items-center gap-2">
+                <Cpu className="w-4 h-4" />
+                {t('deviceControl.edit.model', '控制模型')}
+              </div>
+            </label>
+            <select
+              value={modelSelection}
+              onChange={(e) => setModelSelection(e.target.value)}
+              disabled={modelLoading}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all disabled:opacity-50"
+            >
+              <option value="">{t('deviceControl.edit.useGlobalModel', '使用全局设置')}</option>
+              {modelOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {t('deviceControl.edit.modelHint', '留空则使用全局设备控制模型设置')}
+            </p>
           </div>
 
           {/* Device Info (read-only) */}

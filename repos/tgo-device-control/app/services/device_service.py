@@ -89,31 +89,43 @@ class DeviceService:
         screen_resolution: Optional[str],
     ) -> Optional[Device]:
         """Register a device using a bind code."""
+        logger.info(f"[DEBUG] register_device called: bind_code={bind_code}, device_name={device_name}, os={os}")
+        
         # Validate bind code from Redis
+        logger.info(f"[DEBUG] Validating bind code from Redis...")
         project_id = await bind_code_service.validate(bind_code)
         if not project_id:
-            logger.warning(f"Invalid or expired bind code: {bind_code}")
+            logger.warning(f"[DEBUG] Invalid or expired bind code: {bind_code}")
             return None
 
+        logger.info(f"[DEBUG] Bind code valid, project_id={project_id}")
+
         # Create new device record
-        device = Device(
-            project_id=project_id,
-            device_name=device_name,
-            device_type=DeviceType(device_type),
-            os=os,
-            os_version=os_version,
-            screen_resolution=screen_resolution,
-            status=DeviceStatus.ONLINE,
-            last_seen_at=datetime.now(timezone.utc),
-            device_token=str(uuid.uuid4()),
-        )
+        try:
+            device = Device(
+                project_id=project_id,
+                device_name=device_name,
+                device_type=DeviceType(device_type),
+                os=os,
+                os_version=os_version,
+                screen_resolution=screen_resolution,
+                status=DeviceStatus.ONLINE,
+                last_seen_at=datetime.now(timezone.utc),
+                device_token=str(uuid.uuid4()),
+            )
+            logger.info(f"[DEBUG] Device object created: {device}")
 
-        self.db.add(device)
-        await self.db.commit()
-        await self.db.refresh(device)
+            self.db.add(device)
+            logger.info(f"[DEBUG] Device added to session, committing...")
+            await self.db.commit()
+            logger.info(f"[DEBUG] Commit successful, refreshing...")
+            await self.db.refresh(device)
 
-        logger.info(f"Device registered: {device_name} ({device.id}) for project {project_id}")
-        return device
+            logger.info(f"[DEBUG] Device registered successfully: {device_name} ({device.id}) for project {project_id}")
+            return device
+        except Exception as e:
+            logger.error(f"[DEBUG] Error creating device record: {e}", exc_info=True)
+            raise
 
     async def update_device(
         self,
@@ -134,6 +146,10 @@ class DeviceService:
         # Update fields
         if update_data.device_name is not None:
             device.device_name = update_data.device_name
+        if update_data.ai_provider_id is not None:
+            device.ai_provider_id = update_data.ai_provider_id if update_data.ai_provider_id else None
+        if update_data.model is not None:
+            device.model = update_data.model if update_data.model else None
 
         await self.db.commit()
         await self.db.refresh(device)

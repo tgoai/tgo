@@ -22,6 +22,12 @@ class ProjectAIConfigBase(BaseSchema):
     default_embedding_model: Optional[str] = Field(
         None, max_length=100, description="Default embedding model identifier"
     )
+    device_control_provider_id: Optional[UUID] = Field(
+        None, description="AIProvider ID for device control model"
+    )
+    device_control_model: Optional[str] = Field(
+        None, max_length=100, description="Device control model identifier"
+    )
 
 
 class ProjectAIConfigCreate(ProjectAIConfigBase):

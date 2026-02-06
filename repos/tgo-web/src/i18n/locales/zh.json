@@ -3741,7 +3741,8 @@
       "justNow": "刚刚",
       "minutesAgo": "{{count}} 分钟前",
       "hoursAgo": "{{count}} 小时前",
-      "daysAgo": "{{count}} 天前"
+      "daysAgo": "{{count}} 天前",
+      "debug": "调试设备"
     },
     "bindCode": {
       "title": "添加设备",
@@ -3753,6 +3754,15 @@
       "step2": "打开软件并输入上方绑定码",
       "step3": "连接成功后设备将出现在列表中"
     },
+    "settings": {
+      "title": "设备控制设置",
+      "subtitle": "配置 AI 控制设备时使用的模型",
+      "globalModel": "全局控制模型",
+      "selectModel": "选择模型",
+      "globalModelHint": "未配置专属模型的设备将使用此模型进行 AI 控制",
+      "saveSuccess": "模型配置已保存",
+      "saveError": "保存模型配置失败"
+    },
     "edit": {
       "title": "编辑设备",
       "deviceName": "设备名称",
@@ -3760,7 +3770,10 @@
       "nameRequired": "请输入设备名称",
       "os": "操作系统",
       "resolution": "屏幕分辨率",
-      "status": "状态"
+      "status": "状态",
+      "model": "控制模型",
+      "useGlobalModel": "使用全局设置",
+      "modelHint": "留空则使用全局设备控制模型设置"
     },
     "delete": {
       "title": "确认删除",
@@ -3770,6 +3783,58 @@
       "title": "确认断开",
       "message": "确定要断开设备 \"{{name}}\" 的连接吗？"
     }
+  },
+  "deviceDebug": {
+    "title": "设备调试",
+    "error": "错误",
+    "deviceNotFound": "设备未找到",
+    "loadError": "加载设备失败",
+    "online": "在线",
+    "offline": "离线",
+    "connected": "已连接",
+    "disconnected": "未连接",
+    "deviceInfo": "设备信息",
+    "desktop": "桌面设备",
+    "mobile": "移动设备",
+    "status": "状态",
+    "sessionStats": "会话统计",
+    "toolCalls": "工具调用",
+    "screenshots": "截图数",
+    "iterations": "迭代次数",
+    "errors": "错误数",
+    "quickCommands": {
+      "title": "快捷指令",
+      "screenshot": "截取屏幕",
+      "desktop": "返回桌面",
+      "browser": "打开浏览器",
+      "refresh": "刷新屏幕"
+    },
+    "clearSession": "清空会话",
+    "emptyState": {
+      "title": "开始调试",
+      "description": "输入指令开始控制设备"
+    },
+    "processing": "处理中...",
+    "parameters": "参数",
+    "success": "成功",
+    "failed": "失败",
+    "screenshotCaptured": "已截取屏幕",
+    "latestScreenshot": "最新截图",
+    "capturedAt": "截取时间",
+    "via": "工具",
+    "allScreenshots": "全部截图",
+    "noScreenshot": "暂无截图",
+    "executionTimeline": "执行时间线",
+    "noSteps": "暂无执行步骤",
+    "toolCall": "工具调用",
+    "thinking": "思考中",
+    "completed": "已完成",
+    "errorOccurred": "发生错误",
+    "result": "结果",
+    "screenshot": "截图",
+    "inputPlaceholder": "输入指令（例如：打开 Chrome 访问 google.com）",
+    "deviceDisconnected": "设备未连接",
+    "inputHelp": "按回车发送，Shift+回车换行"
   },
   "ws": {
     "error": {

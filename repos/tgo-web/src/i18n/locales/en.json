@@ -3730,7 +3730,8 @@
       "justNow": "Just now",
       "minutesAgo": "{{count}} minutes ago",
       "hoursAgo": "{{count}} hours ago",
-      "daysAgo": "{{count}} days ago"
+      "daysAgo": "{{count}} days ago",
+      "debug": "Debug Device"
     },
     "bindCode": {
       "title": "Add Device",
@@ -3742,6 +3743,15 @@
       "step2": "Open the software and enter the bind code above",
       "step3": "Once connected, the device will appear in the list"
     },
+    "settings": {
+      "title": "Device Control Settings",
+      "subtitle": "Configure the model used when AI controls devices",
+      "globalModel": "Global Control Model",
+      "selectModel": "Select model",
+      "globalModelHint": "Devices without a specific model configured will use this model for AI control",
+      "saveSuccess": "Model configuration saved",
+      "saveError": "Failed to save model configuration"
+    },
     "edit": {
       "title": "Edit Device",
       "deviceName": "Device Name",
@@ -3749,7 +3759,10 @@
       "nameRequired": "Please enter a device name",
       "os": "Operating System",
       "resolution": "Screen Resolution",
-      "status": "Status"
+      "status": "Status",
+      "model": "Control Model",
+      "useGlobalModel": "Use global settings",
+      "modelHint": "Leave empty to use global device control model settings"
     },
     "delete": {
       "title": "Confirm Delete",
@@ -3759,6 +3772,58 @@
       "title": "Confirm Disconnect",
       "message": "Are you sure you want to disconnect device \"{{name}}\"?"
     }
+  },
+  "deviceDebug": {
+    "title": "Device Debug",
+    "error": "Error",
+    "deviceNotFound": "Device not found",
+    "loadError": "Failed to load device",
+    "online": "Online",
+    "offline": "Offline",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "deviceInfo": "Device Info",
+    "desktop": "Desktop",
+    "mobile": "Mobile",
+    "status": "Status",
+    "sessionStats": "Session Stats",
+    "toolCalls": "Tool Calls",
+    "screenshots": "Screenshots",
+    "iterations": "Iterations",
+    "errors": "Errors",
+    "quickCommands": {
+      "title": "Quick Commands",
+      "screenshot": "Take Screenshot",
+      "desktop": "Go to Desktop",
+      "browser": "Open Browser",
+      "refresh": "Refresh Screen"
+    },
+    "clearSession": "Clear Session",
+    "emptyState": {
+      "title": "Start Debugging",
+      "description": "Enter a command to start controlling the device"
+    },
+    "processing": "Processing...",
+    "parameters": "Parameters",
+    "success": "Success",
+    "failed": "Failed",
+    "screenshotCaptured": "Screenshot captured",
+    "latestScreenshot": "Latest Screenshot",
+    "capturedAt": "Captured at",
+    "via": "Via",
+    "allScreenshots": "All Screenshots",
+    "noScreenshot": "No screenshot yet",
+    "executionTimeline": "Execution Timeline",
+    "noSteps": "No execution steps yet",
+    "toolCall": "Tool Call",
+    "thinking": "Thinking",
+    "completed": "Completed",
+    "errorOccurred": "Error Occurred",
+    "result": "Result",
+    "screenshot": "Screenshot",
+    "inputPlaceholder": "Enter a command (e.g., \"Open Chrome and go to google.com\")",
+    "deviceDisconnected": "Device is disconnected",
+    "inputHelp": "Press Enter to send, Shift+Enter for new line"
   },
   "ws": {
     "error": {

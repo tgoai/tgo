@@ -48,6 +48,16 @@ class ProjectAIConfig(Base):
         String(100), nullable=True, comment="Default embedding model identifier"
     )
 
+    # Device control model selection
+    device_control_provider_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("api_ai_providers.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="AIProvider ID for device control model",
+    )
+    device_control_model: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, comment="Device control model identifier"
+    )
+
     # Timestamps (soft delete)
     created_at: Mapped[datetime] = mapped_column(nullable=False, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -67,6 +77,9 @@ class ProjectAIConfig(Base):
     )
     embedding_provider: Mapped[Optional["AIProvider"]] = relationship(
         "AIProvider", foreign_keys=[default_embedding_provider_id], lazy="select"
+    )
+    device_control_provider: Mapped[Optional["AIProvider"]] = relationship(
+        "AIProvider", foreign_keys=[device_control_provider_id], lazy="select"
     )
 
     __table_args__ = (

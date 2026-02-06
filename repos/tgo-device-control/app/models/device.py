@@ -75,6 +75,18 @@ class Device(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+    # AI Model configuration (optional per-device override)
+    ai_provider_id: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="AI Provider ID for this device",
+    )
+    model: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="LLM model identifier for this device",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

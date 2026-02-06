@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Monitor,
@@ -14,7 +15,9 @@ import {
   Trash2,
   Wifi,
   WifiOff,
+  Terminal,
 } from 'lucide-react';
+import Button from '@/components/ui/Button';
 import type { Device } from '@/types/deviceControl';
 
 interface DeviceCardProps {
@@ -31,6 +34,7 @@ const DeviceCard: React.FC<DeviceCardProps> = ({
   onDisconnect,
 }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [showMenu, setShowMenu] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
 
@@ -189,6 +193,21 @@ const DeviceCard: React.FC<DeviceCardProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Debug Button - Only shown when device is online */}
+      {isOnline && (
+        <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full"
+            onClick={() => navigate(`/ai/device-debug/${device.id}`)}
+          >
+            <Terminal className="w-4 h-4 mr-2" />
+            {t('deviceControl.device.debug', '调试设备')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

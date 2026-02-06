@@ -1,6 +1,6 @@
 """Device Control Service Client - HTTP client for tgo-device-control service."""
 
-from typing import Any, Dict, Optional
+from typing import Any, AsyncGenerator, Dict, Optional
 import httpx
 
 from app.core.config import settings
@@ -115,6 +115,87 @@ class DeviceControlClient:
             "POST", f"/v1/devices/{device_id}/disconnect", params=params
         )
         return True
+
+    # Agent Operations
+
+    async def run_agent_stream(
+        self,
+        device_id: str,
+        task: str,
+        provider_id: Optional[str] = None,
+        model: Optional[str] = None,
+        project_id: Optional[str] = None,
+        max_iterations: Optional[int] = None,
+        system_prompt: Optional[str] = None,
+    ) -> AsyncGenerator[str, None]:
+        """Run the MCP Agent on a device with streaming response.
+        
+        Args:
+            device_id: ID of the device to control.
+            task: Task description to execute.
+            provider_id: AI Provider ID for LLM calls via tgo-ai service.
+            model: LLM model to use.
+            project_id: Project ID for authorization.
+            max_iterations: Optional max iterations.
+            system_prompt: Optional custom system prompt.
+            
+        Yields:
+            SSE event strings from the agent execution.
+        """
+        url = f"{self.base_url}/v1/agent/run"
+        
+        payload: Dict[str, Any] = {
+            "device_id": device_id,
+            "task": task,
+            "stream": True,
+        }
+        if provider_id:
+            payload["provider_id"] = provider_id
+        if model:
+            payload["model"] = model
+        if project_id:
+            payload["project_id"] = project_id
+        if max_iterations:
+            payload["max_iterations"] = max_iterations
+        if system_prompt:
+            payload["system_prompt"] = system_prompt
+
+        # Use longer timeout for agent operations
+        timeout = httpx.Timeout(300.0, connect=10.0)
+        
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            try:
+                async with client.stream(
+                    "POST",
+                    url,
+                    json=payload,
+                    headers={"Accept": "text/event-stream"},
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if line:
+                            yield line
+            except httpx.HTTPStatusError as e:
+                # Must read the response body before accessing .text in streaming mode
+                await e.response.aread()
+                logger.error(
+                    f"Device control agent error: {e.response.status_code} - {e.response.text}"
+                )
+                raise
+            except httpx.RequestError as e:
+                logger.error(f"Device control agent connection error: {e}")
+                raise
+
+    async def get_device_tools(
+        self,
+        device_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Get available tools from a connected device."""
+        return await self._request("GET", f"/v1/agent/devices/{device_id}/tools")
+
+    async def list_connected_devices(self) -> Dict[str, Any]:
+        """List all connected devices available for agent control."""
+        return await self._request("GET", "/v1/agent/devices")
 
 
 # Global singleton instance

@@ -7,7 +7,7 @@
  */
 
 import { create } from 'zustand';
-import type { Device, DeviceStatus, DeviceType } from '@/types/deviceControl';
+import type { Device, DeviceStatus, DeviceType, DeviceUpdateRequest } from '@/types/deviceControl';
 import * as deviceControlApi from '@/services/deviceControlApi';
 
 interface DeviceControlState {
@@ -25,7 +25,7 @@ interface DeviceControlState {
   // Actions
   loadDevices: (deviceType?: DeviceType, status?: DeviceStatus) => Promise<void>;
   generateBindCode: () => Promise<string>;
-  updateDevice: (deviceId: string, name: string) => Promise<void>;
+  updateDevice: (deviceId: string, data: DeviceUpdateRequest) => Promise<void>;
   deleteDevice: (deviceId: string) => Promise<void>;
   disconnectDevice: (deviceId: string) => Promise<void>;
   selectDevice: (device: Device | null) => void;
@@ -79,11 +79,9 @@ export const useDeviceControlStore = create<DeviceControlState>((set) => ({
   },
 
   // Update device
-  updateDevice: async (deviceId, name) => {
+  updateDevice: async (deviceId, data) => {
     try {
-      const updated = await deviceControlApi.updateDevice(deviceId, {
-        device_name: name,
-      });
+      const updated = await deviceControlApi.updateDevice(deviceId, data);
 
       // Update local state
       set((state) => ({

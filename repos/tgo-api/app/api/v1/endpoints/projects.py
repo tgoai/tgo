@@ -226,6 +226,8 @@ async def get_project_ai_config(
         "default_chat_model": cfg.default_chat_model,
         "default_embedding_provider_id": cfg.default_embedding_provider_id,
         "default_embedding_model": cfg.default_embedding_model,
+        "device_control_provider_id": cfg.device_control_provider_id,
+        "device_control_model": cfg.device_control_model,
         "created_at": cfg.created_at,
         "updated_at": cfg.updated_at,
         "deleted_at": cfg.deleted_at,
@@ -240,6 +242,8 @@ async def get_project_ai_config(
         provider_ids_to_check.append(cfg.default_chat_provider_id)
     if cfg.default_embedding_provider_id:
         provider_ids_to_check.append(cfg.default_embedding_provider_id)
+    if cfg.device_control_provider_id:
+        provider_ids_to_check.append(cfg.device_control_provider_id)
 
     # Query all referenced providers at once (avoid N+1)
     valid_provider_ids = set()
@@ -280,6 +284,18 @@ async def get_project_ai_config(
         response_data["default_embedding_provider_id"] = None
         response_data["default_embedding_model"] = None
 
+    # Validate device control provider
+    if cfg.device_control_provider_id and cfg.device_control_provider_id not in valid_provider_ids:
+        logger.warning(
+            "Invalid or inactive device_control_provider_id detected",
+            extra={
+                "project_id": str(project_id),
+                "device_control_provider_id": str(cfg.device_control_provider_id),
+            }
+        )
+        response_data["device_control_provider_id"] = None
+        response_data["device_control_model"] = None
+
     return ProjectAIConfigResponse.model_validate(response_data)
 
 
@@ -309,6 +325,7 @@ async def upsert_project_ai_config(
     # Validate providers
     chat_pid = data.get("default_chat_provider_id")
     emb_pid = data.get("default_embedding_provider_id")
+    dc_pid = data.get("device_control_provider_id")
 
     def _validate_provider(provider_id: UUID, model_key: str | None) -> None:
         prov = (
@@ -336,6 +353,8 @@ async def upsert_project_ai_config(
         _validate_provider(chat_pid, "default_chat_model")
     if emb_pid:
         _validate_provider(emb_pid, "default_embedding_model")
+    if dc_pid:
+        _validate_provider(dc_pid, "device_control_model")
 
     cfg = (
         db.query(ProjectAIConfig)

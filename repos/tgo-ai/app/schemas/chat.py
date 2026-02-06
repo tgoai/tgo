@@ -187,6 +187,13 @@ class ChatCompletionRequest(BaseModel):
         le=20,
         description="Maximum number of tool call rounds (default: 5)",
     )
+    auto_execute_tools: bool = Field(
+        default=True,
+        description="Whether tgo-ai should auto-execute tool calls in an agentic loop. "
+        "When True (default), tgo-ai executes tool calls internally and continues the conversation. "
+        "When False, behaves like standard OpenAI API: returns the LLM response with tool_calls "
+        "as-is for the caller to handle tool execution externally.",
+    )
 
 
 # =============================================================================

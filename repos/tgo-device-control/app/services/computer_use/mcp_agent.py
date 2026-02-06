@@ -3,7 +3,7 @@
 This module implements an agent that:
 1. Loads available tools from the connected device via tools/list
 2. Converts MCP tool definitions to OpenAI Function Calling format
-3. Uses LLM to autonomously decide which tools to call
+3. Uses LLM (via tgo-ai service) to autonomously decide which tools to call
 4. Executes tools via tools/call and analyzes results
 5. Continues until task completion or max iterations reached
 """
@@ -12,8 +12,8 @@ import json
 from typing import Any, AsyncGenerator, Dict, List, Optional
 from uuid import uuid4
 
-from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletion
+import httpx
+from pydantic import BaseModel
 
 from app.config import settings
 from app.core.logging import get_logger
@@ -68,42 +68,38 @@ class McpAgent:
 
     def __init__(
         self,
+        provider_id: Optional[str] = None,
         model: Optional[str] = None,
+        project_id: Optional[str] = None,
         max_iterations: Optional[int] = None,
         system_prompt: Optional[str] = None,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
     ):
         """Initialize the MCP Agent.
 
         Args:
+            provider_id: AI Provider ID for LLM calls via tgo-ai service.
             model: LLM model to use (default: settings.AGENT_MODEL).
+            project_id: Project ID for authorization.
             max_iterations: Max iterations (default: settings.AGENT_MAX_ITERATIONS).
             system_prompt: Custom system prompt (default: AGENT_SYSTEM_PROMPT).
-            api_key: OpenAI API key (default: from settings).
-            base_url: Custom API base URL (default: from settings).
         """
+        self.provider_id = provider_id
         self.model = model or settings.AGENT_MODEL
+        self.project_id = project_id
         self.max_iterations = max_iterations or settings.AGENT_MAX_ITERATIONS
         self.system_prompt = (
             system_prompt or settings.AGENT_SYSTEM_PROMPT or AGENT_SYSTEM_PROMPT
         )
-
-        # Initialize OpenAI client
-        client_kwargs: Dict[str, Any] = {}
-        if api_key or settings.OPENAI_API_KEY:
-            client_kwargs["api_key"] = api_key or settings.OPENAI_API_KEY
-        if base_url or settings.OPENAI_BASE_URL:
-            client_kwargs["base_url"] = base_url or settings.OPENAI_BASE_URL
-
-        self.client = AsyncOpenAI(**client_kwargs)
 
         # State
         self._device_tools: List[Dict[str, Any]] = []
         self._openai_tools: List[Dict[str, Any]] = []
         self._messages: List[Dict[str, Any]] = []
 
-        logger.info(f"McpAgent initialized with model: {self.model}")
+        logger.info(
+            f"McpAgent initialized with model: {self.model}, "
+            f"provider_id: {self.provider_id}, project_id: {self.project_id}"
+        )
 
     async def load_device_tools(
         self, connection: TcpDeviceConnection
@@ -191,7 +187,7 @@ class McpAgent:
         # Get device connection
         connection = tcp_connection_manager.get_connection(device_id)
         if not connection:
-            yield AgentEvent.error(
+            yield AgentEvent.create_error(
                 run_id=run_id,
                 error_message=f"Device {device_id} is not connected",
                 error_code="DEVICE_NOT_CONNECTED",
@@ -208,7 +204,7 @@ class McpAgent:
                 tool_names=tool_names,
             )
         except Exception as e:
-            yield AgentEvent.error(
+            yield AgentEvent.create_error(
                 run_id=run_id,
                 error_message=str(e),
                 error_code="TOOLS_LOAD_FAILED",
@@ -235,13 +231,18 @@ class McpAgent:
 
                 response = await self._call_llm()
 
-                # Get the assistant message
-                assistant_message = response.choices[0].message
+                # Get the assistant message from response dict
+                choices = response.get("choices", [])
+                if not choices:
+                    raise RuntimeError("No choices in LLM response")
+
+                assistant_message = choices[0].get("message", {})
+                tool_calls = assistant_message.get("tool_calls", [])
 
                 # Check if task is complete (no tool calls)
-                if not assistant_message.tool_calls:
+                if not tool_calls:
                     # Task complete - emit final result
-                    final_content = assistant_message.content or "Task completed"
+                    final_content = assistant_message.get("content") or "Task completed"
                     yield AgentEvent.completed(
                         run_id=run_id,
                         final_result=final_content,
@@ -253,31 +254,31 @@ class McpAgent:
                 self._messages.append(
                     {
                         "role": "assistant",
-                        "content": assistant_message.content,
+                        "content": assistant_message.get("content"),
                         "tool_calls": [
                             {
-                                "id": tc.id,
+                                "id": tc.get("id"),
                                 "type": "function",
                                 "function": {
-                                    "name": tc.function.name,
-                                    "arguments": tc.function.arguments,
+                                    "name": tc.get("function", {}).get("name"),
+                                    "arguments": tc.get("function", {}).get("arguments", "{}"),
                                 },
                             }
-                            for tc in assistant_message.tool_calls
+                            for tc in tool_calls
                         ],
                     }
                 )
 
                 # Execute each tool call
-                for tool_call in assistant_message.tool_calls:
-                    tool_name = tool_call.function.name
+                for tool_call in tool_calls:
+                    tool_name = tool_call.get("function", {}).get("name", "")
                     try:
-                        tool_args = json.loads(tool_call.function.arguments)
+                        tool_args = json.loads(tool_call.get("function", {}).get("arguments", "{}"))
                     except json.JSONDecodeError:
                         tool_args = {}
 
                     # Emit tool call event
-                    yield AgentEvent.tool_call(
+                    yield AgentEvent.create_tool_call(
                         run_id=run_id,
                         tool_name=tool_name,
                         tool_args=tool_args,
@@ -288,7 +289,7 @@ class McpAgent:
                     result = await self._execute_tool(connection, tool_name, tool_args)
 
                     # Emit tool result event
-                    yield AgentEvent.tool_result(
+                    yield AgentEvent.create_tool_result(
                         run_id=run_id,
                         tool_name=tool_name,
                         result=result,
@@ -299,14 +300,14 @@ class McpAgent:
                     self._messages.append(
                         {
                             "role": "tool",
-                            "tool_call_id": tool_call.id,
+                            "tool_call_id": tool_call.get("id"),
                             "content": self._format_tool_result(result),
                         }
                     )
 
             except Exception as e:
                 logger.exception(f"Agent iteration error: {e}")
-                yield AgentEvent.error(
+                yield AgentEvent.create_error(
                     run_id=run_id,
                     error_message=str(e),
                     error_code="ITERATION_ERROR",
@@ -315,32 +316,59 @@ class McpAgent:
                 return
 
         # Max iterations reached
-        yield AgentEvent.error(
+        yield AgentEvent.create_error(
             run_id=run_id,
             error_message=f"Max iterations ({self.max_iterations}) reached without completing task",
             error_code="MAX_ITERATIONS_EXCEEDED",
             iteration=self.max_iterations,
         )
 
-    async def _call_llm(self) -> ChatCompletion:
-        """Call the LLM with current messages and tools.
+    async def _call_llm(self) -> Dict[str, Any]:
+        """Call the LLM via tgo-ai service.
 
         Returns:
-            ChatCompletion response from the LLM.
+            ChatCompletion response from the LLM (as dict).
+
+        Raises:
+            RuntimeError: If provider_id or project_id is not configured.
+            httpx.HTTPStatusError: If the API call fails.
         """
+        if not self.provider_id or not self.project_id:
+            raise RuntimeError(
+                "provider_id and project_id are required for LLM calls. "
+                "Please configure device control model in settings."
+            )
+
         # Prepare messages for LLM (handle images in tool results)
         messages = self._prepare_messages_for_llm()
 
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            tools=self._openai_tools if self._openai_tools else None,
-            tool_choice="auto" if self._openai_tools else None,
-            max_tokens=4096,
-            temperature=0.1,
-        )
+        payload: Dict[str, Any] = {
+            "provider_id": self.provider_id,
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": 4096,
+            "temperature": 0.1,
+            "stream": False,
+            # Disable tgo-ai's internal agentic loop so tool_calls are returned as-is.
+            # The mcp_agent handles tool execution on the device itself.
+            "auto_execute_tools": False,
+        }
 
-        return response
+        # Only include tools if available
+        if self._openai_tools:
+            payload["tools"] = self._openai_tools
+            payload["tool_choice"] = "auto"
+
+        logger.debug(f"Calling tgo-ai service: model={self.model}, messages={len(messages)}")
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{settings.AI_SERVICE_URL}/api/v1/chat/completions",
+                params={"project_id": self.project_id},
+                json=payload,
+            )
+            response.raise_for_status()
+            return response.json()
 
     def _prepare_messages_for_llm(self) -> List[Dict[str, Any]]:
         """Prepare messages for LLM, converting images to proper format.
@@ -455,14 +483,18 @@ class McpAgent:
 
 # Factory function for creating agent instances
 def create_mcp_agent(
+    provider_id: Optional[str] = None,
     model: Optional[str] = None,
+    project_id: Optional[str] = None,
     max_iterations: Optional[int] = None,
     system_prompt: Optional[str] = None,
 ) -> McpAgent:
     """Create a new McpAgent instance.
 
     Args:
+        provider_id: AI Provider ID for LLM calls.
         model: LLM model to use.
+        project_id: Project ID for authorization.
         max_iterations: Maximum iterations.
         system_prompt: Custom system prompt.
 
@@ -470,7 +502,9 @@ def create_mcp_agent(
         Configured McpAgent instance.
     """
     return McpAgent(
+        provider_id=provider_id,
         model=model,
+        project_id=project_id,
         max_iterations=max_iterations,
         system_prompt=system_prompt,
     )

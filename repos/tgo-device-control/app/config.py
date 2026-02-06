@@ -24,12 +24,12 @@ class Settings(BaseSettings):
     HOST: str = Field(default="0.0.0.0")
     PORT: int = Field(default=8085)
 
-    # WebSocket Configuration
-    WS_HEARTBEAT_INTERVAL: int = Field(
+    # Heartbeat Configuration
+    HEARTBEAT_INTERVAL: int = Field(
         default=30,
-        description="Heartbeat interval in seconds for WebSocket connections",
+        description="Heartbeat interval in seconds for device connections",
     )
-    WS_HEARTBEAT_TIMEOUT: int = Field(
+    HEARTBEAT_TIMEOUT: int = Field(
         default=90,
         description="Timeout in seconds before considering a connection dead",
     )

@@ -181,7 +181,7 @@ class AgentEvent(BaseModel):
         )
 
     @classmethod
-    def tool_call(
+    def create_tool_call(
         cls,
         run_id: str,
         tool_name: str,
@@ -208,7 +208,7 @@ class AgentEvent(BaseModel):
         )
 
     @classmethod
-    def tool_result(
+    def create_tool_result(
         cls,
         run_id: str,
         tool_name: str,
@@ -292,7 +292,7 @@ class AgentEvent(BaseModel):
         )
 
     @classmethod
-    def error(
+    def create_error(
         cls,
         run_id: str,
         error_message: str,
@@ -328,14 +328,28 @@ class AgentRunRequest(BaseModel):
     device_id: str = Field(..., description="ID of the device to control")
     stream: bool = Field(default=True, description="Enable streaming response")
 
+    # Model configuration (for tgo-ai service)
+    provider_id: Optional[str] = Field(
+        None,
+        description="AI Provider ID for LLM calls via tgo-ai service",
+    )
+    model: Optional[str] = Field(
+        None,
+        description="LLM model to use (default from config)",
+    )
+    project_id: Optional[str] = Field(
+        None,
+        description="Project ID for authorization",
+    )
+
     # Optional settings
     max_iterations: Optional[int] = Field(
         None,
         description="Maximum iterations (default from config)",
     )
-    model: Optional[str] = Field(
+    system_prompt: Optional[str] = Field(
         None,
-        description="LLM model to use (default from config)",
+        description="Custom system prompt to override default agent behavior",
     )
 
     # Auth
