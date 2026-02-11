@@ -30,14 +30,21 @@ from uuid import UUID
 from .celery_app import celery_app
 from .document_processing_core import process_file_async
 from .document_processing_errors import ProcessingStatus
+from ..config import get_settings
 from ..logging_config import get_logger
 
 # Configure logger with structured formatting
 logger = get_logger(__name__)
+settings = get_settings()
 
 
 @celery_app.task(bind=True, name="process_file_task")
-def process_file_task(self, file_id: str, collection_id: str, is_qa_mode: bool = True) -> Dict[str, Any]:
+def process_file_task(
+    self,
+    file_id: str,
+    collection_id: str,
+    is_qa_mode: bool = settings.default_is_qa_mode
+) -> Dict[str, Any]:
     """
     Celery task for processing uploaded files.
 

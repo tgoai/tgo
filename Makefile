@@ -37,7 +37,7 @@ WIDGET_DIR := repos/tgo-widget-app
 # Development ports (to avoid conflicts)
 API_PORT := 8000
 AI_PORT := 8081
-RAG_PORT := 8082
+RAG_PORT := 18082
 PLATFORM_PORT := 8003
 WORKFLOW_PORT := 8004
 PLUGIN_PORT := 8090

@@ -30,6 +30,7 @@ from ..schemas.common import ErrorResponse
 
 router = APIRouter()
 logger = get_logger(__name__)
+settings = get_settings()
 
 
 @router.get(
@@ -131,7 +132,7 @@ async def upload_file(
     language: Optional[str] = Form(None, description="Document language (ISO 639-1 code)"),
     tags: Optional[str] = Form(None, description="Comma-separated list of tags"),
     project_id: UUID = Form(..., description="Project ID", example="11111111-1111-1111-1111-111111111111"),
-    is_qa_mode: bool = Form(True, description="Enable QA pair generation mode"),
+    is_qa_mode: bool = Form(settings.default_is_qa_mode, description="Enable QA pair generation mode"),
     db: AsyncSession = Depends(get_db_session_dependency),
 ):
     """
@@ -141,8 +142,6 @@ async def upload_file(
     Supported formats: PDF, Word documents, text files, and markdown files.
     All files are scoped to the specified project.
     """
-    settings = get_settings()
-    
     # Validate file
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
@@ -438,7 +437,7 @@ async def upload_files_batch(
     description: Optional[str] = Form(None, description="Optional description for all files"),
     tags: Optional[str] = Form(None, description="Comma-separated list of tags to apply to all files"),
     project_id: UUID = Form(..., description="Project ID", example="11111111-1111-1111-1111-111111111111"),
-    is_qa_mode: bool = Form(True, description="Enable QA pair generation mode"),
+    is_qa_mode: bool = Form(settings.default_is_qa_mode, description="Enable QA pair generation mode"),
     db: AsyncSession = Depends(get_db_session_dependency),
 ):
     """
@@ -454,8 +453,6 @@ async def upload_files_batch(
     - Returns comprehensive batch statistics
     - Applies common metadata (tags, description) to all files
     """
-    settings = get_settings()
-
     # Validate collection exists and belongs to project
     collection_query = select(Collection).where(
         and_(

@@ -130,6 +130,10 @@ class Settings(BaseSettings):
     candidate_multiplier: int = Field(default=5, description="Candidate pool multiplier for hybrid search")
     
     # QA generation settings
+    default_is_qa_mode: bool = Field(
+        default=False,
+        description="Default QA mode switch for file processing when request does not provide is_qa_mode",
+    )
     qa_generation_batch_size: int = Field(default=5, description="Batch size for QA pair generation")
 
     # Rate limiting settings

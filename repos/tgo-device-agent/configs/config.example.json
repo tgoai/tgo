@@ -1,0 +1,15 @@
+{
+  "server_host": "localhost",
+  "server_port": 9876,
+  "bind_code": "",
+  "device_name": "",
+  "token_file": "~/.tgo-device-agent/device_token",
+  "work_root": ".",
+  "max_read_bytes": 10485760,
+  "max_write_bytes": 10485760,
+  "max_output_bytes": 1048576,
+  "max_reconnect_attempts": 0,
+  "blocked_commands": ["rm -rf /", "mkfs", "dd if=/dev/zero"],
+  "allowed_shells": ["/bin/sh", "/bin/bash", "/bin/zsh"],
+  "log_level": "info"
+}

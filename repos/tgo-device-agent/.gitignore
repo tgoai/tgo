@@ -1,0 +1,32 @@
+# Binaries
+tgo-device-agent
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build output
+/bin/
+/dist/
+/build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config with secrets
+configs/config.json
+*.env
+
+# Token files
+device_token
+
+# Build artifacts
+*.out
