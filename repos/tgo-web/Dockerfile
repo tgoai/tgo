@@ -15,7 +15,7 @@
 #   docker run -e VITE_API_BASE_URL=https://api.example.com -p 80:80 tgo-web
 
 # --- Build stage ---
-ARG BUILDPLATFORM
+ARG BUILDPLATFORM=linux/amd64
 FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
 WORKDIR /app
 ENV CI=true
