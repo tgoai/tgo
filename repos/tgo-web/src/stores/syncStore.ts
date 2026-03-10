@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { Chat, ChatStatus, WuKongIMConversation, WuKongIMConversationSyncResponse } from '@/types';
+import { MessagePayloadType } from '@/types';
 import { WuKongIMApiService, WuKongIMUtils } from '@/services/wukongimApi';
 import { getChannelKey } from '@/utils/channelUtils';
 import { useChannelStore } from './channelStore';
@@ -87,7 +88,18 @@ export const useSyncStore = create<SyncState>()(
         } else if (typeof rawPayload === 'string') {
           try { lastPayload = JSON.parse(rawPayload); } catch {}
         }
-        const payloadType = latestWkMsg ? (typeof latestWkMsg.payload === 'object' ? (latestWkMsg.payload as any)?.type : undefined) : undefined;
+        let payloadType = latestWkMsg ? (typeof latestWkMsg.payload === 'object' ? (latestWkMsg.payload as any)?.type : undefined) : undefined;
+
+        // For completed STREAM messages, treat as TEXT so the conversation list
+        // shows actual content instead of "AI typing..." placeholder.
+        if (payloadType === MessagePayloadType.STREAM && latestWkMsg) {
+          const isCompleted = latestWkMsg.end === 1
+            || latestWkMsg.event_meta?.completed === true
+            || (latestWkMsg.event_meta?.has_events && (latestWkMsg.event_meta?.open_event_count ?? 0) === 0);
+          if (isCompleted) {
+            payloadType = MessagePayloadType.TEXT;
+          }
+        }
 
         const channelId = conversation.channel_id;
         const channelType = conversation.channel_type ?? DEFAULT_CHANNEL_TYPE;

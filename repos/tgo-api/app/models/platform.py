@@ -21,6 +21,7 @@ class PlatformType(str, Enum):
 
     WEBSITE = "website"
     WECHAT = "wechat"
+    WECHAT_PERSONAL = "wechat_personal" # 个人微信
     WHATSAPP = "whatsapp"
     TELEGRAM = "telegram"
     EMAIL = "email"

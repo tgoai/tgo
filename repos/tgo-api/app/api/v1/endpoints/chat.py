@@ -1240,6 +1240,7 @@ async def staff_team_chat(
     summary="Handle UI user interaction",
     tags=["Chat", "UI"],
     description="Receives a userAction from the json-render UI renderer and routes it back to the AI agent as a contextual query.",
+    deprecated=True,
 )
 async def handle_ui_user_action(
     req: UIUserActionRequest,

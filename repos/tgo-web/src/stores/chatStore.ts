@@ -326,14 +326,21 @@ export const useChatStore = create<ChatState>()(
             set({
               messages: msgState.messages,
               historicalMessages: msgState.historicalMessages,
+              chats: useConversationStore.getState().chats,
             }, false, 'appendStreamMessageContent');
           },
           appendMixedPart: (clientMsgNo, part) => {
             useMessageStore.getState().appendMixedPart(clientMsgNo, part);
             const msgState = useMessageStore.getState();
+            // Sync chats together with messages in a single set() call so that
+            // conversation preview updates (triggered inside messageStore via
+            // onConversationPreviewUpdate) are atomically reflected in chatStore.
+            // Previously chats were synced via a separate setState in the callback,
+            // which could be lost when this set() overwrote the state.
             set({
               messages: msgState.messages,
               historicalMessages: msgState.historicalMessages,
+              chats: useConversationStore.getState().chats,
             }, false, 'appendMixedPart');
           },
           attachJSONRenderPatches: (clientMsgNo, patches) => {
@@ -352,11 +359,34 @@ export const useChatStore = create<ChatState>()(
             }, false, 'markStreamMessageEnd');
           },
           markStreamMessageFinish: (clientMsgNo) => {
-            useMessageStore.getState().markStreamMessageFinish(clientMsgNo);
+            // Capture message content BEFORE marking finish (message is still in store)
             const msgState = useMessageStore.getState();
+            const finishedMsg = msgState.messages.find(m => m.clientMsgNo === clientMsgNo);
+
+            useMessageStore.getState().markStreamMessageFinish(clientMsgNo);
+            const updatedMsgState = useMessageStore.getState();
+
+            // Update conversation preview: change payloadType from STREAM to TEXT
+            // and set final content so the sidebar shows actual AI response
+            if (finishedMsg?.channelId && finishedMsg?.channelType != null) {
+              const convStore = useConversationStore.getState();
+              const content = finishedMsg.content || '';
+              convStore.updateConversationLastMessage(
+                finishedMsg.channelId,
+                finishedMsg.channelType,
+                {
+                  ...finishedMsg,
+                  content,
+                  payloadType: MessagePayloadType.TEXT,
+                }
+              );
+            }
+
+            // Sync all state atomically including updated chats
             set({
-              messages: msgState.messages,
-              historicalMessages: msgState.historicalMessages,
+              messages: updatedMsgState.messages,
+              historicalMessages: updatedMsgState.historicalMessages,
+              chats: useConversationStore.getState().chats,
             }, false, 'markStreamMessageFinish');
           },
           cancelStreamingMessage: async (clientMsgNo) => {

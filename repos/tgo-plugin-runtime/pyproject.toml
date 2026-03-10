@@ -16,7 +16,7 @@ httpx = "^0.28.1"
 sqlalchemy = "^2.0.23"
 alembic = "^1.12.1"
 psycopg2-binary = "^2.9.9"
-asyncpg = "^0.29.0"
+asyncpg = "^0.30.0"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 
 [tool.poetry.group.dev.dependencies]

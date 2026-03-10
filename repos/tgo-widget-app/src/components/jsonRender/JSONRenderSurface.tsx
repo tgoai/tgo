@@ -24,7 +24,7 @@ const HandlerSync: React.FC<{
 interface JSONRenderSurfaceProps {
   spec: Spec | null
   loading?: boolean
-  onAction?: (actionName: string, context: Record<string, unknown>) => Promise<void> | void
+  onSendMessage?: (message: string) => void
 }
 
 const BUILTIN_ACTIONS = new Set(['setState', 'pushState', 'removeState', 'validateForm'])
@@ -82,7 +82,7 @@ function formatActionMessage(
   return parts.join('\n')
 }
 
-export default function JSONRenderSurface({ spec, loading, onAction }: JSONRenderSurfaceProps) {
+export default function JSONRenderSurface({ spec, loading, onSendMessage }: JSONRenderSurfaceProps) {
   const stateKey = useMemo(() => JSON.stringify(spec?.state ?? {}), [spec?.state])
 
   const store = useMemo(() => createStateStore(spec?.state ?? {}), [stateKey])
@@ -96,12 +96,13 @@ export default function JSONRenderSurface({ spec, loading, onAction }: JSONRende
           store.set(params.statePath, params.value)
           return
         }
-        if (!onAction) return
-        await onAction(actionName, { ...params, _state: store.getSnapshot() })
+        // Send as formatted text message (same as tgo-web)
+        if (!onSendMessage) return
+        onSendMessage(formatActionMessage(actionName, params, store.getSnapshot()))
       }
     }
     return handlers
-  }, [spec, onAction, store])
+  }, [spec, onSendMessage, store])
 
   if (!spec) return null
 

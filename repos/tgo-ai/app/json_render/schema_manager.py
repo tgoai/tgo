@@ -97,13 +97,14 @@ When generating rich UI you MUST follow these rules:
 
 1. First write conversational text.
 2. Then output JSONL SpecStream patch lines inside a fenced block:
-   - opening fence: `{JSON_RENDER_SPEC_FENCE_OPEN}`
-   - closing fence: `{JSON_RENDER_SPEC_FENCE_CLOSE}`
+   - opening fence: {JSON_RENDER_SPEC_FENCE_OPEN}
+   - closing fence: {JSON_RENDER_SPEC_FENCE_CLOSE}
 3. Inside the fence, each line MUST be a single RFC 6902 patch object.
-4. Patches MUST build a json-render spec object with this shape:
-   - `root`: string
+4. Patches MUST build a **complete, self-contained** json-render spec. Each message's spec is rendered independently — there is NO cross-message state. You MUST always include:
+   - `root`: string (REQUIRED — the spec will not render without it)
    - `elements`: object map of element definitions
    - optional `state`: object
+   **NEVER emit incremental patches** that assume a previous message's spec still exists. Always output the full spec.
 5. Each element MUST contain:
    - `type`: component name
    - `props`: object
@@ -128,4 +129,30 @@ When generating rich UI you MUST follow these rules:
    `Section`, `KV`, `PriceRow`, `Badge`, `OrderItem`,
    `Input`/`TextField`, `Checkbox`/`CheckBox`, `DateTimeInput`, `MultipleChoice`.
 11. If you cannot produce valid SpecStream patches, return plain text only and DO NOT emit a spec fence.
+12. For form scenarios:
+   - Define initial form values in `state`: `"state": {{ "form": {{ "name": "", "phone": "" }} }}`
+   - Bind input values with `{{ "$bindState": "/form/fieldName" }}` on the `value` prop
+   - **Selection/toggle/filter buttons MUST use the built-in `setState` action** to update local state, e.g.:
+     `"on": {{ "press": {{ "action": "setState", "params": {{ "statePath": "/form/date", "value": "today" }} }} }}`
+   - Only the final submit/search/confirm button should use a custom action name, e.g.:
+     `"on": {{ "press": {{ "action": "searchTrains" }} }}`
+   - User's form input values are automatically collected and sent with the submit action
+13. Built-in actions (setState, pushState, removeState, validateForm) are handled client-side.
+    Do NOT use these as business action names.
+14. Conditional / dynamic prop values — use the `$cond`/`$then`/`$else` expression:
+   `{{ "$cond": {{ "$state": "/form/trainType", "eq": "G" }}, "$then": "primary", "$else": "secondary" }}`
+   Condition operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`; add `"not": true` to negate.
+   Read state: `{{ "$state": "/path" }}` in conditions, `{{ "$bindState": "/path" }}` for two-way binding on Input value.
+   **NEVER use `$if` or `$eq` as expression keys** — they are NOT supported.
+   Full example for a toggle-style filter button:
+   ```
+   {{ "type": "Button", "props": {{ "label": "高铁", "variant": {{ "$cond": {{ "$state": "/form/trainType", "eq": "G" }}, "$then": "primary", "$else": "secondary" }} }}, "on": {{ "press": {{ "action": "setState", "params": {{ "statePath": "/form/trainType", "value": "G" }} }} }} }}
+   ```
+15. Component prop conventions — all form components bind via the `value` prop:
+   - `Input`/`TextField`: `{{ "value": {{ "$bindState": "/form/field" }} }}`
+   - `Checkbox`/`CheckBox`: `{{ "value": {{ "$bindState": "/form/flag" }} }}` (boolean)
+   - `DateTimeInput`: `{{ "value": {{ "$bindState": "/form/date" }} }}`
+   - `MultipleChoice`: single-select dropdown. Use `value` prop (NOT `selectedValues` or `selectedValue`).
+     State must be a string, NOT an array. Example:
+     `{{ "type": "MultipleChoice", "props": {{ "label": "类型", "options": [...], "value": {{ "$bindState": "/form/type" }} }} }}`
 """

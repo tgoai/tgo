@@ -54,7 +54,6 @@ export type ChatState = {
   // actions
   initIM: (cfg: ChatConfig) => Promise<void>
   sendMessage: (text: string) => Promise<void>
-  sendUIAction: (actionName: string, context: Record<string, unknown>) => Promise<void>
   // uploads
   uploadFiles: (files: FileList | File[]) => Promise<void>
   retryUpload: (messageId: string) => Promise<void>
@@ -228,10 +227,6 @@ function mapHistoryToChatMessage(m: WuKongIMMessage, myUid?: string): ChatMessag
     errorMessage,
     ...(uiParts ? { uiParts } : {}),
   }
-}
-
-function buildUIActionQuery(actionName: string, context: Record<string, unknown>): string {
-  return `[UI Action] User triggered action '${actionName}' with context: ${JSON.stringify(context ?? {})}`
 }
 
 const inflightStaff = new Set<string>()
@@ -653,59 +648,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messages: state.messages.map(m => m.id === id ? { ...m, status: undefined, reasonCode: ReasonCode.Unknown } : m),
         error: (e as any)?.message || String(e)
       }))
-    }
-  },
-
-  sendUIAction: async (actionName: string, context: Record<string, unknown>) => {
-    const action = (actionName || '').trim()
-    if (!action) return
-
-    try {
-      const st = get()
-      const apiBase = st.apiBase
-      const platformApiKey = resolveApiKey() || ''
-      const myUid = st.myUid
-      const channelId = st.channelId
-      const channelType = st.channelType
-
-      if (!apiBase || !platformApiKey || !myUid) {
-        throw new Error('Cannot send UI action: missing apiBase, apiKey, or myUid')
-      }
-
-      // If a previous stream is ongoing, auto-cancel it before sending a new UI action.
-      if (st.isStreaming) { try { await get().cancelStreaming('auto_cancel_on_ui_action') } catch {} }
-
-      const query = buildUIActionQuery(action, context)
-      const url = `${apiBase.replace(/\/$/, '')}/v1/chat/completion`
-      const payload: Record<string, unknown> = {
-        api_key: platformApiKey,
-        message: query,
-        from_uid: myUid,
-        wukongim_only: true,
-        forward_user_message_to_wukongim: false,
-        stream: false,
-      }
-      if (channelId) payload.channel_id = channelId
-      if (channelType != null) payload.channel_type = channelType
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      const resJson = await res.json().catch(() => ({}))
-      if ((resJson as Record<string, unknown>).event_type === 'error') {
-        const errMsg = String((resJson as Record<string, unknown>).message || (resJson as Record<string, unknown>).detail || 'Unknown error')
-        throw new Error(errMsg)
-      }
-      if (!res.ok) {
-        const errMsg = String((resJson as Record<string, unknown>).message || (resJson as Record<string, unknown>).detail || `${res.status} ${res.statusText}`)
-        throw new Error(`/v1/chat/completion failed: ${errMsg}`)
-      }
-    } catch (e) {
-      console.error('[Chat] Send UI action failed:', e)
-      set({ error: (e as Error)?.message || String(e) })
     }
   },
 

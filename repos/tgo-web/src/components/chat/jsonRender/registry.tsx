@@ -109,24 +109,24 @@ const Text = ({ element }: ComponentRenderProps<JsonRenderProps>) => {
   return <div className="text-sm text-gray-900 dark:text-gray-100 leading-6">{text}</div>;
 };
 
-const Button = ({ element, children, emit }: ComponentRenderProps<JsonRenderProps>) => {
+const Button = ({ element, children, emit, loading }: ComponentRenderProps<JsonRenderProps>) => {
   const props = element.props;
   const label = pickFirstString(props, ['label', 'text'], 'Submit');
   const variant = toStringValue(props.variant).toLowerCase();
   const primary = toBool(props.primary) || variant === 'primary';
   const danger = variant === 'danger';
   const link = variant === 'link';
-  const disabled = toBool(props.disabled);
+  const isDisabled = toBool(props.disabled) || loading;
 
   return (
     <button
       type="button"
       onClick={() => {
-        if (!disabled) emit('press');
+        if (!isDisabled) emit('press');
       }}
-      disabled={disabled}
+      disabled={isDisabled}
       className={`mt-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-        disabled
+        isDisabled
           ? 'cursor-not-allowed opacity-60'
           : link
             ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline'
@@ -137,7 +137,7 @@ const Button = ({ element, children, emit }: ComponentRenderProps<JsonRenderProp
                 : 'cursor-pointer border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
       }`}
     >
-      {children ?? label}
+      {loading ? 'Loading...' : (children ?? label)}
     </button>
   );
 };
@@ -316,7 +316,10 @@ const Input = ({ element, bindings }: ComponentRenderProps<JsonRenderProps>) => 
 
 const Checkbox = ({ element, bindings }: ComponentRenderProps<Record<string, unknown>>) => {
   const props = element.props;
-  const [value, setValue] = useBoundProp<boolean | undefined>(toBool(props.value), bindings?.value);
+  // Accept value, checked, or selected as the bound prop
+  const rawValue = props.value ?? props.checked ?? props.selected;
+  const bindingPath = bindings?.value ?? bindings?.checked ?? bindings?.selected;
+  const [value, setValue] = useBoundProp<boolean | undefined>(toBool(rawValue), bindingPath);
   const label = toStringValue(props.label) || toStringValue(props.text);
 
   return (
@@ -333,10 +336,16 @@ const Checkbox = ({ element, bindings }: ComponentRenderProps<Record<string, unk
 
 const DateTimeInput = ({ element, bindings }: ComponentRenderProps<Record<string, unknown>>) => {
   const props = element.props;
-  const [value, setValue] = useBoundProp<string | undefined>(toStringValue(props.value), bindings?.value);
+  // Accept value, date, or selectedDate as the bound prop
+  const rawValue = props.value ?? props.date ?? props.selectedDate;
+  const bindingPath = bindings?.value ?? bindings?.date ?? bindings?.selectedDate;
+  const [value, setValue] = useBoundProp<string | undefined>(toStringValue(rawValue), bindingPath);
   const label = toStringValue(props.label);
-  const enableDate = props.enableDate !== false;
-  const enableTime = props.enableTime !== false;
+
+  // Respect mode prop (date/time/datetime) as well as enableDate/enableTime
+  const mode = toStringValue(props.mode).toLowerCase() || toStringValue(props.type).toLowerCase();
+  const enableDate = mode ? mode !== 'time' : props.enableDate !== false;
+  const enableTime = mode ? (mode === 'time' || mode === 'datetime' || mode === 'datetime-local') : props.enableTime !== false;
   const type = enableDate && enableTime ? 'datetime-local' : enableDate ? 'date' : 'time';
 
   return (
@@ -357,6 +366,10 @@ const MultipleChoice = ({ element, bindings }: ComponentRenderProps<Record<strin
   const rawOptions = Array.isArray(props.options) ? props.options : [];
   const options = rawOptions
     .map((item: unknown) => {
+      // Handle string shorthand: "身份证" → { label: "身份证", value: "身份证" }
+      if (typeof item === 'string') {
+        return item ? { label: item, value: item } : null;
+      }
       if (typeof item !== 'object' || item === null) return null;
       const obj = item as Record<string, unknown>;
       return {
@@ -366,7 +379,11 @@ const MultipleChoice = ({ element, bindings }: ComponentRenderProps<Record<strin
     })
     .filter((item: { label: string; value: string } | null): item is { label: string; value: string } => item !== null && item.value.length > 0);
 
-  const [value, setValue] = useBoundProp<string | undefined>(toStringValue(props.value), bindings?.value);
+  // Accept value, selectedValue, or selectedValues as the bound prop
+  const rawValue = props.value ?? props.selectedValue ?? props.selectedValues;
+  const initialValue = Array.isArray(rawValue) ? toStringValue(rawValue[0]) : toStringValue(rawValue);
+  const bindingPath = bindings?.value ?? bindings?.selectedValue ?? bindings?.selectedValues;
+  const [value, setValue] = useBoundProp<string | undefined>(initialValue, bindingPath);
   const label = toStringValue(props.label);
 
   return (

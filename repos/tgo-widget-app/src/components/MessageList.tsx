@@ -141,15 +141,10 @@ export default function MessageList({ messages }: { messages: ChatMessage[] }){
   const remove = useChatStore(s => s.removeMessage)
   const staffCache = useChatStore(s => s.staffInfoCache)
   const sendMessage = useChatStore(s => s.sendMessage)
-  const sendUIAction = useChatStore(s => s.sendUIAction)
 
   const handleSendMessage = (msg: string) => {
     void sendMessage(msg)
   }
-
-  const handleJSONRenderAction = useCallback((actionName: string, context: Record<string, unknown>) => {
-    void sendUIAction(actionName, context)
-  }, [sendUIAction])
 
 
   return (
@@ -205,7 +200,6 @@ export default function MessageList({ messages }: { messages: ChatMessage[] }){
                   <JSONRenderMessage
                     message={m}
                     onSendMessage={handleSendMessage}
-                    onAction={handleJSONRenderAction}
                     showCursor={Boolean(m.streamData && m.streamData.length)}
                   />
                 </Bubble>

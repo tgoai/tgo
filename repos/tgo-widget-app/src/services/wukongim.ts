@@ -147,7 +147,7 @@ export class WuKongIMService {
     return this._fetchRouteWsAddr(this._cfg.apiBase, this._cfg.uid, timeoutMs)
   }
 
- 
+
   async sendText(text: string, opts?: { to?: string; channelType?: 251; clientMsgNo?: string; header?: any }) {
     if (!this._im || !this._cfg) throw new Error('WuKongIMService not ready')
     const to = opts?.to ?? this._cfg.target

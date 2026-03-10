@@ -209,8 +209,8 @@ install-device:
 
 install-frontend:
 	@echo "$(CYAN)Installing frontend dependencies...$(RESET)"
-	@cd $(WEB_DIR) && npm install
-	@cd $(WIDGET_DIR) && npm install
+	@cd $(WEB_DIR) && npm install --legacy-peer-deps
+	@cd $(WIDGET_DIR) && npm install --legacy-peer-deps
 	@echo "$(GREEN)Frontend dependencies installed$(RESET)"
 
 # ==========================================================
@@ -399,7 +399,7 @@ dev-web: check-env
 	@echo "$(CYAN)Starting tgo-web on port $(WEB_PORT)...$(RESET)"
 	@cd $(WEB_DIR) && \
 		VITE_API_BASE_URL=http://localhost:$(API_PORT) \
-		VITE_WIDGET_PREVIEW_URL==http://localhost:5174 \
+		VITE_WIDGET_PREVIEW_URL=http://localhost:5174 \
 		VITE_WIDGET_SCRIPT_BASE=http://localhost:5174/tgo-widget-sdk.js \
 		VITE_WIDGET_DEMO_URL=http://localhost:5174/demo.html \
 		VITE_DEBUG_MODE=true \

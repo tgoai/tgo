@@ -1,9 +1,8 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { type DataPart, useJsonRenderMessage } from '@json-render/react';
 
 import type { Message } from '@/types';
 import MarkdownContent from '../MarkdownContent';
-import { chatMessagesApiService } from '@/services/chatMessagesApi';
 import { JSONRenderSurface } from '../jsonRender/JSONRenderSurface';
 
 /** Strip ```spec fences from text to prevent leaking raw JSON patches in fallback rendering. */
@@ -54,11 +53,12 @@ function groupParts(parts: DataPart[]): PartGroup[] {
 
 const JSONRenderGroup: React.FC<{
   parts: DataPart[];
-  onAction: (name: string, ctx: Record<string, unknown>) => void;
-}> = ({ parts, onAction }) => {
+  loading?: boolean;
+  onSendMessage?: (message: string) => void;
+}> = ({ parts, loading, onSendMessage }) => {
   const { spec } = useJsonRenderMessage(parts);
   if (!spec) return null;
-  return <JSONRenderSurface spec={spec} onAction={onAction} />;
+  return <JSONRenderSurface spec={spec} loading={loading} onSendMessage={onSendMessage} />;
 };
 
 // ---------------------------------------------------------------------------
@@ -71,30 +71,13 @@ const JSONRenderMessage: React.FC<JSONRenderMessageProps> = ({ message, isStaff,
     return Array.isArray(meta.ui_parts) ? (meta.ui_parts as DataPart[]) : [];
   }, [meta.ui_parts]);
 
+  // Suppress "Missing element" warnings while the stream is still delivering patches
+  const loading = meta.stream_end !== 1 && Boolean(meta.has_stream_data);
+
   const groups = useMemo(() => groupParts(uiParts), [uiParts]);
 
   // Fallback: if no groups produced (e.g. empty ui_parts), show raw content
   const hasContent = groups.length > 0;
-
-  const handleAction = useCallback(
-    async (actionName: string, context: Record<string, unknown>) => {
-      if (!message.channelId || message.channelType == null) {
-        console.warn('UI action: missing channel info, cannot send');
-        return;
-      }
-      try {
-        await chatMessagesApiService.sendUIAction({
-          channel_id: message.channelId,
-          channel_type: message.channelType,
-          action_name: actionName,
-          context,
-        });
-      } catch (err) {
-        console.error('Failed to send UI user action:', err);
-      }
-    },
-    [message.channelId, message.channelType]
-  );
 
   return (
     <div
@@ -118,7 +101,7 @@ const JSONRenderMessage: React.FC<JSONRenderMessageProps> = ({ message, isStaff,
               </div>
             );
           }
-          return <JSONRenderGroup key={i} parts={group.parts} onAction={handleAction} />;
+          return <JSONRenderGroup key={i} parts={group.parts} loading={loading} onSendMessage={onSendMessage} />;
         })
       ) : (
         (() => {
@@ -133,6 +116,12 @@ const JSONRenderMessage: React.FC<JSONRenderMessageProps> = ({ message, isStaff,
             </div>
           ) : null;
         })()
+      )}
+      {/* Debug: raw LLM ui_parts for websocket (streaming) messages only */}
+      {meta.has_stream_data && (
+        <pre className="json-render-debug" style={{ display: 'none' }} data-debug="llm-raw">
+          {JSON.stringify(meta.ui_parts, null, 2)}
+        </pre>
       )}
     </div>
   );

@@ -8,7 +8,6 @@ import { Cursor } from './messageStyles'
 interface JSONRenderMessageProps {
   message: ChatMessage
   onSendMessage?: (message: string) => void
-  onAction?: (actionName: string, context: Record<string, unknown>) => Promise<void> | void
   showCursor?: boolean
 }
 
@@ -44,13 +43,13 @@ function groupParts(parts: DataPart[]): PartGroup[] {
 }
 
 // Sub-component: render a consecutive group of spec DataParts
-function JSONRenderGroup({ parts, loading, onAction }: { parts: DataPart[]; loading?: boolean; onAction?: (name: string, ctx: Record<string, unknown>) => Promise<void> | void }) {
+function JSONRenderGroup({ parts, loading, onSendMessage }: { parts: DataPart[]; loading?: boolean; onSendMessage?: (message: string) => void }) {
   const { spec } = useJsonRenderMessage(parts)
   if (!spec) return null
-  return <JSONRenderSurface spec={spec} loading={loading} onAction={onAction} />
+  return <JSONRenderSurface spec={spec} loading={loading} onSendMessage={onSendMessage} />
 }
 
-export default function JSONRenderMessage({ message, onSendMessage, onAction, showCursor = false }: JSONRenderMessageProps) {
+export default function JSONRenderMessage({ message, onSendMessage, showCursor = false }: JSONRenderMessageProps) {
   const uiParts = useMemo(() => {
     return Array.isArray(message.uiParts) ? (message.uiParts as DataPart[]) : []
   }, [message.uiParts])
@@ -86,7 +85,7 @@ export default function JSONRenderMessage({ message, onSendMessage, onAction, sh
               </div>
             )
           }
-          return <JSONRenderGroup key={i} parts={group.parts} loading={loading} onAction={onAction} />
+          return <JSONRenderGroup key={i} parts={group.parts} loading={loading} onSendMessage={onSendMessage} />
         })
       ) : (
         fallbackText ? (
