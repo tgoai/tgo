@@ -1,0 +1,31 @@
+{
+  "name": "tgo-widget-cli",
+  "version": "0.1.0",
+  "description": "TGO Widget CLI - Visitor-facing CLI + MCP Server for customer service",
+  "type": "module",
+  "bin": {
+    "tgo-widget": "./bin/tgo-widget.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "commander": "^13.1.0",
+    "easyjssdk": "^2.0.1",
+    "ws": "^8.19.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
