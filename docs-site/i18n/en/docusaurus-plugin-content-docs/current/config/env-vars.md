@@ -21,7 +21,7 @@ tgo/
     ├── tgo-rag.env
     ├── tgo-platform.env
     ├── tgo-web.env
-    ├── tgo-widget-app.env
+    ├── tgo-widget-js.env
     └── wukongim.env
 ```
 

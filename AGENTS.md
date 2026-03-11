@@ -62,7 +62,7 @@ Skip when:
 
 ### `$streaming-protocol-check`
 
-Use `$streaming-protocol-check` to verify streaming protocol consistency across producer (tgo-ai), relay (tgo-api), and consumers (tgo-web, tgo-widget-app, tgo-widget-miniprogram).
+Use `$streaming-protocol-check` to verify streaming protocol consistency across producer (tgo-ai), relay (tgo-api), and consumers (tgo-web, tgo-widget-js, tgo-widget-miniprogram).
 
 Run it when:
 - Changes touch `streaming/`, `wukongim`, SSE, `stream.delta`, `MixedStreamParser`, or `json-render` code
@@ -110,7 +110,7 @@ Skip when:
 ```mermaid
 graph TB
     WEB[tgo-web] --> API[tgo-api]
-    WIDGET[tgo-widget-app] --> API
+    WIDGET[tgo-widget-js] --> API
     MINI[tgo-widget-miniprogram] --> API
     API --> AI[tgo-ai]
     API --> RAG[tgo-rag]
@@ -136,7 +136,7 @@ graph TB
 | tgo-device-control | `repos/tgo-device-control` | Device management | 8085 |
 | tgo-device-agent | `repos/tgo-device-agent` | Device-side Go agent | N/A |
 | tgo-web | `repos/tgo-web` | Admin frontend | 5173 |
-| tgo-widget-app | `repos/tgo-widget-app` | Visitor chat widget | 5174 |
+| tgo-widget-js | `repos/tgo-widget-js` | Visitor chat widget | 5174 |
 | tgo-widget-miniprogram | `repos/tgo-widget-miniprogram` | WeChat mini-program widget | N/A |
 | tgo-cli | `repos/tgo-cli` | Staff CLI + MCP server | N/A |
 | tgo-widget-cli | `repos/tgo-widget-cli` | Visitor CLI + MCP server | N/A |
@@ -154,7 +154,7 @@ Infra: PostgreSQL + pgvector, Redis, WuKongIM, Celery (RAG/Workflow workers)
 ## Tech Stack
 
 - Backend: Python 3.11, FastAPI, SQLAlchemy 2, Alembic, Pydantic v2
-- Frontend: tgo-web (React 19 + TS + Vite 7 + Zustand), tgo-widget-app (React 18 + TS + Vite 5)
+- Frontend: tgo-web (React 19 + TS + Vite 7 + Zustand), tgo-widget-js (React 18 + TS + Vite 5)
 - Device: Go 1.22 (tgo-device-agent)
 - Mini-program: Pure JS (ES5), WeChat native components
 
@@ -177,7 +177,7 @@ make dev-api    # or: make dev-all
 - [`repos/tgo-plugin-runtime/AGENTS.md`](repos/tgo-plugin-runtime/AGENTS.md)
 - [`repos/tgo-device-control/AGENTS.md`](repos/tgo-device-control/AGENTS.md)
 - [`repos/tgo-device-agent/AGENTS.md`](repos/tgo-device-agent/AGENTS.md)
-- [`repos/tgo-widget-app/AGENTS.md`](repos/tgo-widget-app/AGENTS.md)
+- [`repos/tgo-widget-js/AGENTS.md`](repos/tgo-widget-js/AGENTS.md)
 - [`repos/tgo-widget-miniprogram/AGENTS.md`](repos/tgo-widget-miniprogram/AGENTS.md)
 - [`repos/tgo-cli/AGENTS.md`](repos/tgo-cli/AGENTS.md)
 - [`repos/tgo-widget-cli/AGENTS.md`](repos/tgo-widget-cli/AGENTS.md)

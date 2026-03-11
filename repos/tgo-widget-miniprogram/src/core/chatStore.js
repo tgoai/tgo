@@ -1,6 +1,6 @@
 /**
  * Chat state management (Observable singleton)
- * Ported from tgo-widget-app chatStore.ts
+ * Ported from tgo-widget-js chatStore.ts
  */
 var IMService = require('../services/wukongim')
 var visitorService = require('../services/visitor')

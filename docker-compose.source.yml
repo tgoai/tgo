@@ -72,10 +72,10 @@ services:
       VITE_DEBUG_MODE: ${VITE_DEBUG_MODE:-false}
 
   # Widget app
-  tgo-widget-app:
-    image: tgo-widget-app:local
+  tgo-widget-js:
+    image: tgo-widget-js:local
     build:
-      context: ./repos/tgo-widget-app
+      context: ./repos/tgo-widget-js
       args:
         VITE_API_BASE: ${VITE_API_BASE:-http://localhost:${API_PORT:-8000}}
     environment:

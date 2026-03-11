@@ -42,15 +42,15 @@ echo ""
 run_test "tgo-web entrypoint script exists" \
   "[ -f repos/tgo-web/docker-entrypoint.sh ]"
 
-run_test "tgo-widget-app entrypoint script exists" \
-  "[ -f repos/tgo-widget-app/docker-entrypoint.sh ]"
+run_test "tgo-widget-js entrypoint script exists" \
+  "[ -f repos/tgo-widget-js/docker-entrypoint.sh ]"
 
 # Check if entrypoint scripts are executable
 run_test "tgo-web entrypoint is executable" \
   "[ -x repos/tgo-web/docker-entrypoint.sh ]"
 
-run_test "tgo-widget-app entrypoint is executable" \
-  "[ -x repos/tgo-widget-app/docker-entrypoint.sh ]"
+run_test "tgo-widget-js entrypoint is executable" \
+  "[ -x repos/tgo-widget-js/docker-entrypoint.sh ]"
 
 echo ""
 echo "2. Checking Dockerfile modifications..."
@@ -60,15 +60,15 @@ echo ""
 run_test "tgo-web Dockerfile copies entrypoint" \
   "grep -q 'COPY docker-entrypoint.sh' repos/tgo-web/Dockerfile"
 
-run_test "tgo-widget-app Dockerfile copies entrypoint" \
-  "grep -q 'COPY docker-entrypoint.sh' repos/tgo-widget-app/Dockerfile"
+run_test "tgo-widget-js Dockerfile copies entrypoint" \
+  "grep -q 'COPY docker-entrypoint.sh' repos/tgo-widget-js/Dockerfile"
 
 # Check if Dockerfiles have ENTRYPOINT
 run_test "tgo-web Dockerfile has ENTRYPOINT" \
   "grep -q 'ENTRYPOINT.*docker-entrypoint.sh' repos/tgo-web/Dockerfile"
 
-run_test "tgo-widget-app Dockerfile has ENTRYPOINT" \
-  "grep -q 'ENTRYPOINT.*docker-entrypoint.sh' repos/tgo-widget-app/Dockerfile"
+run_test "tgo-widget-js Dockerfile has ENTRYPOINT" \
+  "grep -q 'ENTRYPOINT.*docker-entrypoint.sh' repos/tgo-widget-js/Dockerfile"
 
 echo ""
 echo "3. Checking HTML modifications..."
@@ -78,8 +78,8 @@ echo ""
 run_test "tgo-web index.html loads env-config.js" \
   "grep -q 'env-config.js' repos/tgo-web/index.html"
 
-run_test "tgo-widget-app index.html loads env-config.js" \
-  "grep -q 'env-config.js' repos/tgo-widget-app/index.html"
+run_test "tgo-widget-js index.html loads env-config.js" \
+  "grep -q 'env-config.js' repos/tgo-widget-js/index.html"
 
 echo ""
 echo "4. Checking frontend code modifications..."
@@ -94,8 +94,8 @@ run_test "tgo-web url.ts reads window.ENV" \
   "grep -q 'window.*ENV.*VITE_API_BASE_URL' repos/tgo-web/src/utils/url.ts"
 
 # Check if App.tsx reads from window.ENV
-run_test "tgo-widget-app App.tsx reads window.ENV" \
-  "grep -q 'window.*ENV.*VITE_API_BASE' repos/tgo-widget-app/src/App.tsx"
+run_test "tgo-widget-js App.tsx reads window.ENV" \
+  "grep -q 'window.*ENV.*VITE_API_BASE' repos/tgo-widget-js/src/App.tsx"
 
 echo ""
 echo "5. Checking docker-compose modifications..."
@@ -105,15 +105,15 @@ echo ""
 run_test "docker-compose.yml has API_BASE_URL for tgo-web" \
   "grep -A 5 'tgo-web:' docker-compose.yml | grep -q 'API_BASE_URL'"
 
-run_test "docker-compose.yml has API_BASE_URL for tgo-widget-app" \
-  "grep -A 5 'tgo-widget-app:' docker-compose.yml | grep -q 'API_BASE_URL'"
+run_test "docker-compose.yml has API_BASE_URL for tgo-widget-js" \
+  "grep -A 5 'tgo-widget-js:' docker-compose.yml | grep -q 'API_BASE_URL'"
 
 # Check if docker-compose.source.yml has environment variables
 run_test "docker-compose.source.yml has API_BASE_URL for tgo-web" \
   "grep -A 5 'tgo-web:' docker-compose.source.yml | grep -q 'API_BASE_URL'"
 
-run_test "docker-compose.source.yml has API_BASE_URL for tgo-widget-app" \
-  "grep -A 5 'tgo-widget-app:' docker-compose.source.yml | grep -q 'API_BASE_URL'"
+run_test "docker-compose.source.yml has API_BASE_URL for tgo-widget-js" \
+  "grep -A 5 'tgo-widget-js:' docker-compose.source.yml | grep -q 'API_BASE_URL'"
 
 echo ""
 echo "6. Checking documentation..."

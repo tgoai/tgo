@@ -1,14 +1,14 @@
 # tgo-widget-miniprogram — AGENTS.md
 
 > Stack: Pure JS (ES5), WeChat mini-program native components
-> Sister project: `tgo-widget-app` (React Web) — json-render logic must stay in sync
+> Sister project: `tgo-widget-js` (React Web) — json-render logic must stay in sync
 
 ## Rules
 
 - All components use `Component({})` — follow mini-program lifecycle (`attached`, `detached`)
 - `sendmessage` events do NOT use `bubbles` — rely on manual relay to avoid duplicate triggers
 - `action` events use `bubbles: true, composed: true` to reach surface through containers
-- json-render changes must stay consistent with `tgo-widget-app`
+- json-render changes must stay consistent with `tgo-widget-js`
 - When porting from React: Emotion → wxss, `onAction` → `triggerEvent`, Hooks → lifetimes/observers
 
 ## Key Paths
@@ -50,7 +50,7 @@
 # Static
 npm run build
 
-# Functional — same visitor APIs as tgo-widget-app
+# Functional — same visitor APIs as tgo-widget-js
 WIDGET_CLI="node ../tgo-widget-cli/dist/index.js"
 $WIDGET_CLI platform info               # platform config API
 $WIDGET_CLI chat send --message "say ok" --no-stream  # chat e2e

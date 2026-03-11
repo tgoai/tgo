@@ -1,6 +1,6 @@
 ---
 name: streaming-protocol-check
-description: Check streaming protocol consistency across all producer and consumer services. Trigger when modifying code related to streaming, SSE, WuKongIM, json-render, or MixedStreamParser — lists all files in tgo-ai (producer), tgo-api (relay), tgo-web, tgo-widget-app, and tgo-widget-miniprogram (consumers) that handle the same protocol and may need coordinated updates.
+description: Check streaming protocol consistency across all producer and consumer services. Trigger when modifying code related to streaming, SSE, WuKongIM, json-render, or MixedStreamParser — lists all files in tgo-ai (producer), tgo-api (relay), tgo-web, tgo-widget-js, and tgo-widget-miniprogram (consumers) that handle the same protocol and may need coordinated updates.
 ---
 
 # streaming-protocol-check

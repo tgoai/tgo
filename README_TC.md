@@ -56,6 +56,29 @@ TGO 是一個開源的 AI 智能體客服平台，致力於幫助企業「組建
 - **豐富元件** - 訂單卡片、物流追蹤、商品展示、價格對比等
 - **互動協議** - 標準化的 Action URI 協議，支援連結跳轉、訊息發送、內容複製
 
+## 📦 倉庫結構
+
+| 倉庫 | 說明 | 技術棧 |
+|:---|:---|:---|
+| [tgo-ai](repos/tgo-ai) | AI/ML 運營服務，管理智能體、工具綁定、知識庫和用量統計 | Python / FastAPI |
+| [tgo-api](repos/tgo-api) | 核心業務邏輯服務，處理使用者管理、訪客追蹤、會話分配和通訊 | Python / FastAPI |
+| [tgo-cli](repos/tgo-cli) | CLI 工具 & MCP Server，使 AI 智能體可執行客服操作，內建 40+ 工具 | TypeScript / Node.js |
+| [tgo-device-agent](repos/tgo-device-agent) | 運行在受管裝置上的嵌入式代理，透過 TCP JSON-RPC 提供檔案和 Shell 能力 | Go |
+| [tgo-device-control](repos/tgo-device-control) | 裝置控制服務，透過 TCP/JSON-RPC 管理遠端裝置連接，內建 MCP Agent | Python / FastAPI |
+| [tgo-platform](repos/tgo-platform) | 多渠道訊息接入服務，支援微信、飛書、釘釘、Telegram、Slack、郵件等 | Python / FastAPI |
+| [tgo-plugin-runtime](repos/tgo-plugin-runtime) | 外掛生命週期管理和執行服務，支援動態工具同步 | Python / FastAPI |
+| [tgo-rag](repos/tgo-rag) | RAG 服務，提供文件處理、混合語意/全文檢索和非同步處理 | Python / FastAPI |
+| [tgo-web](repos/tgo-web) | 管理前端，整合即時聊天、智能體管理、知識庫和 MCP 工具 | TypeScript / React 19 |
+| [tgo-workflow](repos/tgo-workflow) | AI Agent 工作流執行引擎，支援 DAG 拓撲，含 LLM、API、條件和工具節點 | Python / FastAPI |
+
+### Widget SDK
+
+| 倉庫 | 說明 | 技術棧 |
+|:---|:---|:---|
+| [tgo-widget-js](repos/tgo-widget-js) | 可嵌入網站的客服聊天元件（Intercom 風格） | TypeScript / React 18 |
+| [tgo-widget-cli](repos/tgo-widget-cli) | 面向訪客的 CLI 工具 & MCP Server，提供客服互動介面 | TypeScript / Node.js |
+| [tgo-widget-miniprogram](repos/tgo-widget-miniprogram) | 微信小程式聊天元件，支援 AI 串流響應和 Markdown 渲染 | TypeScript |
+
 ## 🏗️ 系統架構
 
 <p align="center">

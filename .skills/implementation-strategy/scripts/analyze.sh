@@ -35,7 +35,7 @@ echo ""
 # Define dependency relationships
 declare -A DEPS
 DEPS[tgo-web]="→ tgo-api (HTTP)"
-DEPS[tgo-widget-app]="→ tgo-api (HTTP)"
+DEPS[tgo-widget-js]="→ tgo-api (HTTP)"
 DEPS[tgo-widget-miniprogram]="→ tgo-api (HTTP)"
 DEPS[tgo-api]="→ tgo-ai, tgo-rag, tgo-platform, tgo-workflow, tgo-plugin-runtime, tgo-device-control (HTTP)"
 DEPS[tgo-ai]="→ tgo-plugin-runtime (HTTP); ← tgo-api (called by)"

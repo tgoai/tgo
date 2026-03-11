@@ -8,7 +8,7 @@ a. Multi-tenant service: Unless explicitly authorized by Tgo in writing, you may
     - Tenant Definition: Within the context of Tgo, one tenant corresponds to one independent company or organization. The default open-source version only supports usage by a single company. It is prohibited to allow multiple companies or organizations to independently use the same Tgo instance through user registration, subscription, or any other means.
 
 b. LOGO and copyright information: In the process of using Tgo's frontend, you may not remove or modify the LOGO or copyright information in the Tgo console or applications. This restriction is inapplicable to uses of Tgo that do not involve its frontend.
-    - Frontend Definition: For the purposes of this license, the "frontend" of Tgo includes all components located in the `repos/tgo-web` and `repos/tgo-widget-app` directories, or the corresponding Docker images.
+    - Frontend Definition: For the purposes of this license, the "frontend" of Tgo includes all components located in the `repos/tgo-web` and `repos/tgo-widget-js` directories, or the corresponding Docker images.
 
 2. As a contributor, you should agree that:
 

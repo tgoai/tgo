@@ -16,7 +16,7 @@ After any code modification is complete.
 2. Runs the appropriate verification command per service:
    - Python services → `poetry run mypy app && poetry run flake8 app`
    - tgo-web → `yarn type-check && yarn lint && yarn build`
-   - tgo-widget-app → `npm run build`
+   - tgo-widget-js → `npm run build`
    - tgo-device-agent → `go vet ./...`
 3. Outputs pass/fail per service
 

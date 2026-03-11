@@ -172,7 +172,7 @@ fi
 if [ "$WIDGET_CLI_OK" = true ] && [ "$WIDGET_CONFIGURED" = true ]; then
 
   VISITOR_RELEVANT=false
-  if should_verify "tgo-api" || should_verify "tgo-ai" || should_verify "tgo-widget-app" || should_verify "tgo-widget-miniprogram" || should_verify "tgo-platform" || [ "$RUN_ALL" = true ]; then
+  if should_verify "tgo-api" || should_verify "tgo-ai" || should_verify "tgo-widget-js" || should_verify "tgo-widget-miniprogram" || should_verify "tgo-platform" || [ "$RUN_ALL" = true ]; then
     VISITOR_RELEVANT=true
   fi
 
@@ -186,7 +186,7 @@ if [ "$WIDGET_CLI_OK" = true ] && [ "$WIDGET_CONFIGURED" = true ]; then
   fi
 
 else
-  if should_verify "tgo-api" || should_verify "tgo-widget-app" || [ "$RUN_ALL" = true ]; then
+  if should_verify "tgo-api" || should_verify "tgo-widget-js" || [ "$RUN_ALL" = true ]; then
     skip_check "visitor-side checks" "tgo-widget-cli not available or not configured"
     echo ""
   fi

@@ -15,7 +15,7 @@ TGO 是一个 AI 驱动的全渠道客服平台，采用微服务架构，包含
 | [tgo-device-control](#tgo-device-control) | 设备远程控制服务 | Python / FastAPI | 8085, 9876 |
 | [tgo-device-agent](#tgo-device-agent) | 设备端 Agent | Go | TCP 客户端 |
 | [tgo-web](#tgo-web) | 客服工作台前端 | React 19 / TypeScript / Vite | 5173 |
-| [tgo-widget-app](#tgo-widget-app) | 网页嵌入式聊天组件 | React 18 / TypeScript / Vite | 5173 |
+| [tgo-widget-js](#tgo-widget-js) | 网页嵌入式聊天组件 | React 18 / TypeScript / Vite | 5173 |
 | [tgo-widget-miniprogram](#tgo-widget-miniprogram) | 微信小程序聊天组件 | 微信小程序 / JS | npm 包 |
 | [tgo-cli](#tgo-cli) | 命令行工具 + MCP Server (客服端) | Node.js / TypeScript | CLI / stdio |
 | [tgo-widget-cli](#tgo-widget-cli) | 命令行工具 + MCP Server (访客端) | Node.js / TypeScript | CLI / stdio |
@@ -97,7 +97,7 @@ AI Agent 工作流引擎，支持 DAG 拓扑编排和可视化执行。
 - **端口**: 5173 (开发), 80 (生产)
 - **职责**: 实时聊天 (WuKongIM WebSocket)、AI 流式响应 (SSE)、访客/会话管理、知识库管理、MCP 工具集成
 
-### tgo-widget-app
+### tgo-widget-js
 
 类 Intercom 的网页嵌入式客服聊天组件。
 

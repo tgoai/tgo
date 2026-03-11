@@ -56,6 +56,29 @@ TGO is an open-source AI agent customer service platform dedicated to helping en
 - **Rich Components** - Order cards, logistics tracking, product display, price comparison
 - **Action Protocol** - Standardized URI protocol for interactions
 
+## 📦 Repository Structure
+
+| Repository | Description | Tech Stack |
+|:---|:---|:---|
+| [tgo-ai](repos/tgo-ai) | AI/ML operations service for managing agents, tool bindings, knowledge bases, and usage analytics | Python / FastAPI |
+| [tgo-api](repos/tgo-api) | Core business logic service handling user management, visitor tracking, assignment, and communication | Python / FastAPI |
+| [tgo-cli](repos/tgo-cli) | CLI tool & MCP Server enabling AI agents to execute customer service operations with 40+ built-in tools | TypeScript / Node.js |
+| [tgo-device-agent](repos/tgo-device-agent) | Embedded agent running on managed devices providing file and shell capabilities via TCP JSON-RPC | Go |
+| [tgo-device-control](repos/tgo-device-control) | Device control service managing TCP/JSON-RPC connections for remote device management with MCP Agent | Python / FastAPI |
+| [tgo-platform](repos/tgo-platform) | Multi-channel message intake service supporting WeChat, Feishu, DingTalk, Telegram, Slack, email, etc. | Python / FastAPI |
+| [tgo-plugin-runtime](repos/tgo-plugin-runtime) | Plugin lifecycle management and execution service with dynamic tool synchronization | Python / FastAPI |
+| [tgo-rag](repos/tgo-rag) | RAG service providing document processing, hybrid semantic/full-text search, and async processing | Python / FastAPI |
+| [tgo-web](repos/tgo-web) | Admin frontend with real-time chat, AI agent management, knowledge base, and MCP tool integration | TypeScript / React 19 |
+| [tgo-workflow](repos/tgo-workflow) | AI Agent workflow execution engine supporting DAG topology with LLM, API, condition, and tool nodes | Python / FastAPI |
+
+### Widget SDKs
+
+| Repository | Description | Tech Stack |
+|:---|:---|:---|
+| [tgo-widget-js](repos/tgo-widget-js) | Embeddable customer service chat widget (Intercom-style) for websites | TypeScript / React 18 |
+| [tgo-widget-cli](repos/tgo-widget-cli) | Visitor-facing CLI tool & MCP Server providing customer service interface | TypeScript / Node.js |
+| [tgo-widget-miniprogram](repos/tgo-widget-miniprogram) | WeChat Mini Program chat widget component with AI streaming responses and Markdown rendering | TypeScript |
+
 ## 🏗️ System Architecture
 
 <p align="center">

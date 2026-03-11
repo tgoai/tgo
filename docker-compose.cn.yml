@@ -57,8 +57,8 @@ services:
   tgo-web:
     image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-web:latest
 
-  tgo-widget-app:
-    image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-widget-app:latest
+  tgo-widget-js:
+    image: registry.cn-shanghai.aliyuncs.com/tgoai/tgo-widget-js:latest
 
   # Nginx and Certbot services - using Alibaba Cloud mirrors
   nginx:

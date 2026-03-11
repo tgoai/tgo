@@ -1,7 +1,7 @@
 /**
  * json-render-surface: manages state store and renders root element.
  * Handles action dispatch and state change events.
- * Ported from tgo-widget-app JSONRenderSurface.tsx
+ * Ported from tgo-widget-js JSONRenderSurface.tsx
  */
 var jsonRenderUtils = require('../../utils/jsonRender')
 

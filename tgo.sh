@@ -1744,7 +1744,7 @@ cmd_build() {
     platform) services=(tgo-platform) ;;
     celery) services=(tgo-celery-flower) ;;
     web) services=(tgo-web) ;;
-    widget) services=(tgo-widget-app) ;;
+    widget) services=(tgo-widget-js) ;;
     all) services=() ;;
     *)
       echo "[ERROR] Unknown service: $target" >&2
@@ -2226,7 +2226,7 @@ cmd_doctor() {
     "tgo-api:API Service"
     "tgo-platform:Platform Service"
     "tgo-web:Web Frontend"
-    "tgo-widget-app:Widget App"
+    "tgo-widget-js:Widget App"
     "tgo-nginx:Nginx"
   )
   

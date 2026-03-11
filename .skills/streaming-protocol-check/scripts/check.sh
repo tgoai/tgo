@@ -49,14 +49,14 @@ echo "  Stores:"
 find repos/tgo-web/src -name "*chatStore*" -o -name "*messageStore*" 2>/dev/null | sed 's/^/    /' || true
 echo ""
 
-# Consumer: tgo-widget-app
-echo "### Consumer: tgo-widget-app"
+# Consumer: tgo-widget-js
+echo "### Consumer: tgo-widget-js"
 echo "  Chat store:"
-find repos/tgo-widget-app/src -name "chatStore*" -type f 2>/dev/null | sed 's/^/    /' || true
+find repos/tgo-widget-js/src -name "chatStore*" -type f 2>/dev/null | sed 's/^/    /' || true
 echo "  json-render:"
-find repos/tgo-widget-app/src -path "*/jsonRender/*" -type f 2>/dev/null | sed 's/^/    /' || true
+find repos/tgo-widget-js/src -path "*/jsonRender/*" -type f 2>/dev/null | sed 's/^/    /' || true
 echo "  Messages:"
-find repos/tgo-widget-app/src -path "*/messages/*" -type f 2>/dev/null | sed 's/^/    /' || true
+find repos/tgo-widget-js/src -path "*/messages/*" -type f 2>/dev/null | sed 's/^/    /' || true
 echo ""
 
 # Consumer: tgo-widget-miniprogram

@@ -38,7 +38,7 @@ done
 
 echo ""
 echo "Optional services:"
-for PAIR in "18082:tgo-rag" "8003:tgo-platform" "8004:tgo-workflow" "8090:tgo-plugin-runtime" "8085:tgo-device-control" "5173:tgo-web" "5174:tgo-widget-app"; do
+for PAIR in "18082:tgo-rag" "8003:tgo-platform" "8004:tgo-workflow" "8090:tgo-plugin-runtime" "8085:tgo-device-control" "5173:tgo-web" "5174:tgo-widget-js"; do
   PORT="${PAIR%%:*}"
   NAME="${PAIR#*:}"
   if is_port_open "$PORT"; then

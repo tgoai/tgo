@@ -1,6 +1,6 @@
 {
   "name": "tgo-widget-miniprogram",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "TGO visitor chat widget for WeChat Mini Program",
   "miniprogram": "miniprogram_dist",
   "main": "miniprogram_dist/chat/index.js",
@@ -22,16 +22,15 @@
     "tgo"
   ],
   "license": "MIT",
-  "dependencies": {
-    "@json-render/core": "^0.11.0",
-    "easyjssdk": "^2.0.0",
-    "marked": "^16.4.1",
-    "zod": "^4.3.6"
-  },
   "devDependencies": {
     "@babel/cli": "^7.28.6",
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.0",
-    "miniprogram-ci": "^2.1.26"
+    "@json-render/core": "^0.11.0",
+    "easyjssdk": "^2.0.0",
+    "esbuild": "^0.27.3",
+    "marked": "^16.4.1",
+    "miniprogram-ci": "^2.1.26",
+    "zod": "^4.3.6"
   }
 }

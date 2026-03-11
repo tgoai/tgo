@@ -50,7 +50,7 @@ for SERVICE in $SERVICES; do
       cd "$REPO_ROOT"
       ;;
 
-    tgo-widget-app)
+    tgo-widget-js)
       cd "$REPO_ROOT/$SERVICE_DIR"
       if npm run build; then
         echo "  ✓ $SERVICE passed"

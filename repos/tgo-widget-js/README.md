@@ -12,7 +12,7 @@
 
 ## 运行
 ```bash
-cd tgo-widget-app
+cd tgo-widget-js
 npm install
 npm run dev          # http://localhost:5173
 # 生产预览
@@ -22,7 +22,7 @@ npm run preview      # http://localhost:5174
 
 ## 结构
 ```
-./tgo-widget-app
+./tgo-widget-js
   ├─ index.html
   ├─ package.json
   ├─ tsconfig.json

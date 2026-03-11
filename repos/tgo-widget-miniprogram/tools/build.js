@@ -1,13 +1,18 @@
 /**
- * Build script: copies src/ to miniprogram_dist/
- * Also syncs to example/node_modules/tgo-widget-miniprogram (replacing symlink)
- * so that WeChat DevTools "构建 npm" can properly resolve all dependencies.
+ * Build script: copies src/ to miniprogram_dist/ then bundles external deps
+ * into each JS file using esbuild, so the published npm package is self-contained.
+ *
+ * Also syncs to example/node_modules/tgo-widget-miniprogram for local dev.
  */
 const fs = require('fs')
 const path = require('path')
+const esbuild = require('esbuild')
 
 const SRC = path.resolve(__dirname, '..', 'src')
 const DIST = path.resolve(__dirname, '..', 'miniprogram_dist')
+
+// External npm packages to bundle into miniprogram_dist
+const EXTERNAL_DEPS = ['@json-render/core', 'marked', 'easyjssdk', 'zod']
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
@@ -27,83 +32,88 @@ function copyDir(src, dest) {
   }
 }
 
-// Clean & copy src -> miniprogram_dist
-if (fs.existsSync(DIST)) {
-  fs.rmSync(DIST, { recursive: true, force: true })
+// Collect all JS files in a directory
+function findJS(dir, out) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true })
+  for (const e of entries) {
+    const full = path.join(dir, e.name)
+    if (e.isDirectory()) findJS(full, out)
+    else if (e.name.endsWith('.js')) out.push(full)
+  }
 }
-copyDir(SRC, DIST)
-console.log(`[build] Copied ${SRC} -> ${DIST}`)
 
-// Sync to example/node_modules/tgo-widget-miniprogram
-// Replaces the npm symlink with actual built files so "构建 npm" works
-const EXAMPLE_NODE_MOD = path.resolve(__dirname, '..', 'example', 'node_modules', 'tgo-widget-miniprogram')
-if (fs.existsSync(path.resolve(__dirname, '..', 'example', 'node_modules'))) {
-  // Remove symlink or old copy
-  if (fs.lstatSync(EXAMPLE_NODE_MOD).isSymbolicLink()) {
-    fs.unlinkSync(EXAMPLE_NODE_MOD)
-  } else if (fs.existsSync(EXAMPLE_NODE_MOD)) {
-    fs.rmSync(EXAMPLE_NODE_MOD, { recursive: true, force: true })
+// Check if a JS file requires any external dep
+function hasExternalDep(filePath) {
+  const code = fs.readFileSync(filePath, 'utf8')
+  return EXTERNAL_DEPS.some(dep => code.includes(`require('${dep}')`) || code.includes(`require("${dep}")`))
+}
+
+async function main() {
+  // 1. Clean & copy src -> miniprogram_dist
+  if (fs.existsSync(DIST)) {
+    fs.rmSync(DIST, { recursive: true, force: true })
   }
-  ensureDir(EXAMPLE_NODE_MOD)
-  // Must copy into miniprogram_dist/ subdirectory to match "miniprogram" field in package.json
-  const EXAMPLE_MP_DIST = path.join(EXAMPLE_NODE_MOD, 'miniprogram_dist')
-  copyDir(DIST, EXAMPLE_MP_DIST)
-  // Copy package.json so miniprogram npm builder can read it
-  const pkgSrc = path.resolve(__dirname, '..', 'package.json')
-  fs.copyFileSync(pkgSrc, path.join(EXAMPLE_NODE_MOD, 'package.json'))
-  console.log(`[build] Synced to ${EXAMPLE_NODE_MOD}`)
+  copyDir(SRC, DIST)
+  console.log(`[build] Copied ${SRC} -> ${DIST}`)
 
-  // Transpile deps with modern syntax (optional chaining, ??) for miniprogram
-  const EXAMPLE_NM = path.resolve(__dirname, '..', 'example', 'node_modules')
-  const transpileTargets = [
-    path.join(EXAMPLE_NM, '@json-render', 'core', 'dist', 'index.js'),
-    path.join(EXAMPLE_NM, 'marked', 'lib', 'marked.esm.js'),
-    path.join(EXAMPLE_NM, 'marked', 'lib', 'marked.umd.js'),
-  ]
-  // Also transpile all zod .cjs files
-  function findCJS(dir, out) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true })
-    for (const e of entries) {
-      const full = path.join(dir, e.name)
-      if (e.isDirectory() && e.name !== 'node_modules') findCJS(full, out)
-      else if (e.name.endsWith('.cjs')) out.push(full)
-    }
-  }
-  const zodDir = path.join(EXAMPLE_NM, 'zod')
-  if (fs.existsSync(zodDir)) findCJS(zodDir, transpileTargets)
+  // 2. Bundle external deps into JS files using esbuild
+  const allJS = []
+  findJS(DIST, allJS)
+  const toBuild = allJS.filter(hasExternalDep)
 
-  if (transpileTargets.length > 0) {
-    const babel = require('@babel/core')
-    const presetEnv = require.resolve('@babel/preset-env')
-    for (const file of transpileTargets) {
-      if (!fs.existsSync(file)) continue
-      const code = fs.readFileSync(file, 'utf8')
-      const result = babel.transformSync(code, {
-        presets: [[presetEnv, { modules: 'commonjs' }]],
-        babelrc: false, configFile: false, filename: file
+  if (toBuild.length > 0) {
+    // Build a regex to match internal relative requires — these stay external
+    const relativeFilter = /^\.\.?\//
+
+    for (const file of toBuild) {
+      await esbuild.build({
+        entryPoints: [file],
+        bundle: true,
+        format: 'cjs',
+        target: 'es2020',
+        platform: 'neutral',
+        outfile: file,
+        allowOverwrite: true,
+        // Keep relative requires (internal modules) as external
+        plugins: [{
+          name: 'externalize-relative',
+          setup(build) {
+            build.onResolve({ filter: /.*/ }, args => {
+              if (args.kind === 'entry-point') return
+              // Only externalize relative paths resolved from miniprogram_dist files
+              // (not from node_modules — those are internal to the bundled dep)
+              if (relativeFilter.test(args.path) && args.resolveDir.startsWith(DIST)) {
+                return { path: args.path, external: true }
+              }
+            })
+          }
+        }]
       })
-      if (result && result.code) fs.writeFileSync(file, result.code, 'utf8')
     }
-    console.log(`[build] Transpiled ${transpileTargets.length} files for miniprogram`)
+    console.log(`[build] Bundled external deps into ${toBuild.length} files`)
   }
 
-  // Fix zod for miniprogram: npm builder only recognizes .js files,
-  // but zod v4 uses .cjs throughout. Create .js copies and fix require paths.
-  if (fs.existsSync(zodDir)) {
-    const cjsFiles = []
-    findCJS(zodDir, cjsFiles)
-    for (const cjsFile of cjsFiles) {
-      const jsFile = cjsFile.replace(/\.cjs$/, '.js')
-      // Read the already-transpiled .cjs, replace .cjs require paths with .js
-      let code = fs.readFileSync(cjsFile, 'utf8')
-      code = code.replace(/require\(["']([^"']*?)\.cjs["']\)/g, 'require("$1.js")')
-      fs.writeFileSync(jsFile, code, 'utf8')
-    }
-    // Patch zod package.json main field
-    const zodPkgPath = path.join(EXAMPLE_NM, 'zod', 'package.json')
-    const zodPkg = JSON.parse(fs.readFileSync(zodPkgPath, 'utf8'))
-    zodPkg.main = './index.js'
-    fs.writeFileSync(zodPkgPath, JSON.stringify(zodPkg, null, 2), 'utf8')
-    console.log(`[build] Fixed zod: ${cjsFiles.length} .cjs -> .js copies with patched requires`)
+  // 3. Sync to example/node_modules/tgo-widget-miniprogram
+  const EXAMPLE_NODE_MOD = path.resolve(__dirname, '..', 'example', 'node_modules', 'tgo-widget-miniprogram')
+  if (fs.existsSync(path.resolve(__dirname, '..', 'example', 'node_modules'))) {
+    // Remove symlink or old copy
+    try {
+      if (fs.lstatSync(EXAMPLE_NODE_MOD).isSymbolicLink()) {
+        fs.unlinkSync(EXAMPLE_NODE_MOD)
+      } else if (fs.existsSync(EXAMPLE_NODE_MOD)) {
+        fs.rmSync(EXAMPLE_NODE_MOD, { recursive: true, force: true })
+      }
+    } catch (e) {}
+    ensureDir(EXAMPLE_NODE_MOD)
+    const EXAMPLE_MP_DIST = path.join(EXAMPLE_NODE_MOD, 'miniprogram_dist')
+    copyDir(DIST, EXAMPLE_MP_DIST)
+    const pkgSrc = path.resolve(__dirname, '..', 'package.json')
+    fs.copyFileSync(pkgSrc, path.join(EXAMPLE_NODE_MOD, 'package.json'))
+    console.log(`[build] Synced to ${EXAMPLE_NODE_MOD}`)
   }
 }
+
+main().catch(err => {
+  console.error('[build] Failed:', err)
+  process.exit(1)
+})

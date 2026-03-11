@@ -42,7 +42,7 @@ const getDefaultWebsiteConfig = (t: any): WebsiteWidgetConfig => ({
 // Widget preview URL and origin (configurable via runtime config)
 const getWidgetPreviewUrlWithFallback = (apiKey?: string, mode?: 'light' | 'dark', lang?: string): string => {
   const url = getWidgetPreviewUrl();
-  const baseUrl = url || 'http://127.0.0.1:5500/tgo-widget-app/dist/index.html';
+  const baseUrl = url || 'http://127.0.0.1:5500/tgo-widget-js/dist/index.html';
 
   // Build query parameters
   const params = new URLSearchParams();

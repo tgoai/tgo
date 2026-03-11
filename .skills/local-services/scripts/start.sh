@@ -15,7 +15,7 @@ PORT_SERVICE[8004]="tgo-workflow"
 PORT_SERVICE[8090]="tgo-plugin-runtime"
 PORT_SERVICE[8085]="tgo-device-control"
 PORT_SERVICE[5173]="tgo-web"
-PORT_SERVICE[5174]="tgo-widget-app"
+PORT_SERVICE[5174]="tgo-widget-js"
 
 # --- Helpers ---
 
@@ -77,7 +77,7 @@ if [ "$AUTO_DETECT" = true ]; then
       tgo-plugin-runtime) EXTRAS+=("plugin") ;;
       tgo-device-control) EXTRAS+=("device") ;;
       tgo-web)            EXTRAS+=("web") ;;
-      tgo-widget-app)     EXTRAS+=("widget") ;;
+      tgo-widget-js)     EXTRAS+=("widget") ;;
     esac
   done
 fi
@@ -144,7 +144,7 @@ if [ ${#EXTRAS[@]} -gt 0 ]; then
       plugin)   start_make_target "dev-plugin"    8090  "tgo-plugin-runtime" ;;
       device)   start_make_target "dev-device"    8085  "tgo-device-control" ;;
       web)      start_make_target "dev-web"       5173  "tgo-web" ;;
-      widget)   start_make_target "dev-widget"    5174  "tgo-widget-app" ;;
+      widget)   start_make_target "dev-widget"    5174  "tgo-widget-js" ;;
       *) echo "  ⚠ Unknown service: $EXTRA" ;;
     esac
   done

@@ -34,7 +34,7 @@ All other services are optional and can be added based on what you're working on
 | tgo-plugin-runtime | `make dev-plugin` | 8090 | Plugin / MCP tool changes |
 | tgo-device-control | `make dev-device` | 8085 | Device management changes |
 | tgo-web | `make dev-web` | 5173 | Admin frontend changes |
-| tgo-widget-app | `make dev-widget` | 5174 | Visitor widget changes |
+| tgo-widget-js | `make dev-widget` | 5174 | Visitor widget changes |
 | RAG worker | `make dev-rag-worker` | — | Document processing tasks |
 | Workflow worker | `make dev-wf-worker` | — | Workflow execution tasks |
 

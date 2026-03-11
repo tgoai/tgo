@@ -1,6 +1,6 @@
 /**
  * json-render-message: groups uiParts into text/spec groups and renders them.
- * Ported from tgo-widget-app JSONRenderMessage.tsx
+ * Ported from tgo-widget-js JSONRenderMessage.tsx
  */
 var jsonRenderUtils = require('../../utils/jsonRender')
 

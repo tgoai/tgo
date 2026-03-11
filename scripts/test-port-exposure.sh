@@ -29,12 +29,12 @@ else
 fi
 echo ""
 
-# Test 3: Check tgo-widget-app ports
-echo "✓ 测试 3: 检查 tgo-widget-app 是否暴露端口"
-if ! grep -A 10 "tgo-widget-app:" docker-compose.yml | grep -q "ports:"; then
-  echo "  ✅ tgo-widget-app 没有暴露端口"
+# Test 3: Check tgo-widget-js ports
+echo "✓ 测试 3: 检查 tgo-widget-js 是否暴露端口"
+if ! grep -A 10 "tgo-widget-js:" docker-compose.yml | grep -q "ports:"; then
+  echo "  ✅ tgo-widget-js 没有暴露端口"
 else
-  echo "  ❌ tgo-widget-app 仍然暴露端口"
+  echo "  ❌ tgo-widget-js 仍然暴露端口"
   exit 1
 fi
 echo ""
@@ -61,7 +61,7 @@ echo ""
 
 # Test 6: Check VITE_WIDGET_PREVIEW_URL
 echo "✓ 测试 6: 检查 .env.example 中的 VITE_WIDGET_PREVIEW_URL"
-if grep -q "VITE_WIDGET_PREVIEW_URL=http://tgo-widget-app:80" .env.example; then
+if grep -q "VITE_WIDGET_PREVIEW_URL=http://tgo-widget-js:80" .env.example; then
   echo "  ✅ VITE_WIDGET_PREVIEW_URL 正确指向内部服务"
 else
   echo "  ❌ VITE_WIDGET_PREVIEW_URL 配置不正确"
@@ -126,7 +126,7 @@ echo ""
 echo "端口暴露策略验证完成："
 echo "  • tgo-api 不暴露端口"
 echo "  • tgo-web 不暴露端口"
-echo "  • tgo-widget-app 不暴露端口"
+echo "  • tgo-widget-js 不暴露端口"
 echo "  • 只有 Nginx 暴露端口 (80, 443)"
 echo "  • 反向代理配置正确"
 echo "  • 服务间通信使用内部网络"

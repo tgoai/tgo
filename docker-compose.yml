@@ -404,9 +404,9 @@ services:
     restart: unless-stopped
 
   # Widget app (React build -> nginx)
-  tgo-widget-app:
-    image: ghcr.io/tgoai/tgo/tgo-widget-app:latest
-    container_name: tgo-widget-app
+  tgo-widget-js:
+    image: ghcr.io/tgoai/tgo/tgo-widget-js:latest
+    container_name: tgo-widget-js
     env_file:
       - .env
     healthcheck:
@@ -433,7 +433,7 @@ services:
       - ./data/certbot/conf:/etc/letsencrypt:ro
     depends_on:
       - tgo-web
-      - tgo-widget-app
+      - tgo-widget-js
       - tgo-api
     restart: unless-stopped
     healthcheck:

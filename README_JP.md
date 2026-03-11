@@ -56,6 +56,29 @@ TGOは、企業が「顧客サービスのためのAIエージェントチーム
 - **豊富なコンポーネント** - 注文カード、物流追跡、商品表示、価格比較など
 - **アクションプロトコル** - インタラクション用の標準化されたURIプロトコル
 
+## 📦 リポジトリ構成
+
+| リポジトリ | 説明 | 技術スタック |
+|:---|:---|:---|
+| [tgo-ai](repos/tgo-ai) | AI/ML運用サービス。エージェント、ツールバインディング、ナレッジベース、利用統計を管理 | Python / FastAPI |
+| [tgo-api](repos/tgo-api) | コアビジネスロジックサービス。ユーザー管理、訪問者追跡、セッション割り当て、通信を処理 | Python / FastAPI |
+| [tgo-cli](repos/tgo-cli) | CLIツール & MCPサーバー。AIエージェントが40以上の組み込みツールで顧客サービス操作を実行可能 | TypeScript / Node.js |
+| [tgo-device-agent](repos/tgo-device-agent) | 管理対象デバイス上で動作する組み込みエージェント。TCP JSON-RPCでファイルとシェル機能を提供 | Go |
+| [tgo-device-control](repos/tgo-device-control) | デバイス制御サービス。TCP/JSON-RPCによるリモートデバイス管理、MCP Agent内蔵 | Python / FastAPI |
+| [tgo-platform](repos/tgo-platform) | マルチチャネルメッセージ受付サービス。WeChat、Feishu、DingTalk、Telegram、Slack、メール等に対応 | Python / FastAPI |
+| [tgo-plugin-runtime](repos/tgo-plugin-runtime) | プラグインのライフサイクル管理と実行サービス。動的ツール同期に対応 | Python / FastAPI |
+| [tgo-rag](repos/tgo-rag) | RAGサービス。ドキュメント処理、ハイブリッドセマンティック/全文検索、非同期処理を提供 | Python / FastAPI |
+| [tgo-web](repos/tgo-web) | 管理フロントエンド。リアルタイムチャット、エージェント管理、ナレッジベース、MCPツールを統合 | TypeScript / React 19 |
+| [tgo-workflow](repos/tgo-workflow) | AI Agentワークフロー実行エンジン。DAGトポロジー対応、LLM・API・条件・ツールノードを含む | Python / FastAPI |
+
+### Widget SDK
+
+| リポジトリ | 説明 | 技術スタック |
+|:---|:---|:---|
+| [tgo-widget-js](repos/tgo-widget-js) | ウェブサイトに埋め込み可能なカスタマーサービスチャットウィジェット（Intercomスタイル） | TypeScript / React 18 |
+| [tgo-widget-cli](repos/tgo-widget-cli) | 訪問者向けCLIツール & MCPサーバー。カスタマーサービスインターフェースを提供 | TypeScript / Node.js |
+| [tgo-widget-miniprogram](repos/tgo-widget-miniprogram) | WeChatミニプログラムチャットコンポーネント。AIストリーミング応答とMarkdownレンダリングに対応 | TypeScript |
+
 ## 🏗️ システムアーキテクチャ
 
 <p align="center">

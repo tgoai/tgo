@@ -1,7 +1,7 @@
 /**
  * json-render utilities for miniprogram
  * Ported from @json-render/react (buildSpecFromParts, groupParts)
- * and tgo-widget-app JSONRenderSurface (formatActionMessage, collectActionNames)
+ * and tgo-widget-js JSONRenderSurface (formatActionMessage, collectActionNames)
  */
 var core = require('@json-render/core')
 

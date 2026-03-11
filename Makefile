@@ -32,7 +32,7 @@ WORKFLOW_DIR := repos/tgo-workflow
 PLUGIN_DIR := repos/tgo-plugin-runtime
 DEVICE_DIR := repos/tgo-device-control
 WEB_DIR := repos/tgo-web
-WIDGET_DIR := repos/tgo-widget-app
+WIDGET_DIR := repos/tgo-widget-js
 CLI_DIR := repos/tgo-cli
 
 # Development ports (to avoid conflicts)
@@ -103,7 +103,7 @@ help:
 	@echo "$(GREEN)Frontend Services (run in separate terminals):$(RESET)"
 	@echo "  make dev-frontend     Start all frontend services (requires tmux)"
 	@echo "  make dev-web          Start tgo-web        (port $(WEB_PORT))"
-	@echo "  make dev-widget       Start tgo-widget-app (port $(WIDGET_PORT))"
+	@echo "  make dev-widget       Start tgo-widget-js (port $(WIDGET_PORT))"
 	@echo ""
 	@echo "$(GREEN)Combined:$(RESET)"
 	@echo "  make dev-all          Start all services in background"
@@ -417,7 +417,7 @@ dev-web: check-env
 		npm run dev -- --port $(WEB_PORT)
 
 dev-widget: check-env
-	@echo "$(CYAN)Starting tgo-widget-app on port $(WIDGET_PORT)...$(RESET)"
+	@echo "$(CYAN)Starting tgo-widget-js on port $(WIDGET_PORT)...$(RESET)"
 	@cd $(WIDGET_DIR) && \
 		VITE_API_BASE_URL=http://localhost:$(API_PORT) \
 		npm run dev -- --port $(WIDGET_PORT)

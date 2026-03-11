@@ -1,4 +1,4 @@
-# tgo-widget-app — AGENTS.md
+# tgo-widget-js — AGENTS.md
 
 > Stack: React 18 + TypeScript 5.6 + Vite 5 + Emotion + Zustand 5 · Port: 5174
 > Sister project: `tgo-web` — json-render components must stay in sync

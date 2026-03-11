@@ -21,7 +21,7 @@ tgo/
     ├── tgo-rag.env
     ├── tgo-platform.env
     ├── tgo-web.env
-    ├── tgo-widget-app.env
+    ├── tgo-widget-js.env
     └── wukongim.env
 ```
 
@@ -90,7 +90,7 @@ RAG 服务配置：
 | `CHUNK_SIZE` | 文档分块大小 |
 | `CHUNK_OVERLAP` | 分块重叠大小 |
 
-### tgo-web.env / tgo-widget-app.env
+### tgo-web.env / tgo-widget-js.env
 
 前端应用配置：
 
