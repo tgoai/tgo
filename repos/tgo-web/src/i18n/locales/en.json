@@ -1058,7 +1058,15 @@
     "user": "User",
     "logout": "Logout",
     "sessionExpiredTitle": "Session expired",
-    "sessionExpiredMessage": "Please sign in again"
+    "sessionExpiredMessage": "Please sign in again",
+    "verify": {
+      "title": "Email Verification",
+      "verifying": "Verifying your email...",
+      "success": "Your email has been verified successfully! You can now sign in.",
+      "error": "Email verification failed",
+      "noToken": "Missing verification token. Please check your verification link.",
+      "goToLogin": "Go to Sign In"
+    }
   },
   "navigation": {
     "chat": "Chat",

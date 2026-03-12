@@ -1385,6 +1385,14 @@
       "invalidCredentials": "用户名或密码错误",
       "userExists": "用户已存在，请使用其他邮箱",
       "weakPassword": "密码强度不够，请使用更复杂的密码"
+    },
+    "verify": {
+      "title": "邮箱验证",
+      "verifying": "正在验证您的邮箱...",
+      "success": "邮箱验证成功！您现在可以登录了。",
+      "error": "邮箱验证失败",
+      "noToken": "缺少验证令牌，请检查您的验证链接。",
+      "goToLogin": "前往登录"
     }
   },
   "navigation": {

@@ -47,7 +47,7 @@ import MarkdownTestPage from '../pages/MarkdownTestPage';
 
 // Import SaaS routes if they exist (will be resolved via Vite alias or empty default)
 // @ts-ignore
-import { saasRoutes } from 'saas-routes';
+import { saasRoutes, saasPublicRoutes } from 'saas-routes';
 
 /**
  * Router configuration for the application
@@ -71,6 +71,8 @@ export const router = createBrowserRouter([
         path: 'register',
         element: <RegisterPage />
       },
+      // SaaS public routes (verify-email, etc.)
+      ...(saasPublicRoutes || []),
       // Main application routes
       {
         path: '/',
