@@ -1,0 +1,77 @@
+---
+title: SDK Development Guide
+description: Learn how to develop TGO plugins using the Go and Python SDKs.
+---
+
+TGO SDK encapsulates Socket communication details with the host program and provides a streaming UI builder.
+
+## Go SDK (`tgo-plugin-go`)
+
+### Lifecycle
+- `tgo.Run(plugin)`: Starts the plugin. It handles connection, registration, heartbeats, and reconnections automatically.
+- `Capabilities()`: Declare the extension points supported by the plugin.
+
+### UI Builder
+SDK provides a structured builder corresponding to the template:
+
+- **Group (Container)**: `tgo.NewGroup().SetHorizontal().Add(it1).Add(it2)`
+- **Table (Table)**: `tgo.NewTable("标题").Columns("ID", "名称").Row(map[string]any{"ID": 1})`
+- **Form (Form)**: `tgo.NewForm("标题").Add(tgo.NewFormField("name", "姓名", "text"))`
+- **Button (Button)**: `tgo.NewButton("文本", "id").SetSize("sm").SetType("danger")`
+
+### Action System
+Actions are used to instruct the host to perform specific operations.
+
+```go
+// Single Action
+return tgo.ShowToast("save successfully", "success")
+
+// Chained Actions (Batch Execution)
+return tgo.ShowToast("successfully", "success").
+    Then(tgo.CloseModal()).
+    Then(tgo.Refresh())
+```
+
+---
+
+## Python SDK (`tgo-plugin-python`)
+
+### Lifecycle
+- `TGOPlugin.run()`: Starts the plugin. It validates types using Pydantic.
+- Method Routing: SDK automatically maps `visitor_panel/render` requests to `on_visitor_panel_render` methods.
+
+### UI Builder
+Python SDK also provides a streaming interface:
+
+```python
+ui = Group()
+ui.add(Text("content").set_bold(True))
+ui.add(Button("confirm", "ok").set_size("md"))
+return ui
+```
+
+### Action System
+```python
+return Action.show_toast("successfully").then(Action.close_modal()).then(Action.refresh())
+```
+
+## Debugging Tips
+
+### TCP Debugging Mode
+When developing locally, you can debug without deploying to Unix Socket:
+
+```go
+// Go
+tgo.Run(&MyPlugin{}, tgo.WithTCPAddr("localhost:8005"), tgo.WithDevToken("YOUR_TOKEN"))
+```
+
+```python
+# Python
+from tgo_plugin_python import MyPlugin
+plugin = MyPlugin(tcp_addr="localhost:8005", dev_token="YOUR_TOKEN")
+plugin.run()
+```
+
+
+### Debugging Token
+You can get the debugging token from the TGO admin panel: "Settings --> Plugin Management --> Debug Token".

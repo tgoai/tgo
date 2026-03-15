@@ -1,0 +1,17 @@
+{
+  "title": "TGO 文档",
+  "description": "TGO是AI智能体客服平台",
+  "root": true,
+  "icon": "Book",
+  "pages": [
+    "---指南---",
+    "index",
+    "wechat-group",
+    "quick-start",
+    "---配置---",
+    "config",
+    "---开发---",
+    "development",
+    "plugin"
+  ]
+}

@@ -1,0 +1,89 @@
+---
+title: Complete Examples
+description: Two complete plugin examples developed based on SDK.
+---
+
+This section provides two complete plugin examples developed based on SDK.
+
+## Example One: Ticket Management Plugin (Go)
+
+This plugin displays a ticket list in the visitor panel and provides a "Create Ticket" form in the chat toolbar.
+
+### Core Code (`main.go`)
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/tgoai/tgo-plugin-go"
+)
+
+type TicketPlugin struct { tgo.BasePlugin }
+
+func (p *TicketPlugin) Capabilities() []tgo.Capability {
+	return []tgo.Capability{
+		tgo.VisitorPanel("Related Tickets", tgo.WithIcon("ticket")),
+		tgo.ChatToolbar("Create Ticket", tgo.WithIcon("plus-circle")),
+	}
+}
+
+func (p *TicketPlugin) OnVisitorPanelRender(ctx *tgo.RenderContext) tgo.Template {
+	return tgo.NewGroup().
+		Add(tgo.NewTable("Ticket List").
+			Columns("ID", "Title", "Status").
+			Row(map[string]any{"ID": "TK-001", "Title": "Cannot Login", "Status": "Open"}))
+}
+
+func (p *TicketPlugin) OnChatToolbarEvent(ctx *tgo.EventContext) *tgo.Action {
+	if ctx.ActionID == "submit" {
+		title := ctx.FormData["title"].(string)
+		return tgo.ShowToast(fmt.Sprintf("Ticket '%s' submitted successfully", title), "success").
+			Then(tgo.CloseModal())
+	}
+
+	form := tgo.NewForm("Create Ticket").
+		Add(tgo.NewFormField("title", "Title", "text").SetRequired(true))
+	return tgo.ShowModal("Create Ticket", form)
+}
+
+func main() { tgo.Run(&TicketPlugin{}) }
+```
+
+---
+
+## Example Two: CRM Customer Profile (Python)
+
+This plugin displays customer profiles in the visitor panel by integrating with an enterprise CRM system.
+
+### Core Code (`main.py`)
+
+```python
+from tgo_plugin import TGOPlugin, Capability, RenderContext, KeyValue, Group, Action
+
+class CRMPlugin(TGOPlugin):
+    id = "com.tgo.crm"
+    name = "CRM Customer Profile"
+
+    capabilities = [
+        Capability.visitor_panel(title="Customer Profile", icon="user")
+    ]
+
+    def on_visitor_panel_render(self, ctx: RenderContext):
+        # 模拟从 API 获取数据
+        customer_data = {"level": "Gold Member", "total": "¥12,000"}
+
+        ui = Group()
+        info = KeyValue(title="Basic Information")
+        info.add("Customer Level", customer_data["level"], icon="crown", color="#FFD700")
+        info.add("Total Spent", customer_data["total"])
+        ui.add(info)
+        return ui
+
+if __name__ == "__main__":
+    CRMPlugin().run()
+```
+
+## Get More Examples
+
+You can visit the [GitHub repository](https://github.com/tgoai/tgo-plugin-examples) to get more language and scenario examples.

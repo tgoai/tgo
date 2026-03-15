@@ -1,0 +1,221 @@
+---
+title: Restart and Upgrade
+description: How to manage TGO service startup, shutdown, and version upgrade.
+---
+
+## Service Management
+
+### Start Service
+
+```bash
+./tgo.sh up
+```
+
+Source mode:
+
+```bash
+./tgo.sh up --source
+```
+
+### Stop Service
+
+```bash
+./tgo.sh down
+```
+
+Stop and remove volumes (**data will be lost**):
+
+```bash
+./tgo.sh down --volumes
+```
+
+### Restart Service
+
+```bash
+./tgo.sh down
+./tgo.sh up
+```
+
+### Restart Single Service
+
+```bash
+docker compose restart tgo-api
+```
+
+## Upgrade
+
+### Upgrade to Latest Version
+
+```bash
+./tgo.sh upgrade
+```
+
+`upgrade` command will automatically:
+
+1. Pull latest code
+2. Update Docker images
+3. Run database migrations
+4. Restart all services
+
+### Upgrade Command Options
+
+```bash
+./tgo.sh upgrade [--source] [--cn]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--source` | Build from source (instead of using pre-built images) |
+| `--cn` | Use domestic mirror acceleration |
+
+### Installation Mode Memory
+
+`upgrade` will remember the installation mode used initially. For example:
+
+```bash
+# First installation using domestic mirror
+./tgo.sh install --cn
+
+# Later upgrades will automatically use --cn
+./tgo.sh upgrade
+```
+
+The configuration is saved in the `./data/.tgo-install-mode` file.
+
+### Upgrade to Specific Version
+
+To upgrade to a specific version, you can manually perform the following steps:
+
+```bash
+# 1. Stop services
+./tgo.sh down
+
+# 2. Pull specific version
+git fetch origin
+git checkout v1.0.0
+
+# 3. Reinstall
+./tgo.sh install
+```
+
+## Uninstallation
+
+### Stop and Remove Services
+
+```bash
+./tgo.sh uninstall
+```
+
+This command will:
+
+1. Stop all containers
+2. Remove containers
+3. Ask for confirmation to delete data
+
+### Complete Cleanup
+
+To completely clean up all data:
+
+```bash
+# 1. Stop services and remove volumes
+./tgo.sh down --volumes
+
+# 2. Delete data directory
+rm -rf ./data
+
+# 3. Delete configuration files
+rm -f .env
+rm -rf ./envs
+```
+
+## Backup and Restoration
+
+### Backup Data
+
+Main data is stored in the `./data` directory:
+
+```bash
+# Create backup
+tar -czvf tgo-backup-$(date +%Y%m%d).tar.gz ./data
+```
+
+### Restore Data
+
+```bash
+# 1. Stop services
+./tgo.sh down
+
+# 2. Restore data
+tar -xzvf tgo-backup-20240101.tar.gz
+
+# 3. Start services
+./tgo.sh up
+```
+
+### Database Backup
+
+To backup the PostgreSQL database:
+
+```bash
+# Export database
+docker compose exec postgres pg_dump -U tgo tgo > tgo-db-backup.sql
+
+# Restore database
+docker compose exec -T postgres psql -U tgo tgo < tgo-db-backup.sql
+```
+
+## Health Check
+
+To check the status of all services:
+
+```bash
+./tgo.sh doctor
+```
+
+Output example:
+
+```
+=========================================
+  TGO Service Health Check
+=========================================
+
+  ✅ tgo-api           running (healthy)
+  ✅ tgo-ai            running (healthy)
+  ✅ tgo-rag           running (healthy)
+  ✅ tgo-web           running
+  ✅ postgres          running (healthy)
+  ✅ redis             running (healthy)
+  ✅ nginx             running
+
+-----------------------------------------
+Summary: 7/7 services healthy
+```
+
+## Troubleshooting
+
+### Service Unavailable
+
+1. Check logs:
+   ```bash
+   docker compose logs -f <service-name>
+   ```
+
+2. Check resource usage:
+   ```bash
+   docker stats
+   ```
+
+3. Rebuild container:
+   ```bash
+   ./tgo.sh down
+   ./tgo.sh install
+   ```
+
+### Post-Upgrade Issues
+
+1. Check for database migration errors
+2. Rollback to previous version:
+   ```bash
+   git checkout <previous-version>
+   ./tgo.sh install
+   ```

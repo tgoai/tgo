@@ -1,0 +1,152 @@
+---
+title: Environment Variables
+description: System environment variable configuration.
+sidebar_position: 1
+---
+
+TGO uses environment variables to configure various services. This page introduces the main configuration files and common environment variables.
+
+## Configuration File Structure
+
+TGO's configuration is divided into two layers:
+
+```
+tgo/
+├── .env                    # Global configuration (ports, hostnames, etc.)
+└── envs/                   # Service-specific configurations
+    ├── tgo-api.env
+    ├── tgo-ai.env
+    ├── tgo-rag.env
+    ├── tgo-platform.env
+    ├── tgo-web.env
+    ├── tgo-widget-app.env
+    └── wukongim.env
+```
+
+## Global Configuration (`.env`)
+
+The root directory's `.env` file contains global configurations:
+
+| Variable | Description | Default Value |
+|------|------|--------|
+| `SERVER_HOST` | Server hostname (IP or domain) | Auto-detected |
+| `VITE_API_BASE_URL` | Frontend API base URL | `http://localhost` |
+| `NGINX_PORT` | HTTP port | `80` |
+| `NGINX_SSL_PORT` | HTTPS port | `443` |
+| `POSTGRES_DB` | Database name | `tgo` |
+| `POSTGRES_USER` | Database user | `tgo` |
+| `POSTGRES_PASSWORD` | Database password | `tgo` |
+
+### Modifying Global Configurations
+
+To modify global configurations, edit the `.env` file:
+
+```bash
+vi .env
+```
+
+After modifying, restart the services:
+
+```bash
+./tgo.sh down
+./tgo.sh up
+```
+
+## Service-specific Configurations (envs/)
+
+### tgo-api.env
+
+API service configuration:
+
+| Variable | Description | Default Value |
+|------|------|--------|
+| `SECRET_KEY` | JWT secret key (auto-generated) | - |
+| `PORT` | Service port | `8000` |
+| `REDIS_URL` | Redis connection URL | `redis://redis:6379/0` |
+| `API_BASE_URL` | API public URL | `http://localhost:8000` |
+| `MAX_FILE_SIZE` | Maximum file upload size | `10485760` (10MB) |
+
+### tgo-ai.env
+
+AI service configuration:
+
+| Variable | Description | Default Value |
+|------|------|--------|
+| `PORT` | Service port | `8081` |
+| `LOG_LEVEL` | Log level | `DEBUG` |
+| `API_SERVICE_URL` | API service URL | `http://tgo-api:8001` |
+| `RAG_SERVICE_URL` | RAG service URL | `http://tgo-rag:8082` |
+| `MCP_SERVICE_URL` | MCP service URL | `http://tgo-mcp-v4:8084` |
+
+### tgo-rag.env
+
+RAG service configuration:
+
+| Variable | Description |
+|------|------|
+| `EMBEDDING_MODEL` | Embedding model configuration |
+| `CHUNK_SIZE` | Document chunk size |  `500` |
+| `CHUNK_OVERLAP` | Chunk overlap size | `50` |
+
+### tgo-web.env / tgo-widget-app.env
+
+Frontend application configuration:
+
+| Variable | Description |
+|------|------|
+| `VITE_API_BASE_URL` | API base URL |
+| `VITE_WS_URL` | WebSocket URL |
+
+## WuKongIM Configuration
+
+Instant messaging service configuration (in `tgo-api.env`):
+
+| Variable | Description | Default Value |
+|------|------|--------|
+| `WUKONGIM_SERVICE_URL` | WuKongIM service URL | `http://wukongim:5001` |
+| `WUKONGIM_ENABLED` | Whether to enable WuKongIM | `true` |
+
+## Configuration Best Practices
+
+### 1. Do not modify envs.docker/ or envs.example/ directly
+
+These are template directories. They will be automatically copied to `envs/` during installation. Please only modify files in `envs/`.
+
+### 2. SECRET_KEY Security
+
+`SECRET_KEY` will be automatically generated on the first installation. If you need to set it manually, ensure:
+- At least 32 characters long
+- Use a random string
+- Do not use the default value
+
+Generate a new key:
+
+```bash
+openssl rand -hex 32
+```
+
+### 3. Production Environment Configuration
+
+For production environments, it is recommended to modify the following configurations:
+
+```bash
+# .env
+POSTGRES_PASSWORD=<strong password>
+
+# envs/tgo-api.env
+SECRET_KEY=<random secret key>
+LOG_LEVEL=INFO
+```
+
+### 4. Restart Services After Configuration Changes
+
+Any configuration changes require restarting the corresponding services:
+
+```bash
+# Restart all services
+./tgo.sh down
+./tgo.sh up
+
+# Or restart specific services
+docker compose restart tgo-api
+```

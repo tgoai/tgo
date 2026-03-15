@@ -1,0 +1,74 @@
+---
+title: SDK 开发指南
+description: 了解 TGO 插件系统的 SDK 开发，包括 Go 和 Python 版本的详细使用说明。
+---
+
+TGO SDK 封装了与宿主程序的 Socket 通讯细节，并提供了一套流式的 UI 构建器。
+
+## Go SDK (`tgo-plugin-go`)
+
+### 生命周期
+- `tgo.Run(plugin)`: 启动插件。它会自动处理连接、注册、心跳和重连。
+- `Capabilities()`: 在此声明插件支持的扩展点。
+
+### UI 构建器
+SDK 提供了与模版对应的结构化构建器：
+
+- **Group (容器)**: `tgo.NewGroup().SetHorizontal().Add(it1).Add(it2)`
+- **Table (表格)**: `tgo.NewTable("标题").Columns("ID", "名称").Row(map[string]any{"ID": 1})`
+- **Form (表单)**: `tgo.NewForm("标题").Add(tgo.NewFormField("name", "姓名", "text"))`
+- **Button (按钮)**: `tgo.NewButton("文本", "id").SetSize("sm").SetType("danger")`
+
+### Action 系统
+Action 用于告诉宿主执行什么操作。
+
+```go
+// 单个 Action
+return tgo.ShowToast("保存成功", "success")
+
+// 链式 Action (Batch 执行)
+return tgo.ShowToast("成功", "success").
+    Then(tgo.CloseModal()).
+    Then(tgo.Refresh())
+```
+
+---
+
+## Python SDK (`tgo-plugin-python`)
+
+### 生命周期
+- `TGOPlugin.run()`: 启动插件。基于 Pydantic 提供严格的类型校验。
+- 方法路由：SDK 自动将 `visitor_panel/render` 请求映射到 `on_visitor_panel_render` 方法。
+
+### UI 构建器
+Python SDK 同样提供流式接口：
+
+```python
+ui = Group()
+ui.add(Text("内容").set_bold(True))
+ui.add(Button("确定", "ok").set_size("md"))
+return ui
+```
+
+### Action 系统
+```python
+return Action.show_toast("成功").then(Action.close_modal()).then(Action.refresh())
+```
+
+## 调试技巧
+
+### TCP 调试模式
+在本地开发时，你可以在不部署到 Unix Socket 的情况下进行调试：
+
+```go
+// Go
+tgo.Run(&MyPlugin{}, tgo.WithTCPAddr("localhost:8005"), tgo.WithDevToken("YOUR_TOKEN"))
+```
+
+```python
+# Python
+plugin = MyPlugin(tcp_addr="localhost:8005", dev_token="YOUR_TOKEN")
+plugin.run()
+```
+
+你可以从 TGO 管理后台的“设置 --> 插件管理 --> 调试令牌”中获取调试 Token。

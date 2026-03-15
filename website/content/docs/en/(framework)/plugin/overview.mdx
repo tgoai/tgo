@@ -1,0 +1,42 @@
+---
+title: Plugins Overview
+description: Understand the basic concepts, advantages, and recommended development approaches of the TGO plugin system.
+---
+
+TGO Plugin System allows developers to extend the functionality of the TGO customer service system through standardized interfaces. Plugins can add custom information display to the visitor panel, extend the chat toolbar, and integrate with third-party applications.
+
+## What is a TGO Plugin
+
+A TGO Plugin is a separate process that communicates with the TGO host program via **Unix Socket**.
+
+### Core Advantages
+- **Language Agnostic**：Supports any language that can handle Socket communication.
+- **Isolation**：Plugin processes run independently, not affecting the stability of the main system.
+- **Real-time Bidirectional Communication**：Supports the host pushing requests to plugins and plugins returning UI or instructions in real-time.
+
+## Recommended Development Approaches
+
+We highly recommend using the official **SDK** for development. The SDK encapsulates the underlying communication protocol, reconnection mechanism, and UI building logic, allowing you to focus on business logic.
+
+| Language | Status | SDK Link |
+|----------|--------|----------|
+| **Go** | Recommended | [Go SDK Guide](./sdk#go-sdk) |
+| **Python** | Recommended | [Python SDK Guide](./sdk#python-sdk) |
+
+## Documentation Learning Path
+
+1. **[Quick Start](./quickstart)**：5 minutes to run your first plugin using the SDK.
+2. **[SDK Development Guide](./sdk)**：Deep dive into the SDK's API, UI Builders, and Action System.
+3. **[Plugin Configuration (plugin.yml)](./manifest)**：Detailed guide on configuring plugin metadata, source code, and build settings.
+4. **[Extension Points Details](./extension-points)**：Comprehensive guide on the interaction logic of each pluggable point (visitor panel, chat toolbar, etc.).
+5. **[Template Specification](./templates)**：Learn about all the UI component templates supported by TGO.
+6. **[Complete Examples](./examples)**：Learn how to build complex plugins with real-world business examples.
+
+## Core Concepts
+
+The TGO Plugin System's interaction is based on the following core concepts:
+
+- **Extension Point**：Plugins mount points, such as `visitor_panel` (Visitor Panel) or `chat_toolbar` (Chat Toolbar).
+- **Template**：JSON data describing the UI structure. The SDK provides rich Builders (e.g., `Table`, `Form`, `Group`) to generate these templates.
+- **Action**：Indicates the specific operation the host should perform, such as `OpenURL` (open a web page) or `ShowToast` (display a toast message).
+- **Capability**：Plugins declare which extension points they support and their configuration details when registering.

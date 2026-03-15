@@ -1,0 +1,87 @@
+---
+title: 完整示例
+description: 两个基于 SDK 开发的完整插件示例。
+---
+
+## 示例一：工单管理插件 (Go)
+
+该插件在访客面板显示工单列表，并在工具栏提供“创建工单”表单。
+
+### 核心代码 (`main.go`)
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/tgoai/tgo-plugin-go"
+)
+
+type TicketPlugin struct { tgo.BasePlugin }
+
+func (p *TicketPlugin) Capabilities() []tgo.Capability {
+	return []tgo.Capability{
+		tgo.VisitorPanel("相关工单", tgo.WithIcon("ticket")),
+		tgo.ChatToolbar("新建工单", tgo.WithIcon("plus-circle")),
+	}
+}
+
+func (p *TicketPlugin) OnVisitorPanelRender(ctx *tgo.RenderContext) tgo.Template {
+	return tgo.NewGroup().
+		Add(tgo.NewTable("工单列表").
+			Columns("ID", "标题", "状态").
+			Row(map[string]any{"ID": "TK-001", "标题": "无法登录", "状态": "Open"}))
+}
+
+func (p *TicketPlugin) OnChatToolbarEvent(ctx *tgo.EventContext) *tgo.Action {
+	if ctx.ActionID == "submit" {
+		title := ctx.FormData["title"].(string)
+		return tgo.ShowToast(fmt.Sprintf("工单 '%s' 已提交", title), "success").
+			Then(tgo.CloseModal())
+	}
+
+	form := tgo.NewForm("新建工单").
+		Add(tgo.NewFormField("title", "标题", "text").SetRequired(true))
+	return tgo.ShowModal("创建工单", form)
+}
+
+func main() { tgo.Run(&TicketPlugin{}) }
+```
+
+---
+
+## 示例二：CRM 客户档案 (Python)
+
+该插件通过对接企业 CRM 系统，在访客面板展示客户的等级、消费记录等深度信息。
+
+### 核心代码 (`main.py`)
+
+```python
+from tgo_plugin import TGOPlugin, Capability, RenderContext, KeyValue, Group, Action
+
+class CRMPlugin(TGOPlugin):
+    id = "com.tgo.crm"
+    name = "CRM 客户档案"
+
+    capabilities = [
+        Capability.visitor_panel(title="客户档案", icon="user")
+    ]
+
+    def on_visitor_panel_render(self, ctx: RenderContext):
+        # 模拟从 API 获取数据
+        customer_data = {"level": "黄金会员", "total": "¥12,000"}
+
+        ui = Group()
+        info = KeyValue(title="基本信息")
+        info.add("客户等级", customer_data["level"], icon="crown", color="#FFD700")
+        info.add("累计消费", customer_data["total"])
+        ui.add(info)
+        return ui
+
+if __name__ == "__main__":
+    CRMPlugin().run()
+```
+
+## 获取更多示例
+
+你可以访问 [GitHub 仓库](https://github.com/tgoai/tgo-plugin-examples) 获取更多语言和场景的示例项目。

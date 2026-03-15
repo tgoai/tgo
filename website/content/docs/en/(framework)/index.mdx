@@ -1,0 +1,52 @@
+---
+title: Introduction
+description: TGO is an open-source AI agent customer service platform.
+icon: Book
+---
+
+![TGO Introduction banner](/en/readme-banner.svg)
+
+**TGO** is an open-source AI agent customer service platform. We strive to help enterprises build more intelligent and efficient customer service systems through **Multi-Agents** collaboration mode.
+
+Unlike traditional chatbots, TGO emphasizes the collaboration between AI agents. You can form a team of different-capability agents to handle complex customer consultations, after-sales support, and business traffic migration.
+
+## Core Highlights
+
+- 🤖 **Multi-Agent Orchestration**：Flexibly create and orchestrate multiple AI agents, each with its own capabilities, to collaborate and work together.
+- 📚 **Knowledge Base Enhancement (RAG)**：Built-in high-performance RAG system, supporting PDF, Docx, web scraping, etc., enabling AI to understand your business.
+- 🛠️ **MCP Tool Extension**：Supports Model Context Protocol, easily integrating external APIs, databases, and business tools.
+- 🌐 **Full-Channel Access**：A single system supporting Web, API, WeChat, Feishu, DingTalk, etc.
+- 🤝 **Human-Agent Collaboration**：AI agents handle repetitive consultations, seamlessly transferring to human agents at critical moments, enhancing customer satisfaction.
+
+## Technical Architecture
+
+TGO adopts a modern microservice architecture, ensuring system stability and scalability.
+
+![TGO Architecture Diagram](/en/architecture.svg)
+
+| Service Name | Function Description |
+| :--- | :--- |
+| **tgo-api** | Core business service, handling account, session, permission, etc. business logic |
+| **tgo-ai** | Intelligent agent scheduling center, responsible for LLM invocation and agent orchestration |
+| **tgo-rag** | Knowledge base retrieval service, handling document vectorization and semantic retrieval |
+| **tgo-platform** | External platform integration service, responsible for docking with DingTalk, Feishu, WeChat, etc. |
+| **tgo-web** | Customer service management background, based on React, providing a modern console interface |
+| **tgo-widget** | Lightweight visitor-end component, easily integrable into any website |
+| **WuKongIM** | High-performance real-time messaging system, ensuring real-time delivery of messages |
+
+## System Requirements
+
+Before deploying TGO, ensure that your environment meets the following requirements:
+
+| Project | Minimum Requirements | Recommended Configuration |
+| :--- | :--- | :--- |
+| **CPU** | 2 Core | 4 Core+ |
+| **Memory** | 8 GiB | 16 GiB+ |
+| **Operating System** | Linux / macOS / WSL2 | Ubuntu 22.04 LTS |
+| **Runtime Environment** | Docker 20.10+ | Docker Compose v2.0+ |
+
+## Next Steps
+
+- [🚀 Quick Start](./docs/quick-start/deploy) - Deploy TGO in 5 minutes
+- [🔧 Configuration](./docs/config/env-vars) - Deeply customize your TGO
+- [👨‍💻 Developer Guide](./docs/development/source-deploy) - Understand how to contribute to TGO

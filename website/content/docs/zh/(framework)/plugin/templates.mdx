@@ -1,0 +1,759 @@
+---
+title: 模版格式规范
+description: 了解 TGO 插件系统支持的所有 UI 组件模版格式。
+---
+
+## JSON 模版格式规范
+
+TGO 插件系统使用 JSON 模版描述 UI 内容，由宿主程序负责渲染。本文档定义所有支持的模版类型及其数据格式。
+
+## 模版结构
+
+所有模版响应遵循统一结构：
+
+```json
+{
+  "template": "模版类型",
+  "data": {
+    // 模版特定数据
+  }
+}
+```
+
+## 基础模版类型
+
+### text - 文本
+
+显示纯文本内容。
+
+```json
+{
+  "template": "text",
+  "data": {
+    "text": "这是一段文本内容",
+    "type": "default"
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `text` | string | 是 | 文本内容 |
+| `type` | string | 否 | 样式类型：`default` / `info` / `success` / `warning` / `error` |
+| `copyable` | boolean | 否 | 是否可复制 |
+
+**样式预览：**
+
+| type | 效果 |
+|------|------|
+| `default` | 普通黑色文本 |
+| `info` | 蓝色信息提示 |
+| `success` | 绿色成功提示 |
+| `warning` | 黄色警告提示 |
+| `error` | 红色错误提示 |
+
+---
+
+### key_value - 键值对
+
+以键值对形式展示数据，适合展示客户信息、配置项等。
+
+```json
+{
+  "template": "key_value",
+  "data": {
+    "title": "客户信息",
+    "items": [
+      {
+        "label": "会员等级",
+        "value": "黄金会员",
+        "icon": "crown",
+        "color": "#FFD700"
+      },
+      {
+        "label": "累计消费",
+        "value": "¥12,580.00"
+      },
+      {
+        "label": "注册时间",
+        "value": "2023-06-15",
+        "type": "date"
+      },
+      {
+        "label": "联系电话",
+        "value": "138****1234",
+        "copyable": true
+      }
+    ]
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `title` | string | 否 | 区块标题 |
+| `items` | array | 是 | 键值对列表 |
+| `items[].label` | string | 是 | 标签名 |
+| `items[].value` | string | 是 | 值 |
+| `items[].icon` | string | 否 | 图标名 |
+| `items[].color` | string | 否 | 值的颜色（十六进制） |
+| `items[].type` | string | 否 | 值类型：`text` / `date` / `datetime` / `currency` / `badge` |
+| `items[].copyable` | boolean | 否 | 是否可复制 |
+| `items[].link` | string | 否 | 点击跳转链接 |
+
+---
+
+### table - 表格
+
+表格形式展示数据，适合订单列表、操作记录等。
+
+```json
+{
+  "template": "table",
+  "data": {
+    "title": "最近订单",
+    "columns": [
+      {"key": "order_id", "label": "订单号", "width": 120},
+      {"key": "product", "label": "商品"},
+      {"key": "amount", "label": "金额", "align": "right"},
+      {"key": "status", "label": "状态", "type": "badge"}
+    ],
+    "rows": [
+      {
+        "order_id": "ORD-2024001",
+        "product": "商品A",
+        "amount": "¥299.00",
+        "status": {"text": "已完成", "color": "green"}
+      },
+      {
+        "order_id": "ORD-2024002",
+        "product": "商品B",
+        "amount": "¥599.00",
+        "status": {"text": "待发货", "color": "orange"}
+      }
+    ],
+    "pagination": {
+      "total": 15,
+      "page": 1,
+      "page_size": 5
+    },
+    "row_click_action": "show_detail"
+  }
+}
+```
+
+**columns 字段说明：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `key` | string | 是 | 数据字段名 |
+| `label` | string | 是 | 列标题 |
+| `width` | number | 否 | 列宽度（像素） |
+| `align` | string | 否 | 对齐：`left` / `center` / `right` |
+| `type` | string | 否 | 类型：`text` / `badge` / `link` / `date` / `datetime` |
+
+**rows 字段说明：**
+
+每行是一个对象，key 对应 columns 中定义的 key。当 column type 为 `badge` 时，值可以是对象：
+
+```json
+{"text": "已完成", "color": "green"}
+```
+
+支持的颜色：`green` / `orange` / `red` / `blue` / `gray`
+
+---
+
+### card - 卡片
+
+卡片形式展示，适合商品信息、用户资料等。
+
+```json
+{
+  "template": "card",
+  "data": {
+    "title": "商品详情",
+    "image": "https://example.com/product.jpg",
+    "fields": [
+      {"label": "商品名称", "value": "无线蓝牙耳机"},
+      {"label": "价格", "value": "¥299.00", "highlight": true},
+      {"label": "库存", "value": "128 件"}
+    ],
+    "tags": [
+      {"text": "热销", "color": "red"},
+      {"text": "新品", "color": "blue"}
+    ],
+    "actions": [
+      {"id": "view", "label": "查看详情", "type": "primary"},
+      {"id": "copy_link", "label": "复制链接", "type": "default"}
+    ]
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `title` | string | 否 | 卡片标题 |
+| `subtitle` | string | 否 | 副标题 |
+| `image` | string | 否 | 图片 URL |
+| `image_size` | string | 否 | 图片尺寸：`small` / `medium` / `large` |
+| `fields` | array | 否 | 字段列表 |
+| `tags` | array | 否 | 标签列表 |
+| `actions` | array | 否 | 操作按钮 |
+| `footer` | string | 否 | 底部文本 |
+
+---
+
+### cards - 多卡片列表
+
+展示多个卡片，适合商品推荐、搜索结果等。
+
+```json
+{
+  "template": "cards",
+  "data": {
+    "title": "相关商品",
+    "layout": "grid",
+    "columns": 2,
+    "items": [
+      {
+        "id": "p1",
+        "title": "商品A",
+        "image": "https://...",
+        "description": "商品描述...",
+        "price": "¥199"
+      },
+      {
+        "id": "p2",
+        "title": "商品B",
+        "image": "https://...",
+        "description": "商品描述...",
+        "price": "¥299"
+      }
+    ],
+    "item_click_action": "show_product"
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `layout` | string | 否 | 布局：`grid` / `list` |
+| `columns` | number | 否 | grid 布局的列数 |
+| `items` | array | 是 | 卡片列表 |
+| `item_click_action` | string | 否 | 点击卡片的动作 ID |
+
+---
+
+### link - 链接
+
+显示可点击的链接。
+
+```json
+{
+  "template": "link",
+  "data": {
+    "text": "查看订单详情",
+    "url": "https://crm.example.com/orders/12345",
+    "icon": "external-link",
+    "target": "_blank"
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `text` | string | 是 | 链接文本 |
+| `url` | string | 是 | 链接地址 |
+| `icon` | string | 否 | 图标 |
+| `target` | string | 否 | 打开方式：`_blank` / `_self` |
+| `description` | string | 否 | 链接描述 |
+
+---
+
+### links - 链接列表
+
+显示多个链接。
+
+```json
+{
+  "template": "links",
+  "data": {
+    "title": "快捷入口",
+    "items": [
+      {"text": "订单管理", "url": "https://...", "icon": "package"},
+      {"text": "客户档案", "url": "https://...", "icon": "user"},
+      {"text": "数据报表", "url": "https://...", "icon": "bar-chart"}
+    ]
+  }
+}
+```
+
+---
+
+### button - 按钮
+
+显示单个操作按钮。
+
+```json
+{
+  "template": "button",
+  "data": {
+    "label": "点击操作",
+    "action_id": "btn_click",
+    "type": "primary",
+    "size": "md",
+    "icon": "plus"
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `label` | string | 是 | 按钮文本 |
+| `action_id` | string | 是 | 动作 ID |
+| `type` | string | 否 | 样式：`primary` / `secondary` / `danger` / `link` |
+| `size` | string | 否 | 尺寸：`xs` / `sm` / `md` / `lg` |
+| `icon` | string | 否 | 图标 |
+| `disabled` | boolean | 否 | 是否禁用 |
+
+---
+
+### action - 操作按钮组
+
+显示多个操作按钮，点击触发插件动作。
+
+```json
+{
+  "template": "action",
+  "data": {
+    "buttons": [
+      {
+        "id": "create_ticket",
+        "label": "创建工单",
+        "icon": "plus",
+        "type": "primary",
+        "size": "sm"
+      },
+      {
+        "id": "sync_crm",
+        "label": "同步到 CRM",
+        "icon": "refresh-cw",
+        "type": "default"
+      }
+    ]
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `id` | string | 是 | 动作 ID，触发时回传 |
+| `label` | string | 是 | 按钮文本 |
+| `icon` | string | 否 | 图标 |
+| `type` | string | 否 | 样式：`primary` / `default` / `danger` / `ghost` |
+| `size` | string | 否 | 尺寸：`xs` / `sm` / `md` / `lg` |
+| `disabled` | boolean | 否 | 是否禁用 |
+| `confirm` | string | 否 | 点击确认提示文本 |
+| `loading` | boolean | 否 | 是否显示加载状态 |
+
+当按钮被点击时，宿主会发送请求：
+
+```json
+{
+  "method": "visitor_panel/action",
+  "params": {
+    "action_id": "create_ticket",
+    "visitor_id": "v_abc123",
+    "session_id": "s_xyz789"
+  }
+}
+```
+
+---
+
+### markdown - Markdown 内容
+
+渲染 Markdown 格式内容。
+
+```json
+{
+  "template": "markdown",
+  "data": {
+    "content": "## 帮助文档\n\n这是一段 **Markdown** 内容。\n\n- 列表项 1\n- 列表项 2\n\n```javascript\nconsole.log('Hello');\n```"
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `content` | string | 是 | Markdown 内容 |
+| `max_height` | number | 否 | 最大高度（像素），超出显示滚动条 |
+
+---
+
+### list - 列表
+
+简单列表展示。
+
+```json
+{
+  "template": "list",
+  "data": {
+    "title": "操作记录",
+    "items": [
+      {
+        "title": "创建了工单",
+        "description": "工单号: TK-001",
+        "time": "2024-12-27 14:30",
+        "icon": "plus"
+      },
+      {
+        "title": "发送了消息",
+        "description": "您好，请问有什么可以帮您？",
+        "time": "2024-12-27 14:25",
+        "icon": "message-circle"
+      }
+    ],
+    "show_more": true,
+    "more_action": "load_more"
+  }
+}
+```
+
+---
+
+### timeline - 时间线
+
+时间轴形式展示历史记录。
+
+```json
+{
+  "template": "timeline",
+  "data": {
+    "title": "服务记录",
+    "items": [
+      {
+        "time": "2024-12-27 14:30",
+        "title": "会话开始",
+        "description": "访客发起咨询",
+        "status": "success"
+      },
+      {
+        "time": "2024-12-27 14:32",
+        "title": "智能体接待",
+        "description": "AI 助手自动回复",
+        "status": "info"
+      },
+      {
+        "time": "2024-12-27 14:35",
+        "title": "转接人工",
+        "description": "转接至客服: 张三",
+        "status": "warning"
+      }
+    ]
+  }
+}
+```
+
+| status | 效果 |
+|--------|------|
+| `success` | 绿色节点 |
+| `info` | 蓝色节点 |
+| `warning` | 黄色节点 |
+| `error` | 红色节点 |
+| `default` | 灰色节点 |
+
+---
+
+### stats - 统计数据
+
+展示统计数据卡片。
+
+```json
+{
+  "template": "stats",
+  "data": {
+    "items": [
+      {
+        "label": "历史会话",
+        "value": "23",
+        "icon": "message-square",
+        "trend": "+5",
+        "trend_type": "up"
+      },
+      {
+        "label": "累计消费",
+        "value": "¥12,580",
+        "icon": "dollar-sign"
+      },
+      {
+        "label": "满意度",
+        "value": "98%",
+        "icon": "smile",
+        "color": "green"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### empty - 空状态
+
+当没有数据时显示的占位内容。
+
+```json
+{
+  "template": "empty",
+  "data": {
+    "icon": "inbox",
+    "title": "暂无订单",
+    "description": "该访客还没有下过订单",
+    "action": {
+      "id": "create_order",
+      "label": "创建订单"
+    }
+  }
+}
+```
+
+---
+
+### loading - 加载状态
+
+显示加载中状态。
+
+```json
+{
+  "template": "loading",
+  "data": {
+    "text": "正在加载订单信息..."
+  }
+}
+```
+
+---
+
+## 组合模版
+
+### group - 分组容器
+
+将多个模版组合在一起。
+
+```json
+{
+  "template": "group",
+  "data": {
+    "items": [
+      {
+        "template": "stats",
+        "data": {
+          "items": [
+            {"label": "会话数", "value": "23"},
+            {"label": "满意度", "value": "98%"}
+          ]
+        }
+      },
+      {
+        "template": "key_value",
+        "data": {
+          "title": "基本信息",
+          "items": [
+            {"label": "姓名", "value": "张三"},
+            {"label": "电话", "value": "138****1234"}
+          ]
+        }
+      },
+      {
+        "template": "table",
+        "data": {
+          "title": "最近订单",
+          "columns": [...],
+          "rows": [...]
+        }
+      }
+    ]
+  }
+}
+```
+
+### tabs - 标签页
+
+多标签页容器。
+
+```json
+{
+  "template": "tabs",
+  "data": {
+    "items": [
+      {
+        "key": "orders",
+        "label": "订单",
+        "icon": "package",
+        "content": {
+          "template": "table",
+          "data": {...}
+        }
+      },
+      {
+        "key": "records",
+        "label": "服务记录",
+        "icon": "clock",
+        "content": {
+          "template": "timeline",
+          "data": {...}
+        }
+      }
+    ],
+    "default_tab": "orders"
+  }
+}
+```
+
+---
+
+## 表单模版
+
+用于聊天工具栏弹窗。
+
+### form - 表单
+
+```json
+{
+  "template": "form",
+  "data": {
+    "title": "创建工单",
+    "fields": [
+      {
+        "name": "title",
+        "label": "工单标题",
+        "type": "text",
+        "required": true,
+        "placeholder": "请输入工单标题"
+      },
+      {
+        "name": "priority",
+        "label": "优先级",
+        "type": "select",
+        "options": [
+          {"value": "low", "label": "低"},
+          {"value": "medium", "label": "中"},
+          {"value": "high", "label": "高"}
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "category",
+        "label": "分类",
+        "type": "radio",
+        "options": [
+          {"value": "bug", "label": "Bug"},
+          {"value": "feature", "label": "功能需求"},
+          {"value": "question", "label": "咨询"}
+        ]
+      },
+      {
+        "name": "tags",
+        "label": "标签",
+        "type": "checkbox",
+        "options": [
+          {"value": "urgent", "label": "紧急"},
+          {"value": "vip", "label": "VIP客户"}
+        ]
+      },
+      {
+        "name": "description",
+        "label": "描述",
+        "type": "textarea",
+        "rows": 4
+      }
+    ],
+    "submit_text": "提交",
+    "cancel_text": "取消"
+  }
+}
+```
+
+**表单字段类型：**
+
+| type | 说明 |
+|------|------|
+| `text` | 单行文本 |
+| `textarea` | 多行文本 |
+| `number` | 数字输入 |
+| `select` | 下拉选择 |
+| `radio` | 单选按钮 |
+| `checkbox` | 多选框 |
+| `date` | 日期选择 |
+| `datetime` | 日期时间 |
+| `switch` | 开关 |
+| `hidden` | 隐藏字段 |
+
+---
+
+## 最佳实践
+
+### 1. 优雅降级
+
+当数据不可用时，返回友好的空状态：
+
+```json
+{
+  "template": "empty",
+  "data": {
+    "title": "暂无数据",
+    "description": "系统暂时无法获取信息，请稍后重试"
+  }
+}
+```
+
+### 2. 加载状态
+
+长时间操作时先返回加载状态：
+
+```json
+{
+  "template": "loading",
+  "data": {
+    "text": "正在查询..."
+  }
+}
+```
+
+### 3. 分页处理
+
+大量数据使用分页：
+
+```json
+{
+  "template": "table",
+  "data": {
+    "rows": [...],
+    "pagination": {
+      "total": 100,
+      "page": 1,
+      "page_size": 10
+    }
+  }
+}
+```
+
+### 4. 操作反馈
+
+按钮操作后返回结果提示：
+
+```json
+{
+  "template": "text",
+  "data": {
+    "text": "工单创建成功！工单号: TK-12345",
+    "type": "success"
+  }
+}
+```
+
+## 下一步
+
+- [完整示例](/plugin/examples) - 查看完整的插件实现代码

@@ -1,0 +1,92 @@
+---
+title: Extension Points
+description: Detailed explanations of TGO's multiple extension points, including visitor panel, chat toolbar, iframe applications, and more.
+---
+
+TGO provides multiple extension points to allow plugins to extend customer service system functionalities.
+
+## Visitor Panel (visitor_panel)
+
+Add custom content blocks to the visitor information panel in the chat interface. Suitable for displaying CRM data, order records, etc.
+
+### SDK Implementation (Go)
+
+```go
+func (p *MyPlugin) OnVisitorPanelRender(ctx *tgo.RenderContext) tgo.Template {
+	return tgo.NewGroup().
+		Add(tgo.NewKeyValue("Customer Information").
+			Add("Level", "VIP", tgo.KeyValueIcon("crown"), tgo.KeyValueColor("#FFD700")).
+			Add("Total Spent", ctx.Visitor.Metadata["total_spent"])).
+		Add(tgo.NewButton("View CRM", "view_crm").SetSize("sm"))
+}
+
+func (p *MyPlugin) OnVisitorPanelEvent(ctx *tgo.EventContext) *tgo.Action {
+	if ctx.ActionID == "view_crm" {
+		return tgo.OpenURL("https://crm.example.com/" + ctx.VisitorID, "_blank")
+	}
+	return tgo.Noop()
+}
+```
+
+---
+
+## Chat Toolbar (chat_toolbar)
+
+Add custom buttons to the input box toolbar.
+
+### SDK Implementation (Python)
+
+```python
+def on_chat_toolbar_render(self, ctx: RenderContext):
+    # 返回一个表单
+    return Form("Create Ticket")\
+        .add(FormField("title", "Title", "text"))\
+        .add(FormField("priority", "Priority", "select")
+            .add_option("High", "high")
+            .add_option("Low", "low"))
+
+def on_chat_toolbar_event(self, ctx: EventContext):
+    if ctx.event_type == "form_submit":
+        title = ctx.form_data.get("title")
+        return Action.show_toast(f"Ticket {title} created successfully").then(Action.close_modal())
+```
+
+---
+
+## Sidebar Iframe (sidebar_iframe)
+
+Add independent iframe applications to the right sidebar of the chat interface. Suitable for integrating complex third-party systems.
+
+### SDK Implementation (Go)
+
+```go
+func (p *MyPlugin) OnSidebarIframeConfig(params map[string]any) any {
+	return map[string]any{
+		"url": "https://your-app.com/embed",
+		"title": "Data Dashboard",
+		"icon": "bar-chart",
+		"width": 400,
+	}
+}
+```
+
+---
+
+## Channel Integration (channel_integration)
+
+Extend new message integration channels (e.g., custom IM platforms).
+
+### SDK Implementation (Python)
+
+```python
+def on_channel_integration_manifest(self, params: Dict):
+    return {
+        "channel_type": "my_im",
+        "name": "My IM",
+        "config_schema": { ... }, # JSON Schema
+        "capabilities": {
+            "send_text": True,
+            "receive_text": True
+        }
+    }
+```

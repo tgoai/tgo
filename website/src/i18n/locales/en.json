@@ -1,0 +1,114 @@
+{
+  "Nav": {
+    "docs": "Docs",
+    "plugins": "Plugins",
+    "store": "Store"
+  },
+  "TgoSection": {
+    "title": "AI Customer Service Platform",
+    "descriptionLine1": "Dedicated to helping enterprises build [AI agent teams for customer service]",
+    "descriptionLine2": "It integrates multi-channel access, agent orchestration, knowledge base management (RAG), human agent collaboration, and more core features.",
+    "buttons": {
+      "getStarted": "Get Started",
+      "readDocs": "Read Docs"
+    }
+  },
+  "CoreCapabilities": {
+    "title": "Core Capabilities",
+    "description": "TGO provides a series of core capabilities to help developers build and manage applications more efficiently.",
+    "cards": {
+      "intelligentOrchestration": {
+        "title": "AI Agent Orchestration",
+        "features": [
+          "Multi-Agent Support - Supports configuring multiple AI agents, with the ability to select different Agents based on business scenarios",
+          "Multi-Model Integration - Supports integrating multiple large model providers (OpenAI, Anthropic, etc.)",
+          "Streaming Responses - Based on SSE, real-time streaming message transmission, instantly showing AI replies",
+          "Context Understanding - Supports historical conversation records, enabling AI to provide coherent conversation experiences based on context"
+        ]
+      },
+      "knowledgeManagement": {
+        "title": "Knowledge Base Management (RAG)",
+        "features": [
+          "Document Knowledge Base - Supports uploading documents to build knowledge bases, enhancing AI answer accuracy",
+          "QA Knowledge Base - Q&A pairs form of knowledge management, quickly expanding AI knowledge",
+          "Website Knowledge Base - Grabs website content to build knowledge bases, keeping information synchronized",
+          "Intelligent Retrieval - Semantic search based on vectors, accurately matching answers"
+        ]
+      },
+      "mcpToolIntegration": {
+        "title": "MCP Tool Integration",
+        "features": [
+          "Tool Store - Rich MCP tool library, enable as needed",
+          "Custom Tools - Support project-level tool configuration and management",
+          "OpenAPI Schema - Automatically parse Schema to generate interactive forms"
+        ]
+      },
+      "multiChannelAccess": {
+        "title": "Multi-Channel Access",
+        "features": [
+          "Web Widget - Embeddable chat widget for websites",
+          "WeChat Integration - Supports public account, mini program access",
+          "Unified Management - Manage all access channels in one backend"
+        ]
+      },
+      "realTimeCommunication": {
+        "title": "Real-Time Communication",
+        "features": [
+          "悟空 IM Integration - Deep integration with悟空 IM, providing stable and reliable instant messaging capabilities",
+          "WebSocket Long Connection - Efficient bidirectional communication, supporting immediate message push",
+          "Message Status Synchronization - Read/unread status, message delivery confirmation",
+          "Multimedia Support - Supports text, images, files, etc. multiple message types"
+        ]
+      },
+      "humanAgentCollaboration": {
+        "title": "Human-Agent Collaboration",
+        "features": [
+          "Intelligent Transfer - Seamlessly transfers to human agents when necessary",
+          "Visitor Management - Collects visitor information, assigns sessions, and maintains session history",
+          "Agent Workspace - Unified interface for human agents to handle customer service tasks"
+        ]
+      },
+      "uiWidgetSystem": {
+        "title": "UI Widget System",
+        "features": [
+          "Structured Presentation - Presents order, product, logistics information in a beautiful card format",
+          "Rich Components - Includes order card, logistics tracking, product display, price comparison, etc.",
+          "Interaction Protocol - Standardized Action URI protocol, supports link jump, message sending, content copying"
+        ]
+      }
+    }
+  },
+  "GetStarted": {
+    "heading": "Get Started with Tgo",
+    "subheading": "Quickly start using Tgo to build your AI customer service application.",
+    "cards": {
+      "docs": {
+        "title": "Quickstart Guide",
+        "description": "Detailed documentation and tutorials to help you get started with Tgo."
+      },
+      "github": {
+        "title": "GitHub Repository",
+        "description": "Access our open-source code and contribute to the community."
+      },
+      "contact": {
+        "title": "Contact Us",
+        "description": "Get technical support or learn about enterprise-level deployment options."
+      }
+    }
+  },
+  "Footer": {
+    "title": "Tgo",
+    "description": "Tgo is an open-source AI customer service platform committed to helping enterprises [build AI agent teams to serve customers].",
+    "store": {
+      "title": "Store",
+      "toolStore": "Tool Store",
+      "modelMarket": "Model Market"
+    },
+    "resources": {
+      "title": "Resources",
+      "docs": "Documentation",
+      "contact": "Contact Us"
+    },
+    "copyright": "2026 Tgo AI-Powered Customer Service System. All rights reserved."
+  }
+}

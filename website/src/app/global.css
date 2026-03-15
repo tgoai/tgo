@@ -1,0 +1,131 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/ocean.css";
+@import "fumadocs-ui/css/preset.css";
+@import "fumadocs-openapi/css/preset.css";
+
+:root {
+  --color-fd-primary: hsl(221.21 83.19% 53.33%);
+  --separator: lab(90.6853% 0.399232 -1.45452);
+}
+
+.dark {
+  --color-fd-primary: hsl(221.21 83.19% 53.33%);
+  --separator: lab(12.9463% 0.616677 -2.16783);
+}
+
+/* ============================================================================
+   FUMADOCS UI - NAVIGATION COMPONENTS
+   ============================================================================ */
+
+#nd-notebook-layout {
+  transition: none;
+}
+
+/* Main Navigation */
+#nd-subnav {
+  border: none;
+  background-color: transparent;
+
+  &:after {
+    content: "";
+    display: block;
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    height: 1px;
+    z-index: 1;
+    background: var(--separator);
+  }
+
+  [data-header-body] {
+    @apply h-13 border-none px-4;
+  }
+
+  [data-header-tabs] {
+    @apply gap-1 border-none px-4;
+
+    a {
+      @apply px-1 pb-2;
+    }
+
+    .border-fd-primary {
+      border-color: var(--color-accent);
+    }
+
+    [data-frameworks-tabs] {
+      @apply flex items-center;
+
+      .tabs__list-container {
+        @apply w-auto;
+      }
+
+      .tabs__list {
+        @apply w-auto;
+      }
+    }
+  }
+}
+
+/* Sidebar */
+#nd-sidebar {
+  @apply pt-0 pl-3 transition-none;
+  & > [class="flex flex-col gap-3 p-4 pb-2 empty:hidden"] {
+    @apply hidden;
+  }
+
+  & > :last-child {
+    border-top: none;
+  }
+
+  [data-radix-scroll-area-viewport] {
+    @apply pt-4;
+
+    p:not(:first-child) {
+      @apply mt-4;
+    }
+  }
+
+  [data-fd-if-empty] {
+    @apply hidden;
+  }
+}
+
+#nd-page {
+  @apply mt-4 gap-4 p-4 px-6 sm:px-4 md:px-6 md:pt-0 xl:px-12 xl:pt-6;
+
+  > article {
+    @apply p-8;
+
+    position: static;
+  }
+
+  @media (min-width: 80rem) {
+    margin-top: 0;
+  }
+
+  @media (max-width: 48rem) {
+    > article {
+      @apply p-2;
+    }
+  }
+
+  .component-preview-container {
+    /* Preview and code are now displayed vertically */
+
+    .code-section {
+      .code-block-wrapper {
+        @apply rounded-none rounded-b-xl;
+      }
+    }
+  }
+}
+
+#nd-toc {
+  @apply right-0 pt-6 pl-4 transition-none;
+  [role="none"] {
+    display: none;
+    background: transparent;
+  }
+}

@@ -1,0 +1,61 @@
+---
+title: Plugin Manifest (plugin.yml)
+description: Understand the `plugin.yml` configuration file for TGO plugins, including plugin metadata, source location, and TGO's build and runtime instructions.
+---
+
+`plugin.yml` is the "identity card" of TGO plugins, defining plugin metadata, source location, and TGO's build and runtime instructions. It is the core file for plugin automation deployment and upgrade.
+
+## Full Configuration Example
+
+```yaml
+# Basic Information
+id: com.example.my-plugin        # Plugin globally unique ID
+name: my-plugin                  # Plugin display name
+version: 1.0.0                   # Version number
+description: A sample plugin for TGO     # Plugin description
+author: TGO Team                 # Author
+
+# Source Configuration (Supports GitHub/Gitee)
+source:
+  github:
+    repo: tgoai/my-plugin-repo   # Repository path
+    path: ./                     # Subpath of plugin code in the repository
+    ref: main                    # Branch/Tag (optional, default main)
+
+# Build Configuration
+build:
+  language: go                   # Supported languages: go, python, nodejs, binary
+  go:
+    main: ./main.go              # Entry file
+    output: my-plugin-bin        # Compiled artifact name
+  # python does not require additional configuration, just specify language: python
+
+# Runtime Configuration
+runtime:
+  command: ./my-plugin-bin       # (Optional) Custom startup command
+  auto_restart: true             # Whether to automatically restart the process after a crash
+```
+
+## Field Details
+
+### source (Source Configuration)
+TGO runtime will automatically fetch the code based on this configuration:
+- **github/repo**: Format is `username/repository-name`.
+- **path**: If the plugin code is in a subdirectory of the repository, specify the path.
+
+### build (Build Configuration)
+TGO plugins come with pre-configured build environments for common languages:
+- **go**: Automatically executes `go build`.
+- **python**: Automatically creates a virtual environment and installs `requirements.txt`.
+- **nodejs**: Automatically executes `npm install`.
+- **binary**: Directly runs the pre-built binary file in the repository.
+
+### runtime (Runtime Configuration)
+- **command**: TGO will automatically generate the startup command based on the language (e.g., `go run` or `python main.py`). If you need special parameters, you can customize them here.
+- **auto_restart**: It is highly recommended to enable this option to ensure the high availability of the plugin.
+
+## Placement
+`plugin.yml` must be placed in the **root directory** of the plugin project.
+
+## Validation
+When installing a plugin, you only need to provide the URL of `plugin.yml`. TGO will parse and display the content of the file in real time. If the parsing fails, please check if the YAML syntax is correct.

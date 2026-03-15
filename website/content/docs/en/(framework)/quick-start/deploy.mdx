@@ -1,0 +1,55 @@
+---
+title: One-click deployment
+description: Deploy TGO in 5 minutes with one-click deployment script.
+---
+
+How to use the one-click deployment script to quickly install TGO.
+
+## Oversea network (GitHub)
+
+Execute directly on the target server:
+
+```bash
+REF=latest curl -fsSL https://raw.githubusercontent.com/tgoai/tgo/main/bootstrap.sh | bash
+```
+
+## Mainland network (Gitee + Alibaba Cloud mirror)
+
+If deploying in China, it is recommended to use the domestic accelerated version:
+
+```bash
+REF=latest curl -fsSL https://gitee.com/tgoai/tgo/raw/main/bootstrap_cn.sh | bash
+```
+
+## Version specification
+
+The `REF` environment variable is used to specify the version to deploy:
+
+- `REF=latest`：Deploy the current latest version of the default branch in the repository
+- Can also be changed to a specific Tag/branch/commit number, e.g. `REF=v1.0.0`
+
+## Port configuration
+
+TGO defaults to using the following ports:
+
+| Port | Purpose |
+|------|---------|
+| **80** | HTTP access |
+| **443** | HTTPS access |
+
+If the ports are occupied, the installation script will automatically assign other available ports (e.g. 8080, 8443).
+
+## How to access after installation
+
+After installation, you can access TGO through the following methods:
+
+- **Local browser**：`http://localhost`
+- **Remote access**：`http://<server IP>` or configured domain name
+
+If the ports are modified, remember to add the port number in the URL, e.g. `http://<server IP>:8080`
+
+## Next steps
+
+- [Common questions](/en/quick-start/faq) - Encountered problems during installation?
+- [Configure domain name and SSL certificate](/en/config/domain-ssl) - Set up domain name and HTTPS
+- [Environment variables](/en/config/env-vars) - Customize configuration

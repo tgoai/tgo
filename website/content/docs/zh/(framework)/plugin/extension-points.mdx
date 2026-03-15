@@ -1,0 +1,92 @@
+---
+title: 扩展点详解
+description: 详细了解 TGO 提供的多个扩展点，包括访客面板、聊天工具栏、iframe 应用等。
+---
+
+TGO 提供多个扩展点，允许插件在不同位置扩展客服系统功能。
+
+## 访客面板 (visitor_panel)
+
+在聊天界面右侧的访客信息面板中添加自定义内容块。适用于展示 CRM 数据、订单记录等。
+
+### SDK 实现 (Go)
+
+```go
+func (p *MyPlugin) OnVisitorPanelRender(ctx *tgo.RenderContext) tgo.Template {
+	return tgo.NewGroup().
+		Add(tgo.NewKeyValue("客户信息").
+			Add("级别", "VIP", tgo.KeyValueIcon("crown"), tgo.KeyValueColor("#FFD700")).
+			Add("最近消费", ctx.Visitor.Metadata["total_spent"])).
+		Add(tgo.NewButton("查看 CRM", "view_crm").SetSize("sm"))
+}
+
+func (p *MyPlugin) OnVisitorPanelEvent(ctx *tgo.EventContext) *tgo.Action {
+	if ctx.ActionID == "view_crm" {
+		return tgo.OpenURL("https://crm.example.com/" + ctx.VisitorID, "_blank")
+	}
+	return tgo.Noop()
+}
+```
+
+---
+
+## 聊天工具栏 (chat_toolbar)
+
+在输入框上方的工具栏添加自定义按钮。
+
+### SDK 实现 (Python)
+
+```python
+def on_chat_toolbar_render(self, ctx: RenderContext):
+    # 返回一个表单
+    return Form("创建工单")\
+        .add(FormField("title", "标题", "text"))\
+        .add(FormField("priority", "优先级", "select")
+            .add_option("高", "high")
+            .add_option("低", "low"))
+
+def on_chat_toolbar_event(self, ctx: EventContext):
+    if ctx.event_type == "form_submit":
+        title = ctx.form_data.get("title")
+        return Action.show_toast(f"工单 {title} 已创建").then(Action.close_modal())
+```
+
+---
+
+## iframe 应用 (sidebar_iframe)
+
+在聊天界面最右侧添加独立的 iframe 应用。适用于集成复杂的第三方系统。
+
+### SDK 实现 (Go)
+
+```go
+func (p *MyPlugin) OnSidebarIframeConfig(params map[string]any) any {
+	return map[string]any{
+		"url": "https://your-app.com/embed",
+		"title": "数据看板",
+		"icon": "bar-chart",
+		"width": 400,
+	}
+}
+```
+
+---
+
+## 第三方平台接入 (channel_integration)
+
+扩展新的消息接入渠道（如自定义 IM 平台）。
+
+### SDK 实现 (Python)
+
+```python
+def on_channel_integration_manifest(self, params: Dict):
+    return {
+        "channel_type": "my_im",
+        "name": "我的 IM",
+        "config_schema": { ... }, # JSON Schema
+        "capabilities": {
+            "send_text": True,
+            "receive_text": True
+        }
+    }
+```

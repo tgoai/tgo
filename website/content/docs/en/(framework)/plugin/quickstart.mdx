@@ -1,0 +1,133 @@
+---
+title: Quickstart
+description: Develop your first TGO plugin in 5 minutes using the official SDK.
+---
+
+This guide will help you create and run your first TGO plugin in 5 minutes using the official SDK.
+
+## Prerequisites
+
+- Go 1.18+ or Python 3.8+ installed
+- TGO system deployed and running (or connected to the test environment)
+
+## Using Go SDK
+
+### 1. Initialize Project
+
+```bash
+mkdir my-plugin && cd my-plugin
+go mod init my-plugin
+go get github.com/tgoai/tgo-plugin-go
+```
+
+### 2. Write Code (`main.go`)
+
+```go
+package main
+
+import (
+	"github.com/tgoai/tgo-plugin-go"
+)
+
+type MyPlugin struct { tgo.BasePlugin }
+
+func (p *MyPlugin) ID() string      { return "com.example.hello" }
+func (p *MyPlugin) Name() string    { return "Hello Plugin" }
+func (p *MyPlugin) Version() string { return "1.0.0" }
+
+func (p *MyPlugin) Capabilities() []tgo.Capability {
+	return []tgo.Capability{
+		tgo.VisitorPanel("hello", tgo.WithIcon("hand")),
+	}
+}
+
+func (p *MyPlugin) OnVisitorPanelRender(ctx *tgo.RenderContext) tgo.Template {
+	return tgo.NewText("hello, TGO SDK!").SetSize("lg").SetBold(true)
+}
+
+func main() {
+	tgo.Run(&MyPlugin{})
+}
+```
+
+### 3. Run Plugin
+
+```bash
+go run main.go
+```
+
+---
+
+## Using Python SDK
+
+### 1. Install SDK
+
+```bash
+pip install tgo-plugin-python
+```
+
+### 2. Write Code (`main.py`)
+
+```python
+from tgo_plugin import TGOPlugin, Capability, RenderContext, Text
+
+class HelloPlugin(TGOPlugin):
+    id = "com.example.hello"
+    name = "Hello Plugin"
+    version = "1.0.0"
+
+    capabilities = [
+        Capability.visitor_panel(title="hello", icon="hand")
+    ]
+
+    def on_visitor_panel_render(self, ctx: RenderContext):
+        return Text("hello, TGO SDK!").set_size("lg").set_bold(True)
+
+if __name__ == "__main__":
+    HelloPlugin().run()
+```
+
+### 3. Run Plugin
+
+```bash
+python main.py
+```
+
+## Write Plugin Manifest (`plugin.yml`)
+
+Regardless of which SDK you use, every plugin must include a plugin.yml file. This file defines the plugin's metadata, source code address, and compilation/running instructions. TGO automatically handles plugin downloading, building, and lifecycle management through this file.
+
+Create plugin.yml in the project root directory (see Plugin Configuration Specification for details):
+
+``` yaml
+id: com.example.hello
+name: hello-plugin
+version: 1.0.0
+description: My first TGO plugin
+author: Your Name
+source:
+  github:
+    repo: your-username/my-plugin-repo  # Your GitHub repository address
+    path: ./                           # Path to plugin code in the repository
+build:
+  language: go                         # Or python
+  go:
+    main: ./main.go                    # Entry file
+    output: hello-plugin               # Compiled file name
+runtime:
+  auto_restart: true                   # Auto-restart after process exit
+```
+## Deploy to TGO
+TGO supports installing plugins directly from Git repositories without manual code upload:
+
+1. Commit code : Commit your code (including main.go/py and plugin.yml ) to GitHub or Gitee.
+2. Get address : Copy the raw file (Raw) address or directory address of your plugin.yml on GitHub.
+   - Directory address example: https://github.com/your-user/repo/tree/main/my-plugin
+3. Install plugin :
+   - Enter TGO management backend → Plugin Market → click "Install Plugin".
+   - Paste the above address in the URL bar and click "Get Information".
+   - TGO will automatically recognize the configuration in plugin.yml , then click "Confirm Installation".
+4. Running status : After installation, TGO will automatically download the code, execute the build, and start the plugin.
+## Next Steps
+- SDK Development Guide : Learn how to build complex tables, forms, and chained actions.
+- Extension Points Details : Learn about other places you can extend besides the visitor panel.

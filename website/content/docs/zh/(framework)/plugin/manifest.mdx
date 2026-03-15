@@ -1,0 +1,61 @@
+---
+title: 插件配置 (plugin.yml)
+description: 了解 TGO 插件系统的插件配置文件 `plugin.yml`，包括插件的基本信息、源码位置以及 TGO 如何构建和运行该插件。
+---
+
+`plugin.yml` 是 TGO 插件的“身份卡”，它定义了插件的基本信息、源码位置以及 TGO 如何构建和运行该插件。它是实现插件自动化部署、升级的核心文件。
+
+## 完整配置示例
+
+```yaml
+# 基础信息
+id: com.example.my-plugin        # 插件全局唯一 ID
+name: my-plugin                  # 插件显示名称
+version: 1.0.0                   # 版本号
+description: 这是一个示例插件     # 插件描述
+author: TGO Team                 # 作者
+
+# 源码配置 (支持 GitHub/Gitee)
+source:
+  github:
+    repo: tgoai/my-plugin-repo   # 仓库路径
+    path: ./                     # 插件代码在仓库中的子路径
+    ref: main                    # 分支/Tag (可选，默认 main)
+
+# 构建配置
+build:
+  language: go                   # 支持: go, python, nodejs, binary
+  go:
+    main: ./main.go              # 入口文件
+    output: my-plugin-bin        # 编译产物名称
+  # python 不需要额外配置，只需指定 language: python
+
+# 运行时配置
+runtime:
+  command: ./my-plugin-bin       # (可选) 自定义启动指令
+  auto_restart: true             # 进程崩溃后是否自动重启
+```
+
+## 字段详解
+
+### source (源码)
+TGO 运行时会根据此配置自动拉取代码：
+- **github/repo**: 格式为 `用户名/仓库名`。
+- **path**: 如果插件在仓库的子目录下，需指定路径。
+
+### build (构建)
+TGO 插件运行时内置了常见的编译环境：
+- **go**: 自动执行 `go build`。
+- **python**: 自动创建虚拟环境并安装 `requirements.txt`。
+- **nodejs**: 自动执行 `npm install`。
+- **binary**: 直接运行仓库中已有的二进制文件。
+
+### runtime (运行时)
+- **command**: TGO 默认会根据语言自动生成启动指令（如 `go run` 或 `python main.py`）。如果需要特殊参数，可以在此自定义。
+- **auto_restart**: 强烈建议开启，确保插件的高可用性。
+
+## 放置位置
+`plugin.yml` 必须放置在插件项目的**根目录**下。
+
+## 如何验证
+在安装插件时，只需提供 `plugin.yml` 的 URL，TGO 会实时解析并显示该文件的内容。如果解析失败，请检查 YAML 语法是否正确。

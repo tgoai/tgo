@@ -1,0 +1,5 @@
+{
+  "title": "配置",
+  "description": "如何配置 TGO 系统的域名和证书。",
+  "pages": ["env-vars", "domain-ssl"]
+}

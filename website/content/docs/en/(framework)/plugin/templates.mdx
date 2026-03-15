@@ -1,0 +1,759 @@
+---
+title: Template format specification
+description: Understand all UI component template formats supported by the TGO plugin system.
+---
+
+## JSON Template Format Specification
+
+The TGO plugin system uses JSON templates to describe UI content, with the host program responsible for rendering. This document defines all supported template types and their data formats.
+
+## Template Structure
+
+All template responses follow a uniform structure:
+
+```json
+{
+  "template": "template type",
+  "data": {
+    // Template-specific data
+  }
+}
+```
+
+## Basic Template Types
+
+### text - Text
+
+Displays plain text content.
+
+```json
+{
+  "template": "text",
+  "data": {
+    "text": "This is a piece of text content",
+    "type": "default"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `text` | string | Yes | Text content |
+| `type` | string | No | Style type: `default` / `info` / `success` / `warning` / `error` |
+| `copyable` | boolean | No | Whether to enable copy function |
+
+**Style Preview：**
+
+| type | Effect |
+|------|------|
+| `default` | Normal black text |
+| `info` | Blue information prompt |
+| `success` | Green success prompt |
+| `warning` | Yellow warning prompt |
+| `error` | Red error prompt |
+
+---
+
+### key_value - Key-Value Pairs
+
+Displays data in key-value pairs format, suitable for showing customer information, configuration items, etc.
+
+```json
+{
+  "template": "key_value",
+  "data": {
+    "title": "Customer Information",
+    "items": [
+      {
+        "label": "Member Level",
+        "value": "gold member",
+        "icon": "crown",
+        "color": "#FFD700"
+      },
+      {
+        "label": "Total Spent",
+        "value": "¥12,580.00"
+      },
+      {
+        "label": "Registration Date",
+        "value": "2023-06-15",
+        "type": "date"
+      },
+      {
+        "label": "Contact Phone",
+        "value": "138****1234",
+        "copyable": true
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `title` | string | No | Block title |
+| `items` | array | Yes | Key-value pair list |
+| `items[].label` | string | Yes | Label name |
+| `items[].value` | string | Yes | Value |
+| `items[].icon` | string | No | Icon name |
+| `items[].color` | string | No | Value color (hex) |
+| `items[].type` | string | No | Value type: `text` / `date` / `datetime` / `currency` / `badge` |
+| `items[].copyable` | boolean | No | Whether to enable copy function |
+| `items[].link` | string | No | Click jump link |
+
+---
+
+### table - Table
+
+Displays data in tabular form, suitable for order lists, operation records, etc.
+
+```json
+{
+  "template": "table",
+  "data": {
+    "title": "最近订单",
+    "columns": [
+      {"key": "order_id", "label": "订单号", "width": 120},
+      {"key": "product", "label": "商品"},
+      {"key": "amount", "label": "金额", "align": "right"},
+      {"key": "status", "label": "状态", "type": "badge"}
+    ],
+    "rows": [
+      {
+        "order_id": "ORD-2024001",
+        "product": "Product A",
+        "amount": "¥299.00",
+        "status": {"text": "done", "color": "green"}
+      },
+      {
+        "order_id": "ORD-2024002",
+        "product": "Product B",
+        "amount": "¥599.00",
+        "status": {"text": "pending", "color": "orange"}
+      }
+    ],
+    "pagination": {
+      "total": 15,
+      "page": 1,
+      "page_size": 5
+    },
+    "row_click_action": "show_detail"
+  }
+}
+```
+
+**columns Field Description:**
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `key` | string | Yes | Data field name |
+| `label` | string | Yes | Column title |
+| `width` | number | No | Column width (px) |
+| `align` | string | No | Alignment: `left` / `center` / `right` |
+| `type` | string | No | Type: `text` / `badge` / `link` / `date` / `datetime` |
+
+**rows Field Description:**
+
+Each row is an object, with keys corresponding to the `key` field in `columns`. When the column type is `badge`, the value can be an object:
+
+```json
+{"text": "done", "color": "green"}
+```
+
+Supported colors: `green` / `orange` / `red` / `blue` / `gray`
+
+---
+
+### card - Card
+
+Displays data in card form, suitable for product information, user profiles, etc.
+
+```json
+{
+  "template": "card",
+  "data": {
+    "title": "Product Details",
+    "image": "https://example.com/product.jpg",
+    "fields": [
+      {"label": "Product Name", "value": "Wireless Bluetooth Headphones"},
+      {"label": "Price", "value": "¥299.00", "highlight": true},
+      {"label": "Stock", "value": "128 pieces"}
+    ],
+    "tags": [
+      {"text": "Hot", "color": "red"},
+      {"text": "New", "color": "blue"}
+    ],
+    "actions": [
+      {"id": "view", "label": "View Details", "type": "primary"},
+      {"id": "copy_link", "label": "Copy Link", "type": "default"}
+    ]
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `title` | string | No | Card title |
+| `subtitle` | string | No | Subtitle |
+| `image` | string | No | Image URL |
+| `image_size` | string | No | Image size: `small` / `medium` / `large` |
+| `fields` | array | No | Field list |
+| `tags` | array | No | Tag list |
+| `actions` | array | No | Action buttons |
+| `footer` | string | No | Footer text |
+
+---
+
+### cards - Multi-Card List
+
+Displays multiple cards, suitable for product recommendations, search results, etc.
+
+```json
+{
+  "template": "cards",
+  "data": {
+    "title": "Related Products",
+    "layout": "grid",
+    "columns": 2,
+    "items": [
+      {
+        "id": "p1",
+        "title": "Product A",
+        "image": "https://...",
+        "description": "Product description...",
+        "price": "¥199"
+      },
+      {
+        "id": "p2",
+        "title": "Product B",
+        "image": "https://...",
+        "description": "Product description...",
+        "price": "¥299"
+      }
+    ],
+    "item_click_action": "show_product"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `layout` | string | No | Layout: `grid` / `list` |
+| `columns` | number | No | Number of columns in grid layout |
+| `items` | array | Yes | Card list |
+| `item_click_action` | string | No | Action ID when clicking a card |
+
+---
+
+### link - Link
+
+Displays a clickable link.
+
+```json
+{
+  "template": "link",
+  "data": {
+    "text": "View Order Details",
+    "url": "https://crm.example.com/orders/12345",
+    "icon": "external-link",
+    "target": "_blank"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `text` | string | Yes | Link text |
+| `url` | string | Yes | Link URL |
+| `icon` | string | No | Icon |
+| `target` | string | No | Open method: `_blank` / `_self` |
+| `description` | string | No | Link description |
+
+---
+
+### links - Link List
+
+Displays multiple links.
+
+```json
+{
+  "template": "links",
+  "data": {
+    "title": "Quick Entries",
+    "items": [
+      {"text": "Order Management", "url": "https://...", "icon": "package"},
+      {"text": "Customer Profile", "url": "https://...", "icon": "user"},
+      {"text": "Data Reports", "url": "https://...", "icon": "bar-chart"}
+    ]
+  }
+}
+```
+
+---
+
+### button - Button
+
+Displays a single operation button.
+
+```json
+{
+  "template": "button",
+  "data": {
+    "label": "Click Action",
+    "action_id": "btn_click",
+    "type": "primary",
+    "size": "md",
+    "icon": "plus"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `label` | string | Yes | Button text |
+| `action_id` | string | Yes | Action ID |
+| `type` | string | No | Style: `primary` / `secondary` / `danger` / `link` |
+| `size` | string | No | Size: `xs` / `sm` / `md` / `lg` |
+| `icon` | string | No | Icon |
+| `disabled` | boolean | No | Whether to disable the button |
+
+---
+
+### action - Action Button Group
+
+Displays multiple operation buttons, clicking which triggers plugin actions.
+
+```json
+{
+  "template": "action",
+  "data": {
+    "buttons": [
+      {
+        "id": "create_ticket",
+        "label": "Create Ticket",
+        "icon": "plus",
+        "type": "primary",
+        "size": "sm"
+      },
+      {
+        "id": "sync_crm",
+        "label": "Sync to CRM",
+        "icon": "refresh-cw",
+        "type": "default"
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `id` | string | Yes | Action ID, passed back when clicked |
+| `label` | string | Yes | Button text |
+| `icon` | string | No | Icon |
+| `type` | string | No | Style: `primary` / `default` / `danger` / `ghost` |
+| `size` | string | No | Size: `xs` / `sm` / `md` / `lg` |
+| `disabled` | boolean | No | Whether to disable the button |
+| `confirm` | string | No | Click confirm prompt text |
+| `loading` | boolean | No | Whether to show loading state |
+
+When a button is clicked, the host will send a request:
+
+```json
+{
+  "method": "visitor_panel/action",
+  "params": {
+    "action_id": "create_ticket",
+    "visitor_id": "v_abc123",
+    "session_id": "s_xyz789"
+  }
+}
+```
+
+---
+
+### markdown - Markdown Content
+
+Renders Markdown formatted content.
+
+```json
+{
+  "template": "markdown",
+  "data": {
+    "content": "## Help Documents\n\nThis is a segment **Markdown** content.\n\n- List item 1\n- List item 2\n\n```javascript\nconsole.log('Hello');\n```"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `content` | string | Yes | Markdown content |
+| `max_height` | number | No | Maximum height (px), with scrollbar if overflow |
+
+---
+
+### list - List
+
+Simple list display.
+
+```json
+{
+  "template": "list",
+  "data": {
+    "title": "Operation Records",
+    "items": [
+      {
+        "title": "Created Ticket",
+        "description": "Ticket ID: TK-001",
+        "time": "2024-12-27 14:30",
+        "icon": "plus"
+      },
+      {
+        "title": "Sent Message",
+        "description": "Hello, can I help you?",
+        "time": "2024-12-27 14:25",
+        "icon": "message-circle"
+      }
+    ],
+    "show_more": true,
+    "more_action": "load_more"
+  }
+}
+```
+
+---
+
+### timeline - Timeline
+
+Displays a chronological history of events.
+
+```json
+{
+  "template": "timeline",
+  "data": {
+    "title": "Service Records",
+    "items": [
+      {
+        "time": "2024-12-27 14:30",
+        "title": "Session Started",
+        "description": "Visitor initiated consultation",
+        "status": "success"
+      },
+      {
+        "time": "2024-12-27 14:32",
+        "title": "Agent Reached",
+        "description": "AI assistant automatically replied",
+        "status": "info"
+      },
+      {
+        "time": "2024-12-27 14:35",
+        "title": "Transfer to Human",
+        "description": "Transferred to human agent: 张三",
+        "status": "warning"
+      }
+    ]
+  }
+}
+```
+
+| status | Effect |
+|--------|------|
+| `success` | Green node |
+| `info` | Blue node |
+| `warning` | Yellow node |
+| `error` | Red node |
+| `default` | Gray node |
+
+---
+
+### stats - Statistics
+
+Displays statistical data cards.
+
+```json
+{
+  "template": "stats",
+  "data": {
+    "items": [
+      {
+        "label": "Historical Sessions",
+        "value": "23",
+        "icon": "message-square",
+        "trend": "+5",
+        "trend_type": "up"
+      },
+      {
+        "label": "Total Spent",
+        "value": "¥12,580",
+        "icon": "dollar-sign"
+      },
+      {
+        "label": "Satisfaction Rating",
+        "value": "98%",
+        "icon": "smile",
+        "color": "green"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### empty - Empty State
+
+Placeholder content displayed when there is no data.
+
+```json
+{
+  "template": "empty",
+  "data": {
+    "icon": "inbox",
+    "title": "No Orders Found",
+    "description": "This visitor has not placed any orders yet.",
+    "action": {
+      "id": "create_order",
+      "label": "Create Order"
+    }
+  }
+}
+```
+
+---
+
+### loading - Loading State
+
+Displays loading state.
+
+```json
+{
+  "template": "loading",
+  "data": {
+    "text": "Loading order information..."
+  }
+}
+```
+
+---
+
+## Composite Templates
+
+### group - Group Container
+
+Groups multiple templates together.
+
+```json
+{
+  "template": "group",
+  "data": {
+    "items": [
+      {
+        "template": "stats",
+        "data": {
+          "items": [
+            {"label": "Historical Sessions", "value": "23"},
+            {"label": "Satisfaction Rating", "value": "98%"}
+          ]
+        }
+      },
+      {
+        "template": "key_value",
+        "data": {
+          "title": "Basic Information",
+          "items": [
+            {"label": "Name", "value": "张三"},
+            {"label": "Phone", "value": "138****1234"}
+          ]
+        }
+      },
+      {
+        "template": "table",
+        "data": {
+          "title": "Recent Orders",
+          "columns": [...],
+          "rows": [...]
+        }
+      }
+    ]
+  }
+}
+```
+
+### tabs - Tabs Container
+
+Multi-tab container.
+
+```json
+{
+  "template": "tabs",
+  "data": {
+    "items": [
+      {
+        "key": "orders",
+        "label": "Orders",
+        "icon": "package",
+        "content": {
+          "template": "table",
+          "data": {...}
+        }
+      },
+      {
+        "key": "records",
+        "label": "Service Records",
+        "icon": "clock",
+        "content": {
+          "template": "timeline",
+          "data": {...}
+        }
+      }
+    ],
+    "default_tab": "orders"
+  }
+}
+```
+
+---
+
+## Form Templates
+
+Used in chat toolbar modals.
+
+### form - Form
+
+```json
+{
+  "template": "form",
+  "data": {
+    "title": "Create Ticket",
+    "fields": [
+      {
+        "name": "title",
+        "label": "Ticket Title",
+        "type": "text",
+        "required": true,
+        "placeholder": "Enter ticket title"
+      },
+      {
+        "name": "priority",
+        "label": "Priority",
+        "type": "select",
+        "options": [
+          {"value": "low", "label": "Low"},
+          {"value": "medium", "label": "Medium"},
+          {"value": "high", "label": "High"}
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "category",
+        "label": "Category",
+        "type": "radio",
+        "options": [
+          {"value": "bug", "label": "Bug"},
+          {"value": "feature", "label": "Feature Request"},
+          {"value": "question", "label": "Question"}
+        ]
+      },
+      {
+        "name": "tags",
+        "label": "Tags",
+        "type": "checkbox",
+        "options": [
+          {"value": "urgent", "label": "Urgent"},
+          {"value": "vip", "label": "VIP Customer"}
+        ]
+      },
+      {
+        "name": "description",
+        "label": "Description",
+        "type": "textarea",
+        "rows": 4
+      }
+    ],
+    "submit_text": "Submit",
+    "cancel_text": "Cancel"
+  }
+}
+```
+
+**Form Field Types:**
+
+| type | Description |
+|------|------|
+| `text` | Single line text input |
+| `textarea` | Multi-line text input |
+| `number` | Numeric input |
+| `select` | Dropdown select |
+| `radio` | Radio button group |
+| `checkbox` | Checkbox group |
+| `date` | Date picker |
+| `datetime` | Date and time picker |
+| `switch` | On/off switch |
+| `hidden` | Hidden field |
+
+---
+
+## Best Practices
+
+### 1. Graceful Degradation
+
+When data is unavailable, return a user-friendly empty state:
+
+```json
+{
+  "template": "empty",
+  "data": {
+    "title": "No Data Found",
+    "description": "System temporarily cannot retrieve information. Please try again later."
+  }
+}
+```
+
+### 2. Loading State
+
+Show loading state when performing long operations:
+
+```json
+{
+  "template": "loading",
+  "data": {
+    "text": "Querying..."
+  }
+}
+```
+
+### 3. Pagination Handling
+
+Use pagination for large datasets:
+
+```json
+{
+  "template": "table",
+  "data": {
+    "rows": [...],
+    "pagination": {
+      "total": 100,
+      "page": 1,
+      "page_size": 10
+    }
+  }
+}
+```
+
+### 4. Operation Feedback
+
+Show feedback after button click:
+
+```json
+{
+  "template": "text",
+  "data": {
+    "text": "Ticket created successfully! Ticket ID: TK-12345",
+    "type": "success"
+  }
+}
+```
+
+## Next Steps
+
+- [Complete example](/plugin/examples) - View complete plugin implementation code

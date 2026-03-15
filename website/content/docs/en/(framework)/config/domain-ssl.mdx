@@ -1,0 +1,180 @@
+---
+title: Configure Domain and SSL
+description: This page explains how to configure Web / Widget / API domains, and enable HTTPS certificates.
+---
+
+This page explains how to configure Web / Widget / API domains, and enable HTTPS certificates.
+
+## Configure Domain
+
+TGO supports configuring independent domains for different services:
+
+| Service | Configuration Item | Example |
+|---------|-------------------|---------|
+| Web Console | `web_domain` | `www.example.com` |
+| Widget Component | `widget_domain` | `widget.example.com` |
+| API Service | `api_domain` | `api.example.com` |
+| WebSocket | `ws_domain` | `ws.example.com` |
+
+### Set Domain
+
+Execute in the repository root directory:
+
+```bash
+./tgo.sh config web_domain www.example.com
+./tgo.sh config widget_domain widget.example.com
+./tgo.sh config api_domain api.example.com
+./tgo.sh config ws_domain ws.example.com
+```
+
+### Apply Configuration
+
+After setting the domains, execute `apply` to make the configuration effective:
+
+```bash
+./tgo.sh config apply
+```
+
+This will automatically generate/update Nginx configurations, reverse proxying different domains to their respective services.
+
+### View Current Configuration
+
+```bash
+./tgo.sh config show
+```
+
+## Enable HTTPS
+
+TGO supports two SSL certificate configuration methods:
+
+### Scheme A: Let's Encrypt Automatic Certificate (Recommended)
+
+**Prerequisites**:
+
+- All domain names' DNS records have been correctly resolved to the current server's public IP
+- Server ports 80/443 are accessible from the public internet
+- Server can access Let's Encrypt services
+
+**Configuration Steps**:
+
+```bash
+# 1. Set Certificate Email (for expiration reminders)
+./tgo.sh config ssl_email your-email@example.com
+
+# 2. Apply Let's Encrypt Certificate
+./tgo.sh config setup_letsencrypt
+
+# 3. Apply Configuration
+./tgo.sh config apply
+```
+
+**Certificate Renewal**:
+
+Let's Encrypt certificates expire after 90 days. You can set up a cron job to automatically renew them:
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add the following line (renew every day at 2 AM)
+0 2 * * * cd /path/to/tgo && ./tgo.sh config setup_letsencrypt >/dev/null 2>&1
+```
+
+### Scheme B: Manual Certificate Upload
+
+If you already have SSL certificates from other Certificate Authorities (CAs):
+
+```bash
+# Install the same certificate for all domains (wildcard certificate)
+./tgo.sh config ssl_manual /path/to/cert.pem /path/to/key.pem
+
+# Or install certificate for specific domain
+./tgo.sh config ssl_manual /path/to/cert.pem /path/to/key.pem www.example.com
+
+# Apply Configuration
+./tgo.sh config apply
+```
+
+Certificate files will be copied to:
+
+``` bash
+./data/nginx/ssl/<domain>/cert.pem
+./data/nginx/ssl/<domain>/key.pem
+```
+
+### Disable SSL
+
+If you only need HTTP access:
+
+```bash
+./tgo.sh config ssl_mode none
+./tgo.sh config apply
+```
+
+## SSL Mode Explanation
+
+| Mode | Description |
+|------|-------------|
+| `none` | Do not use SSL, only HTTP |
+| `auto` | Use Let's Encrypt automatic certificate |
+| `manual` | Use manually uploaded certificate |
+
+View Current SSL Mode:
+
+```bash
+./tgo.sh config show
+```
+
+## Full Configuration Example
+
+Here is a complete example of domain and SSL configuration:
+
+```bash
+# 1. Configure Domains
+./tgo.sh config web_domain www.example.com
+./tgo.sh config widget_domain widget.example.com
+./tgo.sh config api_domain api.example.com
+
+# 2. Configure Let's Encrypt
+./tgo.sh config ssl_email admin@example.com
+./tgo.sh config setup_letsencrypt
+
+# 3. Apply All Configurations
+./tgo.sh config apply
+
+# 4. View Configuration Results
+./tgo.sh config show
+```
+
+After configuration, you can access TGO via HTTPS:
+
+- `https://www.example.com` - Web Console
+- `https://widget.example.com` - Widget Component
+- `https://api.example.com` - API Service
+
+## Common Issues
+
+### Certificate Application Failed
+
+1. Confirm that the domain DNS has been resolved to the server IP:
+
+   ```bash
+   dig www.example.com
+   ```
+
+2. Confirm that port 80 is accessible (Let's Encrypt needs verification)
+
+3. Check firewall and security group settings
+
+### Certificate Expiration
+
+Let's Encrypt will send email reminders before expiration. Manually renew:
+
+```bash
+./tgo.sh config setup_letsencrypt
+./tgo.sh config apply
+```
+
+### Mixed Content Warning
+
+If the browser reports a mixed content warning, check the API addresses in the frontend configuration to ensure they use HTTPS.

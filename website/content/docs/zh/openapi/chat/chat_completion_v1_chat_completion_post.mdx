@@ -1,0 +1,612 @@
+---
+title: 流式聊天完成接口
+description: >-
+  ## 概述
+
+  访客聊天接口，支持 Server-Sent Events (SSE) 流式响应和非流式 JSON 响应。
+
+
+  ## 认证方式
+
+  通过请求体中的 `api_key` 字段传递平台 API Key。
+
+
+  ## 请求参数
+
+  | 参数 | 类型 | 必填 | 说明 |
+
+  |------|------|------|------|
+
+  | api_key | string | ✅ | 平台 API Key |
+
+  | message | string | ✅ | 用户消息内容 |
+
+  | from_uid | string | ✅ | 平台用户唯一标识 |
+
+  | extra | object | ❌ | 额外数据（会随消息转发） |
+
+  | timeout_seconds | int | ❌ | 超时时间（默认120秒） |
+
+  | channel_id | string | ❌ | 自定义频道ID |
+
+  | channel_type | int | ❌ | 频道类型（默认251=客服） |
+
+  | system_message | string | ❌ | AI系统提示词 |
+
+  | expected_output | string | ❌ | 期望的输出格式描述 |
+
+  | wukongim_only | bool | ❌ | 是否仅发送到WuKongIM不返回流（默认false） |
+
+  | stream | bool | ❌ | 是否使用流式响应（默认true）。false返回完整JSON |
+
+
+  ## 响应模式
+
+
+  ### 1. 流式响应（stream=true，默认）
+
+  返回 `text/event-stream` 格式的 SSE 流。
+
+
+  ### 2. 非流式响应（stream=false）
+
+  返回 JSON 格式的完整响应：
+
+  ```json
+
+  {
+    "success": true,
+    "message": "AI回复的完整内容...",
+    "visitor_id": "访客UUID"
+  }
+
+  ```
+
+
+  ## SSE 响应事件类型（仅 stream=true 时）
+
+
+  ### 成功事件
+
+  | event_type | 说明 | data 结构 |
+
+  |------------|------|-----------|
+
+  | `team_run_started` | AI开始处理 | `{}` |
+
+  | `team_run_content` | AI输出内容块 | `{"content": "文本块"}` |
+
+  | `team_run_completed` | AI处理完成 | `{}` |
+
+  | `workflow_completed` | AI处理完成 | `{}` |
+
+  | `accepted` | 请求已接受（wukongim_only=true时） | `{"message": "Request
+  accepted..."}` |
+
+
+  ### 错误/状态事件
+
+  | event_type | 说明 | data 结构 |
+
+  |------------|------|-----------|
+
+  | `error` | 发生错误 | `{"message": "错误信息", "visitor_id": "..."}` |
+
+  | `queued` | 访客已加入等待队列（无可用客服） | `{"message": "...", "visitor_id": "...",
+  "queue_position": 1}` |
+
+  | `ai_disabled` | AI已禁用 | `{"message": "AI responses are disabled..."}` |
+
+  | `assist_mode` | AI处于辅助模式（人工优先） | `{"message": "Human service requested, AI
+  is in assist mode"}` |
+
+  | `workflow_failed` | AI工作流执行失败 | `{"message": "错误详情"}` |
+
+
+  ## 错误场景
+
+
+  ### 1. 无效的 API Key
+
+  返回 HTTP 401:
+
+  ```json
+
+  {"detail": "Invalid platform API key"}
+
+  ```
+
+
+  ### 2. 平台未关联项目
+
+  返回 HTTP 400:
+
+  ```json
+
+  {"detail": "Platform not associated with any project"}
+
+  ```
+
+
+  ### 3. 客服分配失败
+
+
+  **stream=true（SSE）:**
+
+  ```
+
+  data: {"event_type": "error", "data": {"success": false, "event_type":
+  "error", "message": "...", "visitor_id": "..."}}
+
+  ```
+
+
+  **stream=false（JSON）:**
+
+  ```json
+
+  {"success": false, "event_type": "error", "message": "Transfer failed: ...",
+  "visitor_id": "..."}
+
+  ```
+
+
+  ### 4. 无可用客服（已加入队列）
+
+
+  **stream=true（SSE）:**
+
+  ```
+
+  data: {"event_type": "queued", "data": {"success": false, "message": "...",
+  "visitor_id": "...", "queue_position": 1}}
+
+  ```
+
+
+  **stream=false（JSON）:**
+
+  ```json
+
+  {"success": false, "event_type": "queued", "message": "Added to waiting queue
+  at position 1", "visitor_id": "...", "queue_position": 1}
+
+  ```
+
+
+  ### 5. 无分配客服
+
+
+  **stream=true（SSE）:**
+
+  ```
+
+  data: {"event_type": "error", "data": {"message": "No staff assigned to this
+  visitor", "visitor_id": "..."}}
+
+  ```
+
+
+  **stream=false（HTTP 503）:**
+
+  ```json
+
+  {"detail": {"success": false, "event_type": "error", "message": "No staff
+  assigned to this visitor", "visitor_id": "..."}}
+
+  ```
+
+
+  ### 6. AI已禁用
+
+
+  **stream=true（SSE）:**
+
+  ```
+
+  data: {"event_type": "ai_disabled", "data": {"message": "AI responses are
+  disabled..."}}
+
+  ```
+
+
+  **stream=false（HTTP 403）:**
+
+  ```json
+
+  {"detail": {"success": false, "event_type": "ai_disabled", "message": "AI
+  responses are disabled..."}}
+
+  ```
+
+
+  ### 7. AI服务错误
+
+
+  **stream=true（SSE）:**
+
+  ```
+
+  data: {"event_type": "error", "data": {"message": "AI service error: ..."}}
+
+  ```
+
+
+  **stream=false（HTTP 500）:**
+
+  ```json
+
+  {"detail": "AI service error: ..."}
+
+  ```
+
+
+  ## SSE 响应格式示例
+
+  ```
+
+  data: {"event_type": "team_run_started", "data": {}}
+
+
+  data: {"event_type": "team_run_content", "data": {"content": "你好"}}
+
+
+  data: {"event_type": "team_run_content", "data": {"content": "，有什么"}}
+
+
+  data: {"event_type": "team_run_content", "data": {"content": "可以帮助您的？"}}
+
+
+  data: {"event_type": "workflow_completed", "data": {}}
+
+  ```
+
+
+  ## 前端使用示例
+
+  ```javascript
+
+  const eventSource = new EventSource('/api/v1/chat/completion', {
+    method: 'POST',
+    body: JSON.stringify({
+      api_key: 'your-api-key',
+      message: '你好',
+      from_uid: 'user123'
+    })
+  });
+
+
+  eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    switch (data.event_type) {
+      case 'team_run_content':
+        // 追加内容到界面
+        appendText(data.data.content);
+        break;
+      case 'workflow_completed':
+        // 完成处理
+        eventSource.close();
+        break;
+      case 'error':
+      case 'queued':
+        // 处理错误或排队状态
+        handleError(data.data);
+        eventSource.close();
+        break;
+    }
+  };
+
+  ```
+full: true
+_openapi:
+  method: POST
+  toc: []
+  structuredData:
+    headings: []
+    contents:
+      - content: >-
+          ## 概述
+
+          访客聊天接口，支持 Server-Sent Events (SSE) 流式响应和非流式 JSON 响应。
+
+
+          ## 认证方式
+
+          通过请求体中的 `api_key` 字段传递平台 API Key。
+
+
+          ## 请求参数
+
+          | 参数 | 类型 | 必填 | 说明 |
+
+          |------|------|------|------|
+
+          | api_key | string | ✅ | 平台 API Key |
+
+          | message | string | ✅ | 用户消息内容 |
+
+          | from_uid | string | ✅ | 平台用户唯一标识 |
+
+          | extra | object | ❌ | 额外数据（会随消息转发） |
+
+          | timeout_seconds | int | ❌ | 超时时间（默认120秒） |
+
+          | channel_id | string | ❌ | 自定义频道ID |
+
+          | channel_type | int | ❌ | 频道类型（默认251=客服） |
+
+          | system_message | string | ❌ | AI系统提示词 |
+
+          | expected_output | string | ❌ | 期望的输出格式描述 |
+
+          | wukongim_only | bool | ❌ | 是否仅发送到WuKongIM不返回流（默认false） |
+
+          | stream | bool | ❌ | 是否使用流式响应（默认true）。false返回完整JSON |
+
+
+          ## 响应模式
+
+
+          ### 1. 流式响应（stream=true，默认）
+
+          返回 `text/event-stream` 格式的 SSE 流。
+
+
+          ### 2. 非流式响应（stream=false）
+
+          返回 JSON 格式的完整响应：
+
+          ```json
+
+          {
+            "success": true,
+            "message": "AI回复的完整内容...",
+            "visitor_id": "访客UUID"
+          }
+
+          ```
+
+
+          ## SSE 响应事件类型（仅 stream=true 时）
+
+
+          ### 成功事件
+
+          | event_type | 说明 | data 结构 |
+
+          |------------|------|-----------|
+
+          | `team_run_started` | AI开始处理 | `{}` |
+
+          | `team_run_content` | AI输出内容块 | `{"content": "文本块"}` |
+
+          | `team_run_completed` | AI处理完成 | `{}` |
+
+          | `workflow_completed` | AI处理完成 | `{}` |
+
+          | `accepted` | 请求已接受（wukongim_only=true时） | `{"message": "Request
+          accepted..."}` |
+
+
+          ### 错误/状态事件
+
+          | event_type | 说明 | data 结构 |
+
+          |------------|------|-----------|
+
+          | `error` | 发生错误 | `{"message": "错误信息", "visitor_id": "..."}` |
+
+          | `queued` | 访客已加入等待队列（无可用客服） | `{"message": "...", "visitor_id":
+          "...", "queue_position": 1}` |
+
+          | `ai_disabled` | AI已禁用 | `{"message": "AI responses are
+          disabled..."}` |
+
+          | `assist_mode` | AI处于辅助模式（人工优先） | `{"message": "Human service
+          requested, AI is in assist mode"}` |
+
+          | `workflow_failed` | AI工作流执行失败 | `{"message": "错误详情"}` |
+
+
+          ## 错误场景
+
+
+          ### 1. 无效的 API Key
+
+          返回 HTTP 401:
+
+          ```json
+
+          {"detail": "Invalid platform API key"}
+
+          ```
+
+
+          ### 2. 平台未关联项目
+
+          返回 HTTP 400:
+
+          ```json
+
+          {"detail": "Platform not associated with any project"}
+
+          ```
+
+
+          ### 3. 客服分配失败
+
+
+          **stream=true（SSE）:**
+
+          ```
+
+          data: {"event_type": "error", "data": {"success": false, "event_type":
+          "error", "message": "...", "visitor_id": "..."}}
+
+          ```
+
+
+          **stream=false（JSON）:**
+
+          ```json
+
+          {"success": false, "event_type": "error", "message": "Transfer failed:
+          ...", "visitor_id": "..."}
+
+          ```
+
+
+          ### 4. 无可用客服（已加入队列）
+
+
+          **stream=true（SSE）:**
+
+          ```
+
+          data: {"event_type": "queued", "data": {"success": false, "message":
+          "...", "visitor_id": "...", "queue_position": 1}}
+
+          ```
+
+
+          **stream=false（JSON）:**
+
+          ```json
+
+          {"success": false, "event_type": "queued", "message": "Added to
+          waiting queue at position 1", "visitor_id": "...", "queue_position":
+          1}
+
+          ```
+
+
+          ### 5. 无分配客服
+
+
+          **stream=true（SSE）:**
+
+          ```
+
+          data: {"event_type": "error", "data": {"message": "No staff assigned
+          to this visitor", "visitor_id": "..."}}
+
+          ```
+
+
+          **stream=false（HTTP 503）:**
+
+          ```json
+
+          {"detail": {"success": false, "event_type": "error", "message": "No
+          staff assigned to this visitor", "visitor_id": "..."}}
+
+          ```
+
+
+          ### 6. AI已禁用
+
+
+          **stream=true（SSE）:**
+
+          ```
+
+          data: {"event_type": "ai_disabled", "data": {"message": "AI responses
+          are disabled..."}}
+
+          ```
+
+
+          **stream=false（HTTP 403）:**
+
+          ```json
+
+          {"detail": {"success": false, "event_type": "ai_disabled", "message":
+          "AI responses are disabled..."}}
+
+          ```
+
+
+          ### 7. AI服务错误
+
+
+          **stream=true（SSE）:**
+
+          ```
+
+          data: {"event_type": "error", "data": {"message": "AI service error:
+          ..."}}
+
+          ```
+
+
+          **stream=false（HTTP 500）:**
+
+          ```json
+
+          {"detail": "AI service error: ..."}
+
+          ```
+
+
+          ## SSE 响应格式示例
+
+          ```
+
+          data: {"event_type": "team_run_started", "data": {}}
+
+
+          data: {"event_type": "team_run_content", "data": {"content": "你好"}}
+
+
+          data: {"event_type": "team_run_content", "data": {"content": "，有什么"}}
+
+
+          data: {"event_type": "team_run_content", "data": {"content":
+          "可以帮助您的？"}}
+
+
+          data: {"event_type": "workflow_completed", "data": {}}
+
+          ```
+
+
+          ## 前端使用示例
+
+          ```javascript
+
+          const eventSource = new EventSource('/api/v1/chat/completion', {
+            method: 'POST',
+            body: JSON.stringify({
+              api_key: 'your-api-key',
+              message: '你好',
+              from_uid: 'user123'
+            })
+          });
+
+
+          eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            switch (data.event_type) {
+              case 'team_run_content':
+                // 追加内容到界面
+                appendText(data.data.content);
+                break;
+              case 'workflow_completed':
+                // 完成处理
+                eventSource.close();
+                break;
+              case 'error':
+              case 'queued':
+                // 处理错误或排队状态
+                handleError(data.data);
+                eventSource.close();
+                break;
+            }
+          };
+
+          ```
+---
+
+{/* This file was generated by Fumadocs. Do not edit this file directly. Any changes should be made by running the generation command again. */}
+
+<APIPage document={"./openapi.yaml"} operations={[{"path":"/v1/chat/completion","method":"post"}]} />

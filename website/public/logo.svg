@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- 
+    Logo 设计说明：
+    基于 Facebook Logo 的 "f" 字形进行垂直翻转（Vertically Flipped）得到的 "t"。
+    1. 风格：保留了 Facebook 图标的标志性特征——加粗的笔画（Bold Stroke）和紧凑的几何感。
+    2. 变形：
+       - 原 "f" 的平底变成了 "t" 的平顶。
+       - 原 "f" 的顶部曲线变成了 "t" 的底部尾巴（向右弯曲）。
+    3. 颜色：使用了 Facebook 品牌蓝 (#1877F2)，以体现原图的神韵。
+    -->
+    <path fill-rule="evenodd" clip-rule="evenodd" 
+    d="M160 60V180H100V270H160V330C160 407.32 222.68 470 300 470H350V380H300C272.386 380 250 357.614 250 330V270H350V180H250V60H160Z" 
+    fill="#1877F2"/>
+</svg>

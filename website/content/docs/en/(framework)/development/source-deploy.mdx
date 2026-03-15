@@ -1,0 +1,152 @@
+---
+title: Source Deployment
+description: How to build and deploy TGO from source code, suitable for custom modifications or development debugging scenarios.
+---
+
+## Differences from Image Deployment
+
+| Deployment Method | Description | Applicable Scenarios |
+|-------------------|-------------|----------------------|
+| **Image Deployment** (default) | Uses pre-built Docker images | Production, quick deployment |
+| **Source Deployment** | Builds Docker images from local source code | Development, custom modifications |
+
+## Source Deployment Steps
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/tgoai/tgo.git
+cd tgo
+```
+
+For users in China:
+
+```bash
+git clone https://gitee.com/tgoai/tgo.git
+cd tgo
+```
+
+### 2. Execute Source Installation
+
+To deploy TGO from source code, use the `--source` parameter:
+
+```bash
+./tgo.sh install --source
+```
+
+## Source Directory Structure
+
+```
+tgo/
+└── repos/
+    ├── tgo-api/        # Backend API service
+    ├── tgo-ai/         # AI inference service
+    ├── tgo-rag/        # RAG service
+    ├── tgo-platform/   # Platform management service
+    ├── tgo-web/        # Web console
+    └── tgo-widget/     # Widget component
+```
+
+## Build Specific Services
+
+If you only modified a single service, you can rebuild it individually:
+
+```bash
+# Build specific services
+./tgo.sh build api      # Build tgo-api
+./tgo.sh build ai       # Build tgo-ai
+./tgo.sh build rag      # Build tgo-rag
+./tgo.sh build platform # Build tgo-platform
+./tgo.sh build web      # Build tgo-web
+./tgo.sh build widget   # Build tgo-widget
+
+# Build all services
+./tgo.sh build all
+```
+
+After building, restart the services:
+
+```bash
+./tgo.sh down
+./tgo.sh up --source
+```
+
+## Development Workflow
+
+### Modify Code
+
+1. Navigate to the service directory:
+   ```bash
+   cd repos/tgo-api
+   ```
+
+2. Modify the code
+
+3. Rebuild and restart:
+   ```bash
+   cd ../..
+   ./tgo.sh build api
+   ./tgo.sh down
+   ./tgo.sh up --source
+   ```
+
+### View Logs
+
+```bash
+# View all logs
+docker compose logs -f
+
+# View specific service logs
+docker compose logs -f tgo-api
+```
+
+### Debugging with Container Shell
+
+```bash
+docker compose exec tgo-api bash
+```
+
+## Installation Mode Rememberance
+
+TGO will remember your installation mode and save it in the `./data/.tgo-install-mode` file.
+
+After the initial installation, subsequent `upgrade` commands will automatically use the same mode:
+
+```bash
+# First-time installation using source code
+./tgo.sh install --source
+
+# Subsequent upgrades will use --source by default
+./tgo.sh upgrade
+```
+
+### Temporary Mode Switching
+
+If you need to switch modes temporarily, you can explicitly specify the parameter:
+
+```bash
+./tgo.sh upgrade --source  # Force use source mode
+```
+
+## Switching to Image Deployment
+
+If you want to switch back to image deployment:
+
+```bash
+./tgo.sh down
+./tgo.sh up  # No need to specify --source
+```
+
+## Considerations
+
+1. **First Build Time**: Source build requires downloading dependencies and compiling, which may take 10-30 minutes on the first build.
+
+2. **Disk Space**: Source deployment requires more disk space to store source code and build caches.
+
+3. **Network Requirements**: Build process requires downloading dependency packages, ensure network connectivity.
+
+4. **Branch Synchronization**: If you updated the main repository, remember to synchronize submodules:
+   ```bash
+   git pull
+   git submodule update --recursive
+   ```

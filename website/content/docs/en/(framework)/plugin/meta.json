@@ -1,0 +1,13 @@
+{
+  "title": "Plugins",
+  "description": "How to develop plugins and extensions for the TGO system.",
+  "pages": [
+    "overview",
+    "quickstart",
+    "sdk",
+    "manifest",
+    "extension-points",
+    "templates",
+    "examples"
+  ]
+}

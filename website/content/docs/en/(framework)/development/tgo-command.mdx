@@ -1,0 +1,279 @@
+---
+id: tgo-command
+title: tgo Command
+description: tgo.sh command usage.
+---
+
+`tgo.sh` is the main management script for TGO, providing all common commands for deployment, maintenance, and configuration.
+
+## Command Overview
+
+```bash
+./tgo.sh <command> [options]
+```
+
+## Basic Commands
+
+### help
+
+Display help information:
+
+```bash
+./tgo.sh help
+```
+
+### install
+
+First-time installation and startup of all services:
+
+```bash
+./tgo.sh install [--source] [--cn]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--source` | Build from source (instead of using pre-built images) |
+| `--cn` | Use domestic mirror acceleration |
+
+Example:
+
+```bash
+# Default installation (using pre-built images)
+./tgo.sh install
+
+# Source installation
+./tgo.sh install --source
+
+# Domestic mirror installation
+./tgo.sh install --cn
+
+# Combination use
+./tgo.sh install --source --cn
+```
+
+### up
+
+Start all services (without initialization):
+
+```bash
+./tgo.sh up [--source] [--cn]
+```
+
+Appropriate for restarting services after `down`.
+
+### down
+
+Stop and remove all containers:
+
+```bash
+./tgo.sh down [--volumes]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--volumes` | Delete data volumes (**data will be lost**) |
+
+### upgrade
+
+Upgrade to the latest version:
+
+```bash
+./tgo.sh upgrade [--source] [--cn]
+```
+
+Will remember the installation mode used initially. For example:
+
+```bash
+# First installation using domestic mirror
+./tgo.sh install --cn
+
+# Later upgrades will automatically use --cn
+./tgo.sh upgrade
+Will automatically remember the installation mode used initially. For example:
+
+```bash
+# First installation using domestic mirror
+./tgo.sh install --cn
+
+# Later upgrades will automatically use --cn
+./tgo.sh upgrade
+```
+
+The configuration is saved in the `./data/.tgo-install-mode` file.
+
+### uninstall
+
+Uninstall TGO:
+
+```bash
+./tgo.sh uninstall [--source] [--cn]
+```
+
+Will ask for confirmation to delete data.
+
+### doctor
+
+Check the health status of all services:
+
+```bash
+./tgo.sh doctor
+```
+
+Output includes:
+
+- Service run status
+- Configuration check
+- Endpoint response tests
+
+## Service Management Commands
+
+### service
+
+Manage core services:
+
+```bash
+./tgo.sh service <start|stop|remove> [--source] [--cn]
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `start` | Start service |
+| `stop` | Stop service |
+| `remove` | Remove service |
+
+### tools
+
+Manage debugging tools (Kafka UI, Adminer):
+
+```bash
+./tgo.sh tools <start|stop>
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `start` | Start debugging tools |
+| `stop` | Stop debugging tools |
+
+### build
+
+Build specific services from source:
+
+```bash
+./tgo.sh build <service>
+```
+
+| Service | Description |
+|---------|-------------|
+| `api` | Build tgo-api |
+| `ai` | Build tgo-ai |
+| `rag` | Build tgo-rag |
+| `platform` | Build tgo-platform |
+| `web` | Build tgo-web |
+| `widget` | Build tgo-widget |
+| `all` | Build all services |
+
+## Configuration Commands
+
+### config
+
+Domain and SSL certificate configuration:
+
+```bash
+./tgo.sh config <subcommand> [args]
+```
+
+#### Domain Configuration
+
+```bash
+./tgo.sh config web_domain <domain>      # Set Web domain
+./tgo.sh config widget_domain <domain>   # Set Widget domain
+./tgo.sh config api_domain <domain>      # Set API domain
+./tgo.sh config ws_domain <domain>       # Set WebSocket domain
+```
+
+#### SSL Configuration
+
+```bash
+./tgo.sh config ssl_mode <auto|manual|none>   # Set SSL mode
+./tgo.sh config ssl_email <email>              # Set Let's Encrypt email
+./tgo.sh config ssl_manual <cert> <key> [domain]  # Install manual certificate
+./tgo.sh config setup_letsencrypt              # Apply Let's Encrypt certificate
+```
+
+#### Other Configuration Commands
+
+```bash
+./tgo.sh config apply   # Apply configuration (regenerate Nginx config)
+./tgo.sh config show    # Show current configuration
+```
+
+## Complete Configuration Example
+
+### Domain and HTTPS Configuration
+
+```bash
+# Configure domains
+./tgo.sh config web_domain www.example.com
+./tgo.sh config widget_domain widget.example.com
+./tgo.sh config api_domain api.example.com
+
+# Configure SSL
+./tgo.sh config ssl_email admin@example.com
+./tgo.sh config setup_letsencrypt
+
+# Apply configuration
+./tgo.sh config apply
+
+# Show current configuration
+./tgo.sh config show
+```
+
+## Command Options
+
+| Option | Description |
+|--------|-------------|
+| `--source` | Build from source (instead of using pre-built images) |
+| `--cn` | Use domestic mirror acceleration |
+| `--volumes` | Include data volume operations |
+
+## Environment Variables
+
+The one-click installation script supports the following environment variables:
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `REF` | Deployment version (branch/Tag/commit) | `latest` |
+| `DIR` | Installation directory | `./tgo` |
+
+Example:
+
+```bash
+REF=v1.0.0 DIR=/opt/tgo curl -fsSL https://raw.githubusercontent.com/tgoai/tgo/main/bootstrap.sh | bash
+```
+
+## Configuration Files
+
+| File | Description |
+|------|-------------|
+| `.env` | Global environment variables |
+| `envs/*.env` | Service-specific environment variables |
+| `data/.tgo-install-mode` | Installation mode memory |
+| `data/.tgo-domain-config` | Domain and SSL configuration |
+
+## Data Directories
+
+| Directory | Description |
+|-----------|-------------|
+| `data/postgres/` | PostgreSQL data |
+| `data/redis/` | Redis data |
+| `data/wukongim/` | WuKongIM data |
+| `data/nginx/` | Nginx configuration and certificates |
+| `data/uploads/` | Uploaded files |
+
+## Suggestions
+
+1. **Production Environment**：Deploy using default images with `./tgo.sh install`
+2. **Development Environment**：Deploy from source with `./tgo.sh install --source`
+3. **Domestic Servers**：Add `--cn` parameter for acceleration
+4. **Troubleshooting**：First run `./tgo.sh doctor` to check status
+5. **Upgrade**：Use `./tgo.sh upgrade` to update to the latest version

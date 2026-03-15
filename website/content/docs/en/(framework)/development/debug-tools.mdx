@@ -1,0 +1,234 @@
+---
+title: Debug Tools
+description: How to use TGO's built-in debug tools.
+---
+
+TGO comes with some built-in debug tools to help you troubleshoot issues and monitor system status.
+
+## Built-in Debug Tools
+
+TGO provides the following debug tool containers:
+
+| Tool | Purpose | Access Address |
+|------|------|----------|
+| **Kafka UI** | Kafka message queue management interface | `http://localhost:8080` |
+| **Adminer** | Database management interface | `http://localhost:8081` |
+
+## Start Debug Tools
+
+```bash
+./tgo.sh tools start
+```
+
+## Stop Debug Tools
+
+```bash
+./tgo.sh tools stop
+```
+
+## Kafka UI
+
+Kafka UI is a web interface for managing and monitoring Kafka clusters.
+
+### Features
+
+- View Topic list
+- Browse message content
+- Monitor consumer groups
+- View cluster status
+
+### Use Cases   
+
+- Debug message send/receive issues
+- Verify message content correctness
+- Monitor consumer latency
+
+### Access Address
+
+After starting the tools, access: `http://<server-IP>:8080`
+
+## Adminer
+
+Adminer is a lightweight database management tool.
+
+### Features
+
+- Browse database table structures
+- Execute SQL queries
+- Import/export data
+- Edit table data
+
+### Connection Information  
+
+| Parameter | Value |
+|------|-----|
+| System | PostgreSQL |
+| Server | `postgres` |
+| Username | `tgo`（或查看 `.env` 中的 `POSTGRES_USER`） |
+| Password | `tgo`（或查看 `.env` 中的 `POSTGRES_PASSWORD`） |
+| Database | `tgo`（或查看 `.env` 中的 `POSTGRES_DB`） |
+
+### Access Address
+
+After starting the tools, access: `http://<server-IP>:8081`
+
+## Log Viewing
+
+### View All Service Logs
+
+```bash
+docker compose logs -f
+```
+
+### View Specific Service Logs
+
+```bash
+docker compose logs -f tgo-api
+docker compose logs -f tgo-ai
+docker compose logs -f tgo-rag
+```
+
+### View Recent N Log Lines
+
+```bash
+docker compose logs --tail=100 tgo-api
+```
+
+### Log Levels
+
+Log levels for each service can be configured in their respective `.env` files:
+
+```bash
+# envs/tgo-ai.env
+LOG_LEVEL=DEBUG
+```
+
+Log level options: `DEBUG`, `INFO`, `WARNING`, `ERROR`
+
+## Container Debugging
+
+### Enter Container
+
+```bash
+docker compose exec tgo-api bash
+docker compose exec tgo-ai bash
+```
+
+### View Container Status
+
+```bash
+docker compose ps
+```
+
+### View Resource Usage
+
+```bash
+docker stats
+```
+
+## Health Check
+
+Use the `doctor` command for a comprehensive health check:
+
+```bash
+./tgo.sh doctor
+```
+
+This command will check:
+
+- Service run status
+- Database connection
+- Nginx configuration
+- Data directory
+- API endpoint responses
+
+## Network Debugging
+
+### Check Container Networks
+
+```bash
+docker network ls
+docker network inspect tgo_default
+```
+
+### Test Container Interconnections
+
+```bash
+# Test connection from tgo-api to postgres
+docker compose exec tgo-api ping postgres
+
+# Test port connection
+docker compose exec tgo-api nc -zv postgres 5432
+```
+
+## Database Debugging
+
+### Direct Database Connection
+
+```bash
+docker compose exec postgres psql -U tgo -d tgo
+```
+
+### Common SQL Commands
+
+```sql
+-- View all tables
+\dt
+
+-- View table structure
+\d table_name
+
+-- View connection count
+SELECT count(*) FROM pg_stat_activity;
+```
+
+## Redis Debugging
+
+### Connect to Redis
+
+```bash
+docker compose exec redis redis-cli
+```
+
+### Common Redis Commands
+
+```bash
+# View all keys
+KEYS *
+
+# View key value
+GET key_name
+
+# View memory usage
+INFO memory
+```
+
+## Common Debugging Scenarios
+
+### Message Not Sending
+
+1. Start Kafka UI to view message queue
+2. Check tgo-api logs for errors
+3. Confirm Kafka service is running
+
+### API Request Fails
+
+1. View tgo-api logs
+2. Use `./tgo.sh doctor` to check service status
+3. Check Nginx configuration and logs
+
+### Database Query Slow
+
+1. Use Adminer to analyze slow queries
+2. Check database connection count
+3. View database logs
+
+## Security Tips
+
+:::warning Attention
+Debugging tools should only be used in development and debugging environments. In production environments, please ensure:
+
+1. Do not expose debugging tool ports to the public internet
+2. Close tools after use: `./tgo.sh tools stop`
+3. Modify default database passwords
+:::

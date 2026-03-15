@@ -1,0 +1,121 @@
+<svg width="900" height="750" viewBox="0 0 900 750" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="box-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.1"/>
+    </filter>
+    <linearGradient id="grad-blue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0f9ff" /><stop offset="100%" style="stop-color:#e0f2fe" />
+    </linearGradient>
+    <linearGradient id="grad-green" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0fdf4" /><stop offset="100%" style="stop-color:#dcfce7" />
+    </linearGradient>
+    
+    <marker id="arrow-in" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 L2,4 Z" fill="#3b82f6" />
+    </marker>
+    <marker id="arrow-out" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 L2,4 Z" fill="#22c55e" />
+    </marker>
+    <marker id="arrow-internal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 L1.5,3 Z" fill="#94a3b8" />
+    </marker>
+  </defs>
+
+  <style>
+    .label-layer { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; fill: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; }
+    .text-main { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; fill: #1e293b; text-anchor: middle; }
+    .text-sub { font-family: 'Inter', sans-serif; font-size: 10px; fill: #64748b; text-anchor: middle; }
+    .text-flow { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 500; }
+  </style>
+
+  <rect width="900" height="750" fill="#f8fafc" />
+
+  <!-- Layer Labels -->
+  <text x="40" y="40" class="label-layer">① CLIENTS &amp; CHANNELS LAYER</text>
+  <text x="40" y="200" class="label-layer">② GATEWAY LAYER</text>
+  <text x="40" y="320" class="label-layer">③ CORE SERVICES LAYER</text>
+  <text x="40" y="480" class="label-layer">④ AI ENGINE LAYER</text>
+  <text x="40" y="630" class="label-layer">⑤ INFRASTRUCTURE LAYER</text>
+
+  <!-- ROW 1: PLATFORMS (Centers: 200, 450, 700) -->
+  <g filter="url(#box-shadow)">
+    <rect x="50" y="60" width="300" height="70" rx="8" fill="url(#grad-blue)" stroke="#3b82f6" stroke-width="1.5" />
+    <text x="200" y="90" class="text-main">External Channels</text>
+    <text x="200" y="110" class="text-sub">WeCom · Feishu · DingTalk · WhatsApp</text>
+  </g>
+  <g filter="url(#box-shadow)">
+    <rect x="375" y="60" width="150" height="70" rx="8" fill="url(#grad-blue)" stroke="#3b82f6" stroke-width="1.5" />
+    <text x="450" y="90" class="text-main">Web Widget</text>
+    <text x="450" y="110" class="text-sub">Built-in Visitor SDK</text>
+  </g>
+  <g filter="url(#box-shadow)">
+    <rect x="625" y="60" width="150" height="70" rx="8" fill="url(#grad-blue)" stroke="#3b82f6" stroke-width="1.5" />
+    <text x="700" y="90" class="text-main">Dashboard</text>
+    <text x="700" y="110" class="text-sub">Admin Console</text>
+  </g>
+
+  <!-- ROW 2: GATEWAY -->
+  <g filter="url(#box-shadow)">
+    <rect x="100" y="215" width="700" height="46" rx="23" fill="#fff" stroke="#f59e0b" stroke-width="1.5" />
+    <text x="450" y="244" class="text-main">Nginx Reverse Proxy</text>
+  </g>
+
+  <!-- ROW 3: SERVICES (Aligned with Centers) -->
+  <g filter="url(#box-shadow)">
+    <rect x="100" y="340" width="200" height="80" rx="10" fill="url(#grad-green)" stroke="#22c55e" stroke-width="1.5" />
+    <text x="200" y="375" class="text-main">tgo-platform</text>
+    <text x="200" y="395" class="text-sub">Channel Gateway Service</text>
+  </g>
+  <g filter="url(#box-shadow)">
+    <rect x="350" y="340" width="200" height="80" rx="10" fill="url(#grad-green)" stroke="#22c55e" stroke-width="2" />
+    <text x="450" y="375" class="text-main">tgo-api</text>
+    <text x="450" y="395" class="text-sub">Core Business Logic API</text>
+  </g>
+  <g filter="url(#box-shadow)">
+    <rect x="600" y="340" width="200" height="80" rx="10" fill="url(#grad-green)" stroke="#22c55e" stroke-width="1.5" />
+    <text x="700" y="375" class="text-main">WuKongIM</text>
+    <text x="700" y="395" class="text-sub">Real-time Messaging Hub</text>
+  </g>
+
+  <!-- ROW 4 & 5 -->
+  <g filter="url(#box-shadow)">
+    <rect x="350" y="500" width="200" height="70" rx="10" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5" />
+    <text x="450" y="530" class="text-main">AI Orchestrator</text>
+    <text x="450" y="550" class="text-sub">tgo-ai / tgo-rag / LLMs</text>
+  </g>
+  <rect x="350" y="650" width="200" height="50" rx="6" fill="#f1f5f9" stroke="#94a3b8" />
+  <text x="450" y="675" class="text-main">Infrastructure</text>
+  <text x="450" y="690" class="text-sub">PostgreSQL · Redis · Celery</text>
+
+  <!-- FLOWS -->
+  
+  <!-- Inbound: Blue -->
+  <!-- External Channels -> Gateway -> Platform -->
+  <path d="M200 130 V 214" stroke="#3b82f6" stroke-width="1.5" fill="none" marker-end="url(#arrow-in)" />
+  <path d="M200 262 V 340" stroke="#3b82f6" stroke-width="1.5" fill="none" marker-end="url(#arrow-in)" />
+  <text x="210" y="180" class="text-flow" fill="#3b82f6">Webhook Callbacks</text>
+  
+  <!-- Widget -> Gateway -> API -->
+  <path d="M450 130 V 214" stroke="#3b82f6" stroke-width="2" fill="none" marker-end="url(#arrow-in)" />
+  <path d="M450 262 V 340" stroke="#3b82f6" stroke-width="2" fill="none" marker-end="url(#arrow-in)" />
+  <text x="455" y="300" class="text-flow" fill="#3b82f6">Visitor Requests</text>
+  
+  <path d="M700 130 V 170 H 480 V 214" stroke="#3b82f6" stroke-width="1.5" fill="none" marker-end="url(#arrow-in)" />
+
+  <!-- Outbound: Green -->
+  <!-- API -> Platform (Internal) -->
+  <path d="M350 395 H 300" stroke="#22c55e" stroke-width="2.5" fill="none" marker-end="url(#arrow-out)" />
+  <text x="305" y="388" class="text-flow" fill="#16a34a" font-weight="bold">Outbound Reply</text>
+  
+  <!-- Platform -> Gateway -> External Channels (API Push) -->
+  <path d="M150 340 V 262" stroke="#22c55e" stroke-width="2.5" fill="none" marker-end="url(#arrow-out)" />
+  <path d="M150 214 V 130" stroke="#22c55e" stroke-width="2.5" fill="none" marker-end="url(#arrow-out)" />
+  <text x="100" y="285" class="text-flow" fill="#16a34a">API Push</text>
+
+  <!-- Internal: Gray -->
+  <path d="M550 380 H 600" stroke="#94a3b8" stroke-width="1.2" fill="none" marker-end="url(#arrow-internal)" />
+  <path d="M450 420 V 500" stroke="#94a3b8" stroke-width="1.2" fill="none" marker-end="url(#arrow-internal)" />
+  <path d="M450 570 V 650" stroke="#94a3b8" stroke-width="1" fill="none" marker-end="url(#arrow-internal)" />
+
+</svg>
+

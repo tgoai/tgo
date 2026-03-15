@@ -1,0 +1,114 @@
+{
+  "Nav": {
+    "docs": "文档",
+    "plugins": "插件开发",
+    "store": "商店"
+  },
+  "TgoSection": {
+    "title": "AI 智能体客服平台",
+    "descriptionLine1": "致力于帮助企业组建[智能体团队为客户服务]",
+    "descriptionLine2": "它集成了多渠道接入、智能体编排、知识库管理（RAG）、人工坐席协作等核心功能。",
+    "buttons": {
+      "getStarted": "开始使用",
+      "readDocs": "阅读文档"
+    }
+  },
+  "CoreCapabilities": {
+    "title": "核心功能",
+    "description": "TGO 提供了一系列核心功能，帮助开发者更高效地构建和管理应用。",
+    "cards": {
+      "intelligentOrchestration": {
+        "title": "AI 智能体编排",
+        "features": [
+          "多智能体支持 - 支持配置多个 AI 智能体，可根据业务场景选择不同的 Agent",
+          "多模型集成 - 支持接入多种大模型提供商（OpenAI、Anthropic 等）",
+          "流式响应 - 基于 SSE 的实时流式消息传输，即时展示 AI 回复",
+          "上下文理解 - 支持历史对话记录，AI 可基于上下文提供连贯的对话体验"
+        ]
+      },
+      "knowledgeManagement": {
+        "title": "知识库管理 (RAG)",
+        "features": [
+          "文档知识库 - 支持上传文档构建知识库，增强 AI 回答准确性",
+          "QA 知识库 - 问答对形式的知识管理，快速扩展 AI 知识",
+          "网站知识库 - 抓取网站内容构建知识，保持信息同步更新",
+          "智能检索 - 基于向量的语义搜索，精准匹配答案"
+        ]
+      },
+      "mcpToolIntegration": {
+        "title": "MCP 工具集成",
+        "features": [
+          "工具商店 - 丰富的 MCP 工具库，按需启用",
+          "自定义工具 - 支持项目级别的工具配置和管理",
+          "OpenAPI Schema - 自动解析 Schema 生成交互表单"
+        ]
+      },
+      "multiChannelAccess": {
+        "title": "多渠道接入",
+        "features": [
+          "Web 组件 - 可嵌入网站的聊天组件",
+          "微信集成 - 支持公众号、小程序接入",
+          "统一管理 - 在同一后台管理所有接入渠道"
+        ]
+      },
+      "realTimeCommunication": {
+        "title": "实时通讯",
+        "features": [
+          "悟空 IM 集成 - 深度集成悟空 IM，提供稳定可靠的即时通讯能力",
+          "WebSocket 长连接 - 高效的双向通信，支持消息即时推送",
+          "消息状态同步 - 已读/未读状态、消息送达确认",
+          "多媒体支持 - 支持文本、图片、文件等多种消息类型"
+        ]
+      },
+      "humanAgentCollaboration": {
+        "title": "人机协作",
+        "features": [
+          "智能转接 - 必要时无缝转接人工客服",
+          "访客管理 - 访客信息收集、会话分配、历史记录",
+          "坐席工作台 - 统一的人工客服操作界面"
+        ]
+      },
+      "uiWidgetSystem": {
+        "title": "UI Widget 系统",
+        "features": [
+          "结构化展示 - AI 返回的订单、商品、物流等信息以精美卡片形式呈现",
+          "丰富组件 - 订单卡片、物流追踪、商品展示、价格对比等",
+          "交互协议 - 标准化的 Action URI 协议，支持链接跳转、消息发送、内容复制"
+        ]
+      }
+    }
+  },
+  "GetStarted": {
+    "heading": "立即开始使用 Tgo",
+    "subheading": "快速开始使用 Tgo，构建您的智能体客服应用。",
+    "cards": {
+      "docs": {
+        "title": "快速入门指南",
+        "description": "详细的文档和教程，帮助您快速上手 Tgo。"
+      },
+      "github": {
+        "title": "GitHub 仓库",
+        "description": "访问我们的开源代码，参与社区贡献和讨论。"
+      },
+      "contact": {
+        "title": "联系我们",
+        "description": "获取技术支持或了解企业级部署方案。"
+      }
+    }
+  },
+  "Footer": {
+    "title": "Tgo",
+    "description": "Tgo是一个开源的AI智能体客服平台，致力于帮助企业[组建智能体团队为客户服务]。",
+    "store": {
+      "title": "商店",
+      "toolStore": "工具商店",
+      "modelMarket": "模型市场"
+    },
+    "resources": {
+      "title": "资源",
+      "docs": "技术文档",
+      "contact": "联系我们"
+    },
+    "copyright": "2026 Tgo AI智能客服. 保留所有权利."
+  }
+}

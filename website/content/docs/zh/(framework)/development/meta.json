@@ -1,0 +1,5 @@
+{
+  "title": "开发",
+  "description": "如何开发 TGO 系统的插件和扩展。",
+  "pages": ["source-deploy", "restart-upgrade", "debug-tools", "tgo-command"]
+}

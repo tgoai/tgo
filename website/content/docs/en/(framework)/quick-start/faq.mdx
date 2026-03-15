@@ -1,0 +1,201 @@
+---
+title: Frequently Asked Questions
+description: Encountered problems during installation? Here are the answers.
+---
+
+# Frequently Asked Questions
+
+## Installation Issues
+
+### Docker Not Installed or Version Too Low
+
+**Problem**：The installation script prompts that Docker is not installed or the version does not meet the requirements.
+
+**Solution**：
+
+1. Install Docker：
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   ```
+
+2. Ensure Docker Compose V2 is available：
+   ```bash
+   docker compose version
+   ```
+
+3. Start the Docker service：
+   ```bash
+   sudo systemctl start docker
+   sudo systemctl enable docker
+   ```
+
+### Port Occupied
+
+**Problem**：Installation script prompts that port 80 or 443 is occupied.
+
+**Solution**：
+
+The installation script will automatically detect port occupation and assign a new port (e.g., 8080, 8443). You can also manually modify the port using the following commands：
+
+```bash
+# Modify HTTP port to 8080
+./tgo.sh config http_port 8080
+
+# Modify HTTPS port to 8443
+./tgo.sh config https_port 8443
+```
+
+After modification, execute the following command to apply the configuration：
+
+```bash
+./tgo.sh apply
+```
+
+### Insufficient Memory
+
+**Problem**：Container startup fails, and the log shows OOM (Out of Memory).
+
+**Solution**：
+
+TGO requires at least 4GB of memory. Check available memory：
+
+```bash
+free -h
+```
+
+If memory is insufficient, you can：
+- Upgrade server configuration
+- Close unnecessary services
+
+## Network Issues
+
+### Slow Image Pull in China
+
+**Problem**：Pulling Docker images from the mainland is very slow or times out.
+
+**Solution**：
+
+Use the domestic accelerated version of the installation script：
+
+```bash
+REF=latest curl -fsSL https://gitee.com/tgoai/tgo/raw/main/bootstrap_cn.sh | bash
+```
+
+If Docker is already installed but the image pull is slow, you can configure the Docker image accelerator：
+
+```bash
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<-'EOF'
+{
+  "registry-mirrors": ["https://mirror.ccs.tencentyun.com"]
+}
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+### Unable to Access Service
+
+**Problem**：After installation, it is not possible to access the service via the browser.
+
+**Solution**：
+
+1. Check the service status：
+   ```bash
+   ./tgo.sh doctor
+   ```
+
+2. Check the firewall settings, ensure the ports are open：
+   ```bash
+   # Ubuntu/Debian
+   sudo ufw allow 80/tcp
+   sudo ufw allow 443/tcp
+   
+   # CentOS/RHEL
+   sudo firewall-cmd --permanent --add-port=80/tcp
+   sudo firewall-cmd --permanent --add-port=443/tcp
+   sudo firewall-cmd --reload
+   ```
+
+3. Cloud servers need to open the corresponding ports in the security group.
+
+## Service Issues
+
+### Service Startup Failure
+
+**Problem**：A service fails to start or restarts continuously.
+
+**Solution**：
+
+1. View the service logs：
+   ```bash
+   docker compose logs -f <service-name>
+   ```
+
+2. Check all service statuses：
+   ```bash
+   ./tgo.sh doctor
+   ```
+
+3. Try restarting all services：
+   ```bash
+   ./tgo.sh down
+   ./tgo.sh up
+   ```
+
+### Database Connection Failure
+
+**Problem**：The API service prompts a database connection error.
+
+**Solution**：
+
+1. Check the PostgreSQL container status：
+   ```bash
+   docker compose ps postgres
+   ```
+
+2. View the database logs：
+   ```bash
+   docker compose logs postgres
+   ```
+
+3. If the database is corrupted, you may need to reinitialize it (**Note: this will lose all data**)：
+   ```bash
+   ./tgo.sh down --volumes
+   ./tgo.sh install
+   ```
+
+## Upgrade Issues
+
+### Upgrade Service Exception
+
+**Problem**：After upgrading, the service cannot work normally.
+
+**Solution**：
+
+1. View the upgrade logs, confirm if there are any errors.
+2. Check the service status：
+   ```bash
+   ./tgo.sh doctor
+   ```
+
+3. If the problem persists, try reinstalling：
+   ```bash
+   ./tgo.sh down
+   ./tgo.sh install
+   ```
+
+## Get Help
+
+If the above solutions do not resolve your problem, you can：
+
+1. View the complete logs：
+   ```bash
+   docker compose logs > tgo-logs.txt
+   ```
+
+2. Submit the problem to [GitHub Issues](https://github.com/tgoai/tgo/issues), attach：
+   - Operating system version
+   - Docker version
+   - Error logs
+   - Steps to reproduce the problem
