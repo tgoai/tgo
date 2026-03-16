@@ -81,12 +81,17 @@ for domain in "${DOMAINS[@]}"; do
     }
 
     # Copy certificate to nginx ssl directory
+    # Certbot sets 0700 on live/ and archive/ dirs (owned by root inside container),
+    # so we copy inside a container to avoid host permission issues.
     mkdir -p "$SSL_DIR/$domain"
-    if [ -f "$CERTBOT_DIR/conf/live/$domain/fullchain.pem" ]; then
-        cp -L "$CERTBOT_DIR/conf/live/$domain/fullchain.pem" "$SSL_DIR/$domain/cert.pem"
-        cp -L "$CERTBOT_DIR/conf/live/$domain/privkey.pem" "$SSL_DIR/$domain/key.pem"
+    if docker run --rm \
+        -v "$CERTBOT_DIR/conf:/etc/letsencrypt:ro" \
+        -v "$SSL_DIR/$domain:/output" \
+        alpine sh -c "cp -L /etc/letsencrypt/live/$domain/fullchain.pem /output/cert.pem && cp -L /etc/letsencrypt/live/$domain/privkey.pem /output/key.pem && chmod 644 /output/cert.pem /output/key.pem" 2>/dev/null; then
         echo "[INFO] Certificate installed for: $domain"
         SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+    else
+        echo "[WARN] Failed to copy certificate for $domain"
     fi
 done
 
