@@ -1,6 +1,6 @@
 """Onboarding progress service for checking step completion status."""
 
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -49,19 +49,26 @@ async def check_step_2_default_models(db: Session, project_id: UUID) -> bool:
     ]):
         return False
 
-    # Validate that referenced providers exist and are active
-    provider_ids = [cfg.default_chat_provider_id, cfg.default_embedding_provider_id]
+    # Each referenced provider must exist and be active. Chat and embedding
+    # may share one provider — validate distinct IDs only.
+    provider_ids = [
+        cfg.default_chat_provider_id,
+        cfg.default_embedding_provider_id,
+    ]
+    unique_provider_ids = list(
+        {pid for pid in provider_ids if pid is not None}
+    )
     valid_count = (
         db.query(AIProvider.id)
         .filter(
-            AIProvider.id.in_(provider_ids),
+            AIProvider.id.in_(unique_provider_ids),
             AIProvider.project_id == project_id,
             AIProvider.is_active == True,  # noqa: E712
             AIProvider.deleted_at.is_(None),
         )
         .count()
     )
-    return valid_count == 2
+    return valid_count == len(unique_provider_ids)
 
 
 async def check_step_3_rag_collection(project_id: UUID) -> bool:
@@ -122,8 +129,8 @@ async def check_all_steps(
 
     steps = [step_1, step_2, step_3, step_4, step_5]
 
-    # Calculate current step (first incomplete action step, or 5 if steps 1-4 done)
-    # Only consider steps 1-4 for progress, step 5 is just a notification
+    # First incomplete action step, or 5 when steps 1-4 are done.
+    # Step 5 is UI-only; progress uses steps 1-4 only.
     current_step = 5
     for i in range(4):  # Only check steps 1-4
         if not steps[i]:
