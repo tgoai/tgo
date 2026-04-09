@@ -30,7 +30,8 @@ from app.models.streaming import (
     JsonRenderUpdateData,
 )
 from app.streaming.event_emitter import StreamingEventEmitter
-from ..models.coordination import CoordinationRequest, QueryAnalysisResult
+from app.models.internal import AgentExecutionContext
+from ..models.coordination import QueryAnalysisResult
 from ..models.execution import ExecutionResult
 from ..models.results import ConsolidationResult
 
@@ -41,22 +42,28 @@ class WorkflowEventEmitter:
     def __init__(self, event_emitter: StreamingEventEmitter):
         self.emitter = event_emitter
     
-    def emit_workflow_started(self, request: CoordinationRequest) -> None:
+    def emit_workflow_started(self, request_id: str, context: AgentExecutionContext) -> None:
         """Emit workflow started event."""
         data = WorkflowStartedData(
-            request_id=request.request_id,
-            team_id=request.context.team.id,
-            team_name=request.context.team.name,
-            message_length=len(request.context.message),
-            max_agents=request.context.max_agents,
-            execution_strategy=request.context.execution_strategy
+            request_id=request_id,
+            agent_id=str(context.agent.id),
+            agent_name=context.agent.name,
+            session_id=context.session_id,
+            message_length=len(context.message),
         )
-        
+
+        metadata = {
+            "phase": "initialization",
+            "agent_id": str(context.agent.id),
+        }
+        if context.session_id:
+            metadata["session_id"] = context.session_id
+
         self.emitter.emit(
             EventType.WORKFLOW_STARTED,
             data,
             EventSeverity.INFO,
-            {"phase": "initialization"}
+            metadata,
         )
     
     def emit_workflow_completed(self, total_time: float, agents_consulted: int) -> None:

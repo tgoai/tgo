@@ -44,26 +44,19 @@ _STREAMING_EXAMPLE = (
     "event: connected\n"
     "data: {\"message\": \"Stream connected\", \"request_id\": \"req-123\", \"correlation_id\": \"corr-456\"}\n\n"
     "event: event\n"
-    "data: {\"event_type\": \"workflow_started\", \"timestamp\": \"2024-05-01T12:00:00Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"request_id\": \"req-123\", \"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"message_length\": 128, \"max_agents\": 3, \"execution_strategy\": \"auto\"}, \"metadata\": {\"phase\": \"initialization\"}}\n\n"
+    "data: {\"event_type\": \"workflow_started\", \"timestamp\": \"2024-05-01T12:00:00Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"request_id\": \"req-123\", \"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"session_id\": \"sess-1\", \"message_length\": 128}, \"metadata\": {\"phase\": \"initialization\", \"agent_id\": \"agent-001\", \"session_id\": \"sess-1\"}}\n\n"
     "event: event\n"
-    "data: {\"event_type\": \"team_run_started\", \"timestamp\": \"2024-05-01T12:00:01Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"run_id\": \"run-abc\", \"session_id\": \"sess-1\", \"message_length\": 128}, \"metadata\": {\"phase\": \"team_execution\"}}\n\n"
+    "data: {\"event_type\": \"agent_execution_started\", \"timestamp\": \"2024-05-01T12:00:01Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"execution_id\": \"run-abc\", \"question\": \"How do I fix this error?\"}, \"metadata\": {\"phase\": \"execution\", \"step\": 3}}\n\n"
     "event: event\n"
-    "data: {\"event_type\": \"team_member_started\", \"timestamp\": \"2024-05-01T12:00:02Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"member_id\": \"m-01\", \"member_name\": \"Researcher\", \"member_role\": \"research\", \"run_id\": \"run-abc\"}, \"metadata\": {\"phase\": \"team_execution\", \"member_id\": \"m-01\"}}\n\n"
+    "data: {\"event_type\": \"agent_content_chunk\", \"timestamp\": \"2024-05-01T12:00:02Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"execution_id\": \"run-abc\", \"content_chunk\": \"Investigating...\", \"chunk_index\": 0, \"is_final\": false}, \"metadata\": {\"phase\": \"agent_execution\", \"agent_id\": \"agent-001\"}}\n\n"
     "event: event\n"
-    "data: {\"event_type\": \"team_member_content\", \"timestamp\": \"2024-05-01T12:00:03Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"member_id\": \"m-01\", \"member_name\": \"Researcher\", \"member_role\": \"research\", \"run_id\": \"run-abc\", \"content_chunk\": \"Investigating...\", \"chunk_index\": 0, \"is_final\": false}, \"metadata\": {\"phase\": \"team_execution\", \"member_id\": \"m-01\"}}\n\n"
+    "data: {\"event_type\": \"agent_tool_call_started\", \"timestamp\": \"2024-05-01T12:00:03Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"execution_id\": \"run-abc\", \"tool_name\": \"search\", \"tool_call_id\": \"tc_01\", \"tool_input\": {\"query\": \"error logs\"}, \"status\": \"started\"}, \"metadata\": {\"phase\": \"agent_execution\", \"agent_id\": \"agent-001\", \"tool_name\": \"search\"}}\n\n"
     "event: event\n"
-    "data: {\"event_type\": \"team_member_tool_call_started\", \"timestamp\": \"2024-05-01T12:00:04Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"member_id\": \"m-01\", \"member_name\": \"Researcher\", \"member_role\": \"research\", \"run_id\": \"run-abc\", \"tool_name\": \"search\", \"tool_call_id\": \"tc_01\", \"tool_input\": {\"query\": \"error logs\"}, \"status\": \"started\"}, \"metadata\": {\"phase\": \"team_execution\", \"member_id\": \"m-01\", \"tool_name\": \"search\"}}\n\n"
+    "data: {\"event_type\": \"agent_tool_call_completed\", \"timestamp\": \"2024-05-01T12:00:04Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"execution_id\": \"run-abc\", \"tool_name\": \"search\", \"tool_call_id\": \"tc_01\", \"tool_input\": {\"query\": \"error logs\"}, \"tool_output\": \"3 results\", \"status\": \"completed\"}, \"metadata\": {\"phase\": \"agent_execution\", \"agent_id\": \"agent-001\", \"tool_name\": \"search\"}}\n\n"
     "event: event\n"
-    "data: {\"event_type\": \"team_member_tool_call_completed\", \"timestamp\": \"2024-05-01T12:00:05Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"member_id\": \"m-01\", \"member_name\": \"Researcher\", \"member_role\": \"research\", \"run_id\": \"run-abc\", \"tool_name\": \"search\", \"tool_call_id\": \"tc_01\", \"tool_input\": {\"query\": \"error logs\"}, \"tool_output\": \"3 results\", \"status\": \"completed\"}, \"metadata\": {\"phase\": \"team_execution\", \"member_id\": \"m-01\", \"tool_name\": \"search\"}}\n\n"
+    "data: {\"event_type\": \"agent_response_complete\", \"timestamp\": \"2024-05-01T12:00:05Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"execution_id\": \"run-abc\", \"final_content\": \"Please restart the worker and retry.\", \"success\": true, \"total_chunks\": 1, \"tool_calls_count\": 1, \"response_length\": 35}, \"metadata\": {\"phase\": \"agent_execution\", \"agent_id\": \"agent-001\"}}\n\n"
     "event: event\n"
-    "data: {\"event_type\": \"team_member_completed\", \"timestamp\": \"2024-05-01T12:00:06Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"member_id\": \"m-01\", \"member_name\": \"Researcher\", \"member_role\": \"research\", \"run_id\": \"run-abc\", \"execution_time\": 1.25, \"success\": true, \"response_length\": 240}, \"metadata\": {\"phase\": \"team_execution\"}}\n\n"
-    "event: event\n"
-    "data: {\"event_type\": \"team_run_content\", \"timestamp\": \"2024-05-01T12:00:06.500Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"run_id\": \"run-abc\", \"content\": \"Aggregating member outputs...\", \"content_type\": \"text\", \"reasoning_content\": \"Comparing alternatives...\", \"is_intermediate\": true}, \"metadata\": {\"phase\": \"team_execution\"}}\n\n"
-
-    "event: event\n"
-    "data: {\"event_type\": \"team_run_completed\", \"timestamp\": \"2024-05-01T12:00:07Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"run_id\": \"run-abc\", \"total_time\": 7.2, \"content_length\": 240}, \"metadata\": {\"agents_consulted\": 2}}\n\n"
-    "event: event\n"
-    "data: {\"event_type\": \"workflow_completed\", \"timestamp\": \"2024-05-01T12:00:08Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"phase\": \"completed\", \"progress_percentage\": 100.0, \"current_step\": \"Workflow completed\", \"total_steps\": 4, \"completed_steps\": 4}, \"metadata\": {\"total_execution_time\": 8.0, \"agents_consulted\": 2}}\n\n"
+    "data: {\"event_type\": \"workflow_completed\", \"timestamp\": \"2024-05-01T12:00:08Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"phase\": \"completed\", \"progress_percentage\": 100.0, \"current_step\": \"Workflow completed\", \"total_steps\": 4, \"completed_steps\": 4}, \"metadata\": {\"total_execution_time\": 8.0, \"agents_consulted\": 1}}\n\n"
     "event: disconnected\n"
     "data: {\"message\": \"Stream disconnected\"}\n\n"
 )
@@ -81,34 +74,25 @@ _run_success_responses = {
             "text/event-stream": {
                 "schema": {"type": "string", "description": "Server-Sent Events (SSE) stream. Event names: connected | event | error | disconnected. Domain events use 'event' with a StreamingEvent JSON payload."},
                 "examples": {
-                    "domain_team_member_content": {
-                        "summary": "Team member content chunk (domain event)",
-                        "value": "event: event\ndata: {\"event_type\": \"team_member_content\", \"timestamp\": \"2024-05-01T12:00:01Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"member_id\": \"m-01\", \"member_name\": \"Researcher\", \"member_role\": \"research\", \"run_id\": \"run-abc\", \"content_chunk\": \"Found 3 docs...\", \"chunk_index\": 0, \"is_final\": false}, \"metadata\": {\"phase\": \"team_execution\", \"member_id\": \"m-01\"}}\n\n"
+                    "agent_execution_started": {
+                        "summary": "Agent execution started (domain event)",
+                        "value": "event: event\ndata: {\"event_type\": \"agent_execution_started\", \"timestamp\": \"2024-05-01T12:00:01Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"execution_id\": \"run-abc\", \"question\": \"How do I fix this error?\"}, \"metadata\": {\"phase\": \"execution\", \"step\": 3}}\n\n"
                     },
-                    "domain_team_member_tool_call_started": {
-                        "summary": "Team member tool call started (domain event)",
-                        "value": "event: event\ndata: {\"event_type\": \"team_member_tool_call_started\", \"timestamp\": \"2024-05-01T12:00:02Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"member_id\": \"m-01\", \"member_name\": \"Researcher\", \"member_role\": \"research\", \"run_id\": \"run-abc\", \"tool_name\": \"search\", \"tool_call_id\": \"tc_01\", \"tool_input\": {\"query\": \"...\"}, \"status\": \"started\"}, \"metadata\": {\"phase\": \"team_execution\", \"member_id\": \"m-01\", \"tool_name\": \"search\"}}\n\n"
+                    "agent_content_chunk": {
+                        "summary": "Agent content chunk (domain event)",
+                        "value": "event: event\ndata: {\"event_type\": \"agent_content_chunk\", \"timestamp\": \"2024-05-01T12:00:02Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"execution_id\": \"run-abc\", \"content_chunk\": \"Found 3 docs...\", \"chunk_index\": 0, \"is_final\": false}, \"metadata\": {\"phase\": \"agent_execution\", \"agent_id\": \"agent-001\"}}\n\n"
                     },
-                    "domain_team_member_tool_call_completed": {
-                        "summary": "Team member tool call completed (domain event)",
-                        "value": "event: event\ndata: {\"event_type\": \"team_member_tool_call_completed\", \"timestamp\": \"2024-05-01T12:00:03Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"member_id\": \"m-01\", \"member_name\": \"Researcher\", \"member_role\": \"research\", \"run_id\": \"run-abc\", \"tool_name\": \"search\", \"tool_call_id\": \"tc_01\", \"tool_input\": {\"query\": \"...\"}, \"tool_output\": \"3 results\", \"status\": \"completed\"}, \"metadata\": {\"phase\": \"team_execution\", \"member_id\": \"m-01\", \"tool_name\": \"search\"}}\n\n"
+                    "agent_tool_call_started": {
+                        "summary": "Agent tool call started (domain event)",
+                        "value": "event: event\ndata: {\"event_type\": \"agent_tool_call_started\", \"timestamp\": \"2024-05-01T12:00:03Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"execution_id\": \"run-abc\", \"tool_name\": \"search\", \"tool_call_id\": \"tc_01\", \"tool_input\": {\"query\": \"...\"}, \"status\": \"started\"}, \"metadata\": {\"phase\": \"agent_execution\", \"agent_id\": \"agent-001\", \"tool_name\": \"search\"}}\n\n"
                     },
-                    "team_run_started": {
-                        "summary": "Team run started (domain event)",
-                        "value": "event: event\ndata: {\"event_type\": \"team_run_started\", \"timestamp\": \"2024-05-01T12:00:01Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"run_id\": \"run-abc\", \"session_id\": \"sess-1\", \"message_length\": 128}, \"metadata\": {\"phase\": \"team_execution\"}}\n\n"
+                    "agent_tool_call_completed": {
+                        "summary": "Agent tool call completed (domain event)",
+                        "value": "event: event\ndata: {\"event_type\": \"agent_tool_call_completed\", \"timestamp\": \"2024-05-01T12:00:04Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"execution_id\": \"run-abc\", \"tool_name\": \"search\", \"tool_call_id\": \"tc_01\", \"tool_input\": {\"query\": \"...\"}, \"tool_output\": \"3 results\", \"status\": \"completed\"}, \"metadata\": {\"phase\": \"agent_execution\", \"agent_id\": \"agent-001\", \"tool_name\": \"search\"}}\n\n"
                     },
-                    "team_run_content": {
-                        "summary": "Team run content (domain event)",
-                        "value": "event: event\ndata: {\"event_type\": \"team_run_content\", \"timestamp\": \"2024-05-01T12:00:04Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"run_id\": \"run-abc\", \"content\": \"Synthesizing findings...\", \"content_type\": \"text\", \"reasoning_content\": \"Selecting best approach...\", \"is_intermediate\": true}, \"metadata\": {\"phase\": \"team_execution\"}}\n\n"
-                    },
-
-                    "team_member_content": {
-                        "summary": "Team member content chunk (domain event)",
-                        "value": "event: event\ndata: {\"event_type\": \"team_member_content\", \"timestamp\": \"2024-05-01T12:00:02Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"info\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"member_id\": \"m-01\", \"member_name\": \"Researcher\", \"member_role\": \"research\", \"run_id\": \"run-abc\", \"content_chunk\": \"Found 3 docs...\", \"chunk_index\": 0, \"is_final\": false}, \"metadata\": {\"phase\": \"team_execution\", \"member_id\": \"m-01\"}}\n\n"
-                    },
-                    "team_run_completed": {
-                        "summary": "Team run completed (domain event)",
-                        "value": "event: event\ndata: {\"event_type\": \"team_run_completed\", \"timestamp\": \"2024-05-01T12:00:05Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"team_id\": \"team-001\", \"team_name\": \"Platform Team\", \"run_id\": \"run-abc\", \"total_time\": 3.2, \"content_length\": 240}, \"metadata\": {\"agents_consulted\": 2}}\n\n"
+                    "agent_response_complete": {
+                        "summary": "Agent response complete (domain event)",
+                        "value": "event: event\ndata: {\"event_type\": \"agent_response_complete\", \"timestamp\": \"2024-05-01T12:00:05Z\", \"correlation_id\": \"corr-456\", \"request_id\": \"req-123\", \"severity\": \"success\", \"data\": {\"agent_id\": \"agent-001\", \"agent_name\": \"Support Agent\", \"execution_id\": \"run-abc\", \"final_content\": \"Resolved output\", \"success\": true, \"total_chunks\": 1, \"tool_calls_count\": 1, \"response_length\": 15}, \"metadata\": {\"phase\": \"agent_execution\", \"agent_id\": \"agent-001\"}}\n\n"
                     },
                     "error_event": {
                         "summary": "SSE transport error",
@@ -137,7 +121,7 @@ _run_success_responses = {
         **build_error_responses(
             [400, 404, 429, 500],
             {
-                404: "Team or agent resources not found",
+                404: "Agent resource not found",
                 429: "Agent service rate limit exceeded",
                 500: "Agent service unavailable",
             },
@@ -175,33 +159,27 @@ async def run_supervisor_agent(
       }
     - Representative event_type values (see app/models/streaming.py for the full list):
       - workflow_started, workflow_completed, workflow_failed
+      - agent_execution_started
       - agent_content_chunk, agent_tool_call_started, agent_tool_call_completed, agent_response_complete
-      - team_run_started, team_run_content, team_run_completed, team_run_failed
-      - team_member_started, team_member_content, team_member_completed, team_member_failed
-      - team_member_tool_call_started, team_member_tool_call_completed
-    - Team event data models (payloads in StreamingEvent.data):
-      - TeamRunLifecycleData: team_id, team_name, run_id, session_id?, message_length?
-      - TeamRunContentData: team_id, team_name, run_id, content?, content_type, reasoning_content?, is_intermediate
-      - TeamRunCompletedData: team_id, team_name, run_id, total_time, content_length?, content?
-      - TeamMemberEventData: team_id, team_name, member_id, member_name, member_role?, run_id, execution_time?, success?, error?, response_length?, content?
-      - TeamMemberContentData: team_id, team_name, member_id, member_name, member_role?, run_id, content_chunk, chunk_index, is_final
-      - TeamMemberToolCallData: team_id, team_name, member_id, member_name, member_role?, run_id, tool_name, tool_call_id?, tool_input?, tool_output?, status, error?
-
-    See the detailed 'Typical event sequence' section below for team-based workflow details.
+    - Representative event data models (payloads in StreamingEvent.data):
+      - WorkflowStartedData: request_id, agent_id, agent_name, session_id?, message_length
+      - AgentExecutionData: agent_id, agent_name, execution_id, question, execution_time?, success?, error?, response_length?
+      - AgentContentChunkData: agent_id, agent_name, execution_id, content_chunk, chunk_index, is_final
+      - AgentToolCallData: agent_id, agent_name, execution_id, tool_name, tool_call_id?, tool_input?, tool_output?, status, error?
+      - AgentResponseCompleteData: agent_id, agent_name, execution_id, final_content, success, total_chunks, tool_calls_count, response_length
 
     Error handling:
     - Operational errors during streaming are emitted as an `error` event and the stream terminates.
     - If validation errors occur before streaming starts, the response is a non-200 JSON error with an appropriate HTTP status (e.g., 400/404/429/500).
 
-    Typical event sequence (including team orchestration):
+    Typical event sequence:
     1) connected (informational)
     2) event(workflow_started)
     3) zero or more domain events, including:
-       - agent_content_chunk and agent_tool_call_started/completed
-       - team_run_started  team_member_started/team_member_content ... team_member_completed (per member)
-       - team_run_content (intermediate team-level messages)
-       - team_run_completed or team_run_failed
-       - relationship: team_run_started -> team_member_started/team_member_content ... team_member_completed (per member)
+       - agent_execution_started
+       - agent_content_chunk
+       - agent_tool_call_started / agent_tool_call_completed
+       - agent_response_complete
 
     4) event(workflow_completed) on success OR event(workflow_failed) on failure
     5) disconnected (stream ends)
@@ -216,12 +194,11 @@ async def run_supervisor_agent(
       es.addEventListener('event', (e) => {
         const evt = JSON.parse(e.data);
         switch (evt.event_type) {
-          case 'team_member_content': /* handle text chunk */ break;
-          case 'team_member_tool_call_started': /* ... */ break;
-          case 'team_member_tool_call_completed': /* ... */ break;
-          case 'team_run_started': /* initialize team UI */ break;
-          case 'team_run_content': /* handle intermediate team reasoning */ break;
-          case 'team_run_completed': /* summarize team result */ break;
+          case 'agent_execution_started': /* initialize single-agent UI */ break;
+          case 'agent_content_chunk': /* handle text chunk */ break;
+          case 'agent_tool_call_started': /* ... */ break;
+          case 'agent_tool_call_completed': /* ... */ break;
+          case 'agent_response_complete': /* finalize agent output */ break;
           case 'workflow_completed': es.close(); break;
           case 'workflow_failed': es.close(); break;
           default: /* optionally log unknown types */ break;
@@ -280,7 +257,7 @@ async def cancel_supervisor_run(
     project_id: uuid.UUID = Query(..., description="Project ID"),
     runtime_service: SupervisorRuntimeService = Depends(get_supervisor_runtime_service),
 ) -> dict:
-    """Cancel a running supervisor team execution by run_id.
+    """Cancel a running supervisor agent execution by run_id.
 
     Always returns 202 Accepted. Body indicates whether a cancel signal was issued.
     """

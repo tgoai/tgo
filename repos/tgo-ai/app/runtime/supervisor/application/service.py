@@ -110,6 +110,7 @@ class SupervisorRuntimeService:
             execution_id: Optional[str] = None
             try:
                 context, _ = await self._prepare_context(payload, project_id, auth_headers)
+                workflow_events.emit_workflow_started(request_id, context)
                 built_agent = await self._agent_builder.build_agent(context)
                 execution_id = str(uuid.uuid4())
 

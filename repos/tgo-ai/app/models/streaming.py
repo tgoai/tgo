@@ -98,11 +98,10 @@ class BaseEventData(BaseModel):
 class WorkflowStartedData(BaseEventData):
     """Data for workflow started event."""
     request_id: str
-    team_id: str
-    team_name: str
+    agent_id: str
+    agent_name: str
+    session_id: Optional[str] = None
     message_length: int
-    max_agents: int
-    execution_strategy: str
 
 
 class QueryAnalysisData(BaseEventData):
