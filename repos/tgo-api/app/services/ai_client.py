@@ -317,7 +317,7 @@ class AIServiceClient:
         run_id: str,
         reason: Optional[str] = None,
     ) -> Any:
-        """Cancel a running supervisor team execution by run_id.
+        """Cancel a running supervisor execution by run_id.
         Proxies to AI service: POST /api/v1/agents/run/{run_id}/cancel
         """
         body = {"reason": reason} if reason else None

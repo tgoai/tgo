@@ -9,7 +9,9 @@ from uuid import uuid4
 import pytest
 
 from app.api.v1.endpoints import store as store_endpoints
+from app.core.dev_data import DEFAULT_PERMISSIONS, DEFAULT_USER_GLOBAL_PERMISSIONS
 from app.models.project import Project
+import app.schemas as app_schemas
 from app.schemas.store import StoreInstallAgentRequest
 
 
@@ -33,6 +35,27 @@ def test_ai_teams_routes_absent(client) -> None:
     schema = client.get("/v1/openapi.json").json()
 
     assert all(not path.startswith("/v1/ai/teams") for path in schema["paths"])
+
+
+def test_team_schema_exports_absent() -> None:
+    """tgo-api should not keep legacy team schemas in its public exports."""
+
+    removed_exports = (
+        "TeamCreateRequest",
+        "TeamUpdateRequest",
+        "TeamResponse",
+        "TeamListResponse",
+        "TeamWithDetailsResponse",
+    )
+
+    assert all(not hasattr(app_schemas, name) for name in removed_exports)
+
+
+def test_team_permissions_absent_from_seed_data() -> None:
+    """Default permissions should no longer advertise AI team resources."""
+
+    assert all(resource != "ai_teams" for resource, _action, _desc in DEFAULT_PERMISSIONS)
+    assert all(resource != "ai_teams" for resource, _action in DEFAULT_USER_GLOBAL_PERMISSIONS)
 
 
 @pytest.mark.asyncio

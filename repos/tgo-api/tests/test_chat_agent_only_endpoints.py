@@ -11,7 +11,7 @@ import pytest
 
 from app.api.v1.endpoints import chat as chat_endpoints
 from app.api.v1.endpoints import platforms as platform_endpoints
-from app.schemas.chat import ChatCompletionRequest, StaffTeamChatRequest
+from app.schemas.chat import ChatCompletionRequest, StaffAgentChatRequest
 from app.schemas.platform_schema import PlatformCreate
 from app.models.platform import PlatformType
 
@@ -199,7 +199,7 @@ async def test_chat_completion_omits_agent_id_without_platform_override(
 
 
 @pytest.mark.asyncio
-async def test_staff_team_chat_routes_agent_only(monkeypatch) -> None:
+async def test_staff_agent_chat_routes_agent_only(monkeypatch) -> None:
     """Staff AI chat should spawn a background run with only an agent target."""
 
     project_id = uuid4()
@@ -218,8 +218,8 @@ async def test_staff_team_chat_routes_agent_only(monkeypatch) -> None:
     monkeypatch.setattr(chat_endpoints.chat_service, "run_background_ai_interaction", run_background_mock)
     monkeypatch.setattr(chat_endpoints.asyncio, "create_task", fake_create_task)
 
-    response = await chat_endpoints.staff_team_chat(
-        StaffTeamChatRequest(agent_id=agent_id, message="hello"),
+    response = await chat_endpoints.staff_agent_chat(
+        StaffAgentChatRequest(agent_id=agent_id, message="hello"),
         db=_NoOpDB(),
         current_user=SimpleNamespace(
             id=uuid4(),
@@ -231,6 +231,15 @@ async def test_staff_team_chat_routes_agent_only(monkeypatch) -> None:
     assert response.success is True
     assert run_background_mock.call_args.kwargs["agent_id"] == str(agent_id)
     assert "team_id" not in run_background_mock.call_args.kwargs
+
+
+def test_chat_openapi_uses_agent_route_not_team_route(client) -> None:
+    """OpenAPI should expose the single-agent route and drop the team-named route."""
+
+    schema = client.get("/v1/openapi.json").json()
+
+    assert "/v1/chat/agent" in schema["paths"]
+    assert "/v1/chat/team" not in schema["paths"]
 
 
 @pytest.mark.asyncio

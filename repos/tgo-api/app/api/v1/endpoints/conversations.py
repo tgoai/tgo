@@ -323,7 +323,7 @@ async def sync_my_conversations(
         )
         
         # Only filter visitor (customer service) conversations by valid channels.
-        # Non-visitor conversations (e.g., personal/team/agent) should be kept.
+        # Non-visitor conversations (e.g., personal staff/agent chats) stay intact.
         valid_channel_ids = {ch.channel_id for ch in channels}
         filtered_conversations = [
             conv

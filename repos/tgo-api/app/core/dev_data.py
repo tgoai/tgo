@@ -48,13 +48,6 @@ DEFAULT_PERMISSIONS: List[Tuple[str, str, str]] = [
     ("ai_agents", "delete", "Delete AI agents"),
     ("ai_agents", "list", "List all AI agents"),
     
-    # AI Teams permissions
-    ("ai_teams", "create", "Create AI teams"),
-    ("ai_teams", "read", "View AI team details"),
-    ("ai_teams", "update", "Update AI teams"),
-    ("ai_teams", "delete", "Delete AI teams"),
-    ("ai_teams", "list", "List all AI teams"),
-    
     # RAG Collections permissions
     ("rag_collections", "create", "Create RAG collections"),
     ("rag_collections", "read", "View RAG collection details"),
@@ -110,10 +103,6 @@ DEFAULT_USER_GLOBAL_PERMISSIONS: List[Tuple[str, str]] = [
     # Users can view AI agents but not manage
     ("ai_agents", "read"),
     ("ai_agents", "list"),
-    
-    # Users can view AI teams but not manage
-    ("ai_teams", "read"),
-    ("ai_teams", "list"),
     
     # Users can view RAG but not manage
     ("rag_collections", "read"),

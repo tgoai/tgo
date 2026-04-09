@@ -165,7 +165,7 @@ class ChannelInfo(BaseSchema):
     channel_id: str = Field(..., description="WuKongIM channel identifier")
     channel_type: int = Field(..., description="Channel type: 1 (personal), 251 (customer service)")
     entity_type: str = Field(
-        ..., description="Entity type: 'visitor', 'staff', 'agent', or 'team'"
+        ..., description="Entity type: 'visitor', 'staff', or 'agent'"
     )
     extra: Optional[Dict[str, Any]] = Field(
         None,

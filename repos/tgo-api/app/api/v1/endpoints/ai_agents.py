@@ -243,8 +243,8 @@ async def get_agent(
     description="""
     Update AI agent configuration, tools, or settings.
     
-    You can modify agent name, instruction, model, team association, tool bindings,
-    and default agent status. Agent must belong to the authenticated project.
+    You can modify agent name, instruction, model, tool bindings, and default
+    agent status. Agent must belong to the authenticated project.
     """,
 )
 async def update_agent(

@@ -5,14 +5,14 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.chat import StaffTeamChatRequest, UIUserActionRequest
+from app.schemas.chat import StaffAgentChatRequest, UIUserActionRequest
 
 
-def test_staff_team_chat_request_rejects_team_id() -> None:
+def test_staff_agent_chat_request_rejects_team_id() -> None:
     """Staff chat requests should only accept agent routing."""
 
     with pytest.raises(ValidationError):
-        StaffTeamChatRequest.model_validate(
+        StaffAgentChatRequest.model_validate(
             {
                 "message": "hello",
                 "team_id": "123e4567-e89b-12d3-a456-426614174000",
@@ -20,10 +20,10 @@ def test_staff_team_chat_request_rejects_team_id() -> None:
         )
 
 
-def test_staff_team_chat_request_accepts_agent_id() -> None:
+def test_staff_agent_chat_request_accepts_agent_id() -> None:
     """Agent-only staff chat requests should stay valid."""
 
-    request = StaffTeamChatRequest.model_validate(
+    request = StaffAgentChatRequest.model_validate(
         {
             "message": "hello",
             "agent_id": "123e4567-e89b-12d3-a456-426614174000",

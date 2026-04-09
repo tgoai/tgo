@@ -115,7 +115,7 @@ class ChatCompletionRequest(BaseSchema):
     )
 
 
-class StaffTeamChatRequest(BaseSchema):
+class StaffAgentChatRequest(BaseSchema):
     """Request payload for staff-to-agent chat.
 
     Notes:
@@ -139,7 +139,7 @@ class StaffTeamChatRequest(BaseSchema):
     )
 
 
-class StaffTeamChatResponse(BaseSchema):
+class StaffAgentChatResponse(BaseSchema):
     """Response payload for staff-to-agent chat."""
     success: bool = Field(..., description="Whether the chat completed successfully")
     message: str = Field(..., description="Status message")

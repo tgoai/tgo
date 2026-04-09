@@ -13,11 +13,6 @@ from app.schemas.ai import (
     ManualServiceRequestEvent,
     CustomerInfoUpdateEvent,
     CustomerSentimentUpdateEvent,
-    TeamCreateRequest,
-    TeamListResponse,
-    TeamResponse,
-    TeamUpdateRequest,
-    TeamWithDetailsResponse,
     ToggleEnabledRequest,
 )
 from app.schemas.mcp import (
@@ -228,6 +223,8 @@ from app.schemas.search import MessageSearchResult, SearchPagination, SearchScop
 from app.schemas.chat import (
     ChatFileUploadResponse,
     StaffSendPlatformMessageRequest,
+    StaffAgentChatRequest,
+    StaffAgentChatResponse,
     OpenAIChatMessage,
     OpenAIChatCompletionRequest,
     OpenAIChatCompletionChoice,
@@ -356,11 +353,6 @@ __all__ = [
     "AcceptVisitorRequest",
     "AcceptVisitorResponse",
     # AI schemas
-    "TeamCreateRequest",
-    "TeamUpdateRequest",
-    "TeamResponse",
-    "TeamListResponse",
-    "TeamWithDetailsResponse",
     "AgentCreateRequest",
     "AgentUpdateRequest",
     "AgentResponse",

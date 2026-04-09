@@ -1,7 +1,7 @@
 """Remote Agents API endpoints - Manage Remote Agent registrations.
 
 This module provides APIs for managing remote agents (agents running on
-external AgentOS instances) that can be used by AI teams.
+external AgentOS instances) that can be bound to platform agents.
 """
 
 from typing import Any, Dict, List, Optional
@@ -254,7 +254,7 @@ async def register_remote_agent(
     """Register a custom remote agent.
     
     This allows registering agents from external AgentOS instances
-    to be used by AI teams.
+    to be bound to platform agents.
     """
     # Validate the remote agent exists
     config = await _fetch_remote_agent_info(request.base_url, request.agent_id)

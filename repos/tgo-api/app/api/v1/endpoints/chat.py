@@ -41,8 +41,8 @@ from app.schemas.chat import (
     UIUserActionRequest,
     UIUserActionResponse,
     ChatCompletionRequest,
-    StaffTeamChatRequest,
-    StaffTeamChatResponse,
+    StaffAgentChatRequest,
+    StaffAgentChatResponse,
     OpenAIChatCompletionChunk,
     OpenAIChatCompletionChunkChoice,
     OpenAIChatCompletionChoice,
@@ -1133,8 +1133,8 @@ async def chat_completion_openai_compatible(
 
 
 @router.post(
-    "/team",
-    response_model=StaffTeamChatResponse,
+    "/agent",
+    response_model=StaffAgentChatResponse,
     summary="Staff chat with AI agent",
     tags=["Chat"],
     description="""
@@ -1154,11 +1154,11 @@ async def chat_completion_openai_compatible(
     This endpoint returns success/failure status after initiating AI processing.
     """,
 )
-async def staff_team_chat(
-    req: StaffTeamChatRequest,
+async def staff_agent_chat(
+    req: StaffAgentChatRequest,
     db: Session = Depends(get_db),
     current_user: Staff = Depends(require_permission("chat:send")),
-) -> StaffTeamChatResponse:
+) -> StaffAgentChatResponse:
     """Staff chat with AI agent. Requires chat:send permission.
 
     - Auth: JWT token (staff authentication)
@@ -1213,7 +1213,7 @@ async def staff_team_chat(
     ))
 
     # 6) Return success response immediately
-    return StaffTeamChatResponse(
+    return StaffAgentChatResponse(
         success=True,
         message="Request accepted, processing in background",
         client_msg_no=client_msg_no,
