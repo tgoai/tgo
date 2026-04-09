@@ -7,8 +7,9 @@ from collections.abc import Generator, Iterator
 from dataclasses import dataclass
 from uuid import uuid4
 
+import anyio
+import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 os.environ.setdefault(
     "SECRET_KEY",
@@ -23,6 +24,37 @@ from app.core.database import get_db
 from app.core.security import get_authenticated_project
 from app.main import app
 from app.models.project import Project
+
+
+class SyncASGIClient:
+    """Small sync wrapper around httpx.AsyncClient for ASGI app tests."""
+
+    def __init__(self, app_instance: object) -> None:
+        self._client = httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app_instance),
+            base_url="http://testserver",
+        )
+
+    def request(self, method: str, url: str, **kwargs: object) -> httpx.Response:
+        async def _request() -> httpx.Response:
+            return await self._client.request(method, url, **kwargs)
+
+        return anyio.run(_request)
+
+    def get(self, url: str, **kwargs: object) -> httpx.Response:
+        return self.request("GET", url, **kwargs)
+
+    def post(self, url: str, **kwargs: object) -> httpx.Response:
+        return self.request("POST", url, **kwargs)
+
+    def patch(self, url: str, **kwargs: object) -> httpx.Response:
+        return self.request("PATCH", url, **kwargs)
+
+    def delete(self, url: str, **kwargs: object) -> httpx.Response:
+        return self.request("DELETE", url, **kwargs)
+
+    def close(self) -> None:
+        anyio.run(self._client.aclose)
 
 
 class _UnsetDBSession:
@@ -63,7 +95,7 @@ def db_override() -> DBOverride:
 def client(
     authenticated_project: Project,
     db_override: DBOverride,
-) -> Iterator[TestClient]:
+) -> Iterator[SyncASGIClient]:
     """Build a test client with auth and DB dependencies overridden."""
 
     async def override_authenticated_project() -> tuple[Project, str]:
@@ -78,7 +110,8 @@ def client(
     )
     app.dependency_overrides[get_db] = override_get_db
 
-    with TestClient(app) as test_client:
-        yield test_client
+    test_client = SyncASGIClient(app)
+    yield test_client
+    test_client.close()
 
     app.dependency_overrides.clear()

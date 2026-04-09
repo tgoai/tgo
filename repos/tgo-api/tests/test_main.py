@@ -1,14 +1,6 @@
 """Test main application."""
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
-
-
-def test_root_endpoint():
+def test_root_endpoint(client):
     """Test root endpoint."""
     response = client.get("/")
     assert response.status_code == 200
@@ -18,7 +10,7 @@ def test_root_endpoint():
     assert data["message"] == "TGO-Tech API Service"
 
 
-def test_health_endpoint():
+def test_health_endpoint(client):
     """Test health check endpoint."""
     response = client.get("/health")
     assert response.status_code == 200
@@ -26,13 +18,13 @@ def test_health_endpoint():
     assert data["status"] == "healthy"
 
 
-def test_openapi_docs():
+def test_openapi_docs(client):
     """Test OpenAPI documentation is accessible."""
     response = client.get("/v1/docs")
     assert response.status_code == 200
 
 
-def test_openapi_json():
+def test_openapi_json(client):
     """Test OpenAPI JSON is accessible."""
     response = client.get("/v1/openapi.json")
     assert response.status_code == 200

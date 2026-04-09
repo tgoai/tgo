@@ -6,7 +6,6 @@ from app.api.v1.endpoints import (
     ai_agents,
     ai_models,
     ai_skills,
-    ai_teams,
     ai_tools,
     ai_workflows,
     conversations,
@@ -137,12 +136,6 @@ api_router.include_router(
     ai_models.router,
     prefix="/ai-models",
     tags=["AI Models"]
-)
-
-api_router.include_router(
-    ai_teams.router,
-    prefix="/ai/teams",
-    tags=["AI Teams"]
 )
 
 api_router.include_router(

@@ -162,78 +162,12 @@ class AIServiceClient:
             detail=error_data
         )
 
-    # Team endpoints
-    async def list_teams(
-        self,
-        project_id: str,
-        is_default: Optional[bool] = None,
-        limit: int = 20,
-        offset: int = 0,
-    ) -> Dict[str, Any]:
-        """List teams from AI service."""
-        params = {"limit": limit, "offset": offset, "project_id": project_id}
-        if is_default is not None:
-            params["is_default"] = is_default
-
-        response = await self._make_request(
-            "GET", "/api/v1/teams", params=params
-        )
-        return await self._handle_response(response)
-
-    async def create_team(
-        self,
-        project_id: str,
-        team_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """Create team in AI service."""
-        response = await self._make_request(
-            "POST", "/api/v1/teams", json_data=team_data, params={"project_id": project_id}
-        )
-        return await self._handle_response(response)
-
-    async def get_team(
-        self,
-        project_id: str,
-        team_id: str,
-        include_agents: bool = True,
-    ) -> Dict[str, Any]:
-        """Get team from AI service."""
-        params = {"include_agents": include_agents, "project_id": project_id}
-        response = await self._make_request(
-            "GET", f"/api/v1/teams/{team_id}", params=params
-        )
-        return await self._handle_response(response)
-
-    async def update_team(
-        self,
-        project_id: str,
-        team_id: str,
-        team_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """Update team in AI service."""
-        response = await self._make_request(
-            "PATCH", f"/api/v1/teams/{team_id}", json_data=team_data, params={"project_id": project_id}
-        )
-        return await self._handle_response(response)
-
-    async def delete_team(
-        self,
-        project_id: str,
-        team_id: str,
-    ) -> None:
-        """Delete team from AI service."""
-        response = await self._make_request(
-            "DELETE", f"/api/v1/teams/{team_id}", params={"project_id": project_id}
-        )
-        return await self._handle_response(response)
-
     # Agent endpoints
     async def run_supervisor_agent(
         self,
         message: str,
         project_id: str,
         *,
-        team_id: Optional[str] = None,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         stream: bool = False,
@@ -246,8 +180,6 @@ class AIServiceClient:
             "message": message,
             "stream": stream,
         }
-        if team_id:
-            payload["team_id"] = team_id
         if session_id:
             payload["session_id"] = session_id
         if user_id:
@@ -276,7 +208,6 @@ class AIServiceClient:
         message: str,
         project_id: str,
         *,
-        team_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
@@ -286,19 +217,14 @@ class AIServiceClient:
         enable_memory: Optional[bool] = None,
         system_message: Optional[str] = None,
         expected_output: Optional[str] = None,
-        agent_ids: Optional[List[str]] = None,
     ) -> AsyncGenerator[Tuple[str, Any], None]:
         """Stream supervisor agent events as they arrive."""
         payload: Dict[str, Any] = {
             "message": message,
             "stream": True,
         }
-        if team_id:
-            payload["team_id"] = team_id
         if agent_id:
             payload["agent_id"] = agent_id
-        if agent_ids:
-            payload["agent_ids"] = agent_ids
         if session_id:
             payload["session_id"] = session_id
         if user_id:
@@ -446,7 +372,6 @@ class AIServiceClient:
     async def list_agents(
         self,
         project_id: str,
-        team_id: Optional[str] = None,
         model: Optional[str] = None,
         is_default: Optional[bool] = None,
         limit: int = 20,
@@ -454,8 +379,6 @@ class AIServiceClient:
     ) -> Dict[str, Any]:
         """List agents from AI service."""
         params = {"limit": limit, "offset": offset, "project_id": project_id}
-        if team_id:
-            params["team_id"] = team_id
         if model:
             params["model"] = model
         if is_default is not None:

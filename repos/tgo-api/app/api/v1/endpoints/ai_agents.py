@@ -77,9 +77,6 @@ async def _enrich_agents_with_devices(
     """,
 )
 async def list_agents(
-    team_id: Optional[UUID] = Query(
-        None, description="Filter by team ID"
-    ),
     model: Optional[str] = Query(
         None, description="Filter by model name (e.g., gpt-4)"
     ),
@@ -102,7 +99,6 @@ async def list_agents(
     logger.info(
         "Listing AI agents",
         extra={
-            "team_id": str(team_id) if team_id else None,
             "model": model,
             "is_default": is_default,
             "limit": limit,
@@ -112,7 +108,6 @@ async def list_agents(
 
     result = await ai_client.list_agents(
         project_id=str(project.id),
-        team_id=str(team_id) if team_id else None,
         model=model,
         is_default=is_default,
         limit=limit,
@@ -153,7 +148,6 @@ async def create_agent(
         extra={
             "agent_name": agent_data.name,
             "model": agent_data.model,
-            "team_id": str(agent_data.team_id) if agent_data.team_id else None,
             "is_default": agent_data.is_default,
             "workflow_count": len(agent_data.workflows) if agent_data.workflows else 0,
             "bound_device_id": agent_data.bound_device_id,
@@ -177,11 +171,6 @@ async def create_agent(
         if not provider:
             raise HTTPException(status_code=404, detail="AIProvider not found for current project")
         payload["llm_provider_id"] = str(ai_provider_id)
-
-    # Use project's default team_id if not provided in request
-    if "team_id" not in payload or payload.get("team_id") is None:
-        if project.default_team_id:
-            payload["team_id"] = project.default_team_id
 
     result = await ai_client.create_agent(
         project_id=str(project.id),
@@ -273,7 +262,6 @@ async def update_agent(
             "agent_id": str(agent_id),
             "agent_name": agent_data.name,
             "model": agent_data.model,
-            "team_id": str(agent_data.team_id) if agent_data.team_id else None,
             "is_default": agent_data.is_default,
             "workflow_count": len(agent_data.workflows) if agent_data.workflows else 0,
             "bound_device_id": agent_data.bound_device_id,

@@ -619,10 +619,6 @@ async def install_agent_from_store(
 
     # 4. 调用 ai_client.create_agent() 创建本地 Agent
     try:
-        # 获取项目默认团队
-        from app.models.project import Project
-        project = db.get(Project, project_id)
-        
         agent_data = {
             "name": agent_template.title_zh or agent_template.name,
             "is_remote_store_agent": True,
@@ -632,7 +628,6 @@ async def install_agent_from_store(
             "instruction": agent_template.instruction_zh or agent_template.instruction,
             "model": agent_template.model.name if agent_template.model else "gpt-4o",
             "config": agent_template.default_config,
-            "team_id": project.default_team_id if project else None,
             "tools": installed_tool_bindings,  # 自动关联已安装的工具
             "llm_provider_id": str(associated_llm_provider_id) if associated_llm_provider_id else None  # 关联已安装的模型提供商
         }
