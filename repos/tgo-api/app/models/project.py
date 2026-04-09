@@ -31,13 +31,6 @@ class Project(Base):
         comment="API key for authentication"
     )
 
-    # AI service integration
-    default_team_id: Mapped[Optional[str]] = mapped_column(
-        String(64),
-        nullable=True,
-        comment="Default AI team ID from AI service"
-    )
-
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         nullable=False,

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from app.models.visitor import Visitor
 
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, func, event, inspect as sa_inspect
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship, foreign
 
 from app.core.database import Base
@@ -162,10 +162,10 @@ class Platform(Base):
         comment="Whether platform is active"
     )
     # AI configuration
-    agent_ids: Mapped[Optional[List[UUID]]] = mapped_column(
-        ARRAY(PG_UUID(as_uuid=True)),
+    agent_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
         nullable=True,
-        comment="List of AI Agent IDs assigned to this platform"
+        comment="AI Agent ID assigned to this platform"
     )
     ai_mode: Mapped[Optional[str]] = mapped_column(
         String(20),

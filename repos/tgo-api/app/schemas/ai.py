@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Literal, TYPE_CHECKING
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.base import BaseSchema, PaginationMetadata
 
@@ -375,6 +375,8 @@ class AgentToolResponse(BaseSchema):
 class AgentCreateRequest(BaseSchema):
     """Schema for creating a new agent."""
 
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(
         ...,
         max_length=255,
@@ -421,10 +423,6 @@ class AgentCreateRequest(BaseSchema):
         default=AgentCategory.NORMAL,
         description="Agent category: normal or computer_use"
     )
-    team_id: Optional[UUID] = Field(
-        None,
-        description="Team ID to associate the agent with (optional)"
-    )
     ai_provider_id: Optional[UUID] = Field(
         None,
         description="AIProvider ID (credentials) to use for this agent"
@@ -468,14 +466,12 @@ class AgentCreateRequest(BaseSchema):
 class AgentUpdateRequest(BaseSchema):
     """Schema for updating an existing agent."""
 
+    model_config = ConfigDict(extra="forbid")
+
     name: Optional[str] = Field(
         None,
         max_length=255,
         description="Updated agent name"
-    )
-    team_id: Optional[UUID] = Field(
-        None,
-        description="Updated team ID (set to null to remove from team)"
     )
     ai_provider_id: Optional[UUID] = Field(
         None,
@@ -599,7 +595,6 @@ class AgentResponse(BaseSchema):
         default=AgentCategory.NORMAL,
         description="Agent category: normal or computer_use"
     )
-    team_id: Optional[UUID] = Field(None, description="Associated team ID")
     skills_enabled: bool = Field(
         default=True,
         description="Whether skill discovery is enabled for this agent"

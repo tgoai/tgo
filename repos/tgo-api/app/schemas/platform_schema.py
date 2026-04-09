@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import Field, computed_field
+from pydantic import ConfigDict, Field, computed_field
 
 from app.models.platform import PlatformType, PlatformAIMode
 from app.schemas.base import BaseSchema, PaginatedResponse, SoftDeleteMixin, TimestampMixin
@@ -12,6 +12,8 @@ from app.core.config import settings
 
 class PlatformBase(BaseSchema):
     """Base platform schema."""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: Optional[str] = Field(
         None,
@@ -29,9 +31,9 @@ class PlatformBase(BaseSchema):
         default=True,
         description="Whether the platform is active"
     )
-    agent_ids: Optional[List[UUID]] = Field(
+    agent_id: Optional[UUID] = Field(
         None,
-        description="List of AI Agent IDs assigned to this platform"
+        description="AI Agent ID assigned to this platform"
     )
     ai_mode: Optional[PlatformAIMode] = Field(
         default=PlatformAIMode.AUTO,
@@ -46,8 +48,11 @@ class PlatformBase(BaseSchema):
 
 class PlatformAISettings(BaseSchema):
     """AI configuration settings for a platform."""
+
+    model_config = ConfigDict(extra="forbid")
+
     ai_mode: Optional[PlatformAIMode] = Field(None, description="AI mode: auto, assist, or off")
-    agent_ids: Optional[List[UUID]] = Field(None, description="List of AI Agent IDs assigned to this platform")
+    agent_id: Optional[UUID] = Field(None, description="AI Agent ID assigned to this platform")
     fallback_to_ai_timeout: Optional[int] = Field(None, description="Timeout in seconds before AI takes over when ai_mode=assist")
 
 
@@ -58,6 +63,8 @@ class PlatformCreate(PlatformBase):
 
 class PlatformUpdate(BaseSchema):
     """Schema for updating a platform."""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: Optional[str] = Field(
         None,
@@ -77,9 +84,9 @@ class PlatformUpdate(BaseSchema):
         None,
         description="Updated platform active status"
     )
-    agent_ids: Optional[List[UUID]] = Field(
+    agent_id: Optional[UUID] = Field(
         None,
-        description="List of AI Agent IDs assigned to this platform"
+        description="AI Agent ID assigned to this platform"
     )
     ai_mode: Optional[PlatformAIMode] = Field(
         None,
@@ -118,7 +125,7 @@ class PlatformListItemResponse(BaseSchema, TimestampMixin, SoftDeleteMixin):
     icon: Optional[str] = Field(None, description="SVG icon markup for the platform type")
     is_supported: Optional[bool] = Field(None, description="Whether this platform type is currently supported")
     name_en: Optional[str] = Field(None, description="English name of the platform type")
-    agent_ids: Optional[List[UUID]] = Field(None, description="List of AI Agent IDs assigned to this platform")
+    agent_id: Optional[UUID] = Field(None, description="AI Agent ID assigned to this platform")
     ai_mode: Optional[PlatformAIMode] = Field(None, description="AI mode: auto, assist, or off")
     fallback_to_ai_timeout: Optional[int] = Field(None, description="Timeout in seconds before AI takes over when ai_mode=assist")
 
