@@ -17,7 +17,6 @@ export interface BaseQueryParams {
   // Agent-specific parameters (allowing null for API compatibility)
   model?: string | null;
   is_default?: boolean | null;
-  team_id?: string | null;
   // Model-specific parameters (allowing null for API compatibility)
   provider?: string | null;
   type?: string | null;
@@ -119,13 +118,6 @@ export abstract class BaseApiService {
     }
     if (params.is_default !== undefined && params.is_default !== null) {
       queryParams.append('is_default', params.is_default.toString());
-    }
-    if (params.team_id !== undefined) {
-      if (params.team_id === null) {
-        queryParams.append('team_id', 'null');
-      } else {
-        queryParams.append('team_id', params.team_id);
-      }
     }
 
     // Model-specific parameters

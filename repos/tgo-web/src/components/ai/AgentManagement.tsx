@@ -84,7 +84,7 @@ const AgentManagement: React.FC = () => {
     }
   }, []);
 
-  // Load agents and team on component mount
+  // Load agents and default agent on component mount
   useEffect(() => {
     if (hasLoadedAgents.current) {
       return;
@@ -104,9 +104,9 @@ const AgentManagement: React.FC = () => {
       }
     };
 
-    loadInitialAgents();
-    loadDefaultAgent();
-  }, [loadDefaultAgent]);
+    void loadInitialAgents();
+    void loadDefaultAgent();
+  }, [loadAgents, loadDefaultAgent, showError, t]);
 
   const handleRefresh = async (silent = false) => {
     setIsRefreshing(true);
@@ -115,7 +115,7 @@ const AgentManagement: React.FC = () => {
       if (!silent) {
         showSuccess(t('agents.messages.refreshSuccess', '刷新成功'), t('agents.messages.refreshSuccessDesc', 'AI员工列表已更新'));
       }
-    } catch (error) {
+    } catch {
       if (!silent) {
         showError(t('agents.messages.refreshFailed', '刷新失败'), t('agents.messages.refreshFailedDesc', '无法刷新AI员工列表'));
       }
@@ -213,7 +213,7 @@ const AgentManagement: React.FC = () => {
         t('agents.messages.copySuccess', '复制成功'),
         t('agents.messages.copySuccessDesc', `AI员工 "${agent.name}" 已成功复制`, { name: agent.name })
       );
-    } catch (error) {
+    } catch {
       showError(
         t('agents.messages.copyFailed', '复制失败'),
         t('agents.messages.copyFailedDesc', '复制AI员工时发生错误')
@@ -251,7 +251,7 @@ const AgentManagement: React.FC = () => {
       );
       setShowDeleteConfirm(false);
       setSelectedAgent(null);
-    } catch (error) {
+    } catch {
       showError(
         t('agents.messages.deleteFailed', '删除失败'),
         t('agents.messages.deleteFailedDesc', '删除AI员工时发生错误')

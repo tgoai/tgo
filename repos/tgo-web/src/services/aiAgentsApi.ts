@@ -200,7 +200,6 @@ export class AIAgentsTransformUtils {
       model: modelName, // pure model name (no provider prefix)
       is_default: false, // Default to false
       config: configObj,
-      team_id: null, // Optional - can be set later if needed
       tools: tools,
       collections: collections,
       workflows: workflowIds,

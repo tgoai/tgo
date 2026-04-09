@@ -36,17 +36,6 @@ export type PlatformStatus = 'connected' | 'pending' | 'unconfigured' | 'disable
 export type PlatformAIMode = 'auto' | 'assist' | 'off';
 
 /**
- * Team 高级配置 (agno 框架参数)
- */
-export interface TeamAdvancedConfig {
-  respond_directly?: boolean;        // 直接响应，跳过成员回答汇总
-  num_history_runs?: number;         // 历史会话轮数限制 (1-20)
-  markdown?: boolean;                // 是否使用 markdown 格式输出
-  add_datetime_to_context?: boolean; // 是否添加日期时间到上下文
-  tool_call_limit?: number;          // 单次运行工具调用次数限制
-}
-
-/**
  * Agent 高级配置 (agno 框架参数)
  */
 export interface AgentAdvancedConfig {
@@ -245,7 +234,6 @@ export interface AgentResponse {
   model: string;
   is_default: boolean;
   config: Record<string, any> | null;
-  team_id: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -260,7 +248,6 @@ export interface AgentWithDetailsResponse {
   ai_provider_id?: string | null;
   is_default: boolean;
   config?: Record<string, any> | null;
-  team_id?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
@@ -287,7 +274,6 @@ export interface AgentCreateRequest {
   model: string; // pure model name (e.g., 'gpt-4o'), no provider prefix
   is_default?: boolean;
   config?: AgentAdvancedConfig | null;
-  team_id?: string | null;
   ai_provider_id?: string | null; // AI provider UUID (credentials)
   tools?: AgentToolCreateRequest[] | null;
   collections?: string[] | null; // Collection IDs (UUID strings)
@@ -303,7 +289,6 @@ export interface AgentUpdateRequest {
   model?: string | null; // pure model name (no provider prefix)
   is_default?: boolean | null;
   config?: AgentAdvancedConfig | null;
-  team_id?: string | null;
   ai_provider_id?: string | null; // AI provider UUID (credentials)
   tools?: AgentToolCreateRequest[] | null;
   collections?: string[] | null; // Collection IDs (UUID strings)
@@ -329,7 +314,6 @@ export interface PaginationMetadata {
 
 // Agent Query Parameters
 export interface AgentQueryParams {
-  team_id?: string | null;
   model?: string | null;
   is_default?: boolean | null;
   limit?: number;

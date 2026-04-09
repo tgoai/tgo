@@ -235,20 +235,17 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ open, onClose }) => {
     const channelId = m.channel_id || undefined;
     const channelType = m.channel_type ?? DEFAULT_CHANNEL_TYPE;
     const isAgentChat = channelId?.endsWith('-agent') ?? false;
-    const isTeamChat = channelId?.endsWith('-team') ?? false;
 
     const { name, avatar, extra } = useChannelDisplay({
       channelId,
       channelType,
       // Skip fetch for special chat types
-      skipFetch: isAgentChat || isTeamChat,
+      skipFetch: isAgentChat,
     });
 
     const displayName = isAgentChat
       ? t('chat.header.agentFallback', 'AI员工')
-      : isTeamChat
-        ? t('chat.header.teamFallback', 'AI员工团队')
-        : name;
+      : name;
     const displayAvatar = avatar;
 
     const visitorExtra = extra as ChannelVisitorExtra | undefined;

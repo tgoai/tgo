@@ -217,10 +217,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // Effect-based focus recovery - runs after every render
   // AI toggle integration
   
-  // 判断是否是 agent 会话（channelId 以 -agent 结尾）或 team 会话（channelId 以 -team 结尾）
+  // 判断是否是 agent 会话（channelId 以 -agent 结尾）
   const isAgentChat = channelId?.endsWith('-agent') ?? false;
-  const isTeamChat = channelId?.endsWith('-team') ?? false;
-  const isAIChat = isAgentChat || isTeamChat;
+  const isAIChat = isAgentChat;
   
   const channelInfo = useChannelStore(state =>
     channelId && typeof channelType === 'number'
@@ -250,7 +249,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   );
   const assignedStaffName = assignedStaffChannelInfo?.name;
   
-  // agent/team 会话时不禁用手动输入
+  // agent 会话时不禁用手动输入
   const isManualDisabled = isAIChat ? false : isAIEnabled;
   // 流消息进行中时不禁用输入框，但发送按钮会变成暂停按钮
   const { showToast, showError } = useToast();
@@ -1365,7 +1364,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         disabled={isManualDisabled}
       />
 
-        {/* AI 助手开关 - agent/team 会话时不显示 */}
+        {/* AI 助手开关 - agent 会话时不显示 */}
         {!isAIChat && (
           <div className="flex items-center space-x-2" title={isAIEnabled ? t('chat.input.ai.enabled', 'AI已启用') : t('chat.input.ai.disabled', 'AI已禁用')}>
             <span className="text-xs text-gray-600 dark:text-gray-400 select-none">{t('chat.input.ai.label', 'AI助手')}</span>

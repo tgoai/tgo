@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Chat, PlatformType, ChannelVisitorExtra, VisitorServiceStatus } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { Bot, LogOut, Loader2, ArrowRightLeft, ChevronDown, User, RotateCcw } from 'lucide-react';
-import { TbBrain } from 'react-icons/tb';
 
 import { getPlatformIconComponent, getPlatformLabel, toPlatformType, getPlatformColor } from '@/utils/platformUtils';
 import { visitorApiService } from '@/services/visitorApi';
@@ -46,10 +45,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = React.memo(({ activeChat, onEndCha
   const updateConversationPreview = useChatStore(state => state.updateConversationPreview);
   const currentUser = useAuthStore(state => state.user);
   
-  // 判断是否是 agent 会话（channelId 以 -agent 结尾）或 team 会话（channelId 以 -team 结尾）
+  // 判断是否是 agent 会话（channelId 以 -agent 结尾）
   const isAgentChat = activeChat.channelId?.endsWith('-agent') ?? false;
-  const isTeamChat = activeChat.channelId?.endsWith('-team') ?? false;
-  const isAIChat = isAgentChat || isTeamChat;
+  const isAIChat = isAgentChat;
   
   // 使用 useChannelDisplay hook 获取频道展示信息
   const { name: channelName, extra } = useChannelDisplay({
@@ -218,10 +216,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = React.memo(({ activeChat, onEndCha
           {isAgentChat ? (
             <span title={t('chat.header.agentTooltip', 'AI员工会话')}>
               <Bot className="w-4 h-4 inline-block ml-1.5 -mt-0.5 text-purple-500 dark:text-purple-400" />
-            </span>
-          ) : isTeamChat ? (
-            <span title={t('chat.header.teamTooltip', '团队会话')}>
-              <TbBrain className="w-4 h-4 inline-block ml-1.5 -mt-0.5 text-green-500 dark:text-green-400" />
             </span>
           ) : (
             (() => {

@@ -111,8 +111,7 @@ const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ activeChat, onSendMe
   }, [onSendMessage]);
 
   // Check if current chat is an agent chat
-  const isAgentChat = channelId?.endsWith('-agent') ?? false;
-  const isAIChat = isAgentChat;
+  const isAIChat = channelId?.endsWith('-agent') ?? false;
 
   // Enhanced message sending with platform-aware flow (REST first for non-website, then WebSocket)
   // For agent chats, use REST API instead of WebSocket
@@ -223,7 +222,7 @@ const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ activeChat, onSendMe
     } finally {
       setIsSending(false);
     }
-  }, [isWuKongIMChat, channelId, channelType, isConnected, isAIChat, isAgentChat, user, addMessage, updateConversationLastMessage, moveConversationToTop, platformType, onSendMessage, sendWsMessage, updateMessageByClientMsgNo, showToast, t]);
+  }, [isWuKongIMChat, channelId, channelType, isConnected, isAIChat, user, addMessage, updateConversationLastMessage, moveConversationToTop, platformType, onSendMessage, sendWsMessage, updateMessageByClientMsgNo, showToast, t]);
 
   // Handle empty state when no chat is selected
   if (!activeChat) {
@@ -266,7 +265,7 @@ const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ activeChat, onSendMe
         if (!cancelled) {
           setScrollToSeq(targetLoc.messageSeq);
         }
-      } catch (err) {
+      } catch {
         showToast('warning', t('chat.search.locateFailedTitle','\u672a\u80fd\u5b9a\u4f4d\u6d88\u606f'), t('chat.search.locateFailedDesc','\u8be5\u6d88\u606f\u53ef\u80fd\u5df2\u88ab\u5220\u9664\u6216\u6682\u4e0d\u53ef\u7528'));
       } finally {
         // Clear target to avoid repeat
@@ -276,7 +275,7 @@ const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ activeChat, onSendMe
     void locate();
     return () => { cancelled = true; };
   // We want to re-run when target changes or conversation changes
-  }, [isWuKongIMChat, channelId, channelType, targetLoc, loadMessageContext, clearHistoricalMessages, setLoadingHistory, setTargetMessageLocation, showToast]);
+  }, [isWuKongIMChat, channelId, channelType, targetLoc, loadMessageContext, clearHistoricalMessages, setLoadingHistory, setTargetMessageLocation, showToast, t]);
 
   return (
     <main className="flex-grow flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">

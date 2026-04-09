@@ -95,7 +95,7 @@ describe('chat commands', () => {
   });
 
   describe('registerChatCommands', () => {
-    it('should register chat agent and remove legacy chat team command', async () => {
+    it('should register only the chat agent command', async () => {
       const { registerChatCommands } = await import('./chat.js');
       const client = mockClient();
 

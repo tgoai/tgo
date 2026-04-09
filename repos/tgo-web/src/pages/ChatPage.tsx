@@ -209,10 +209,9 @@ const ChatPage: React.FC = () => {
     return () => window.removeEventListener('focus', onFocus);
   }, []);
 
-  // 判断当前会话是否是 agent 会话（channelId 以 -agent 结尾）或 team 会话（channelId 以 -team 结尾）
+  // 判断当前会话是否是 agent 会话（channelId 以 -agent 结尾）
   const isAgentChat = activeChat?.channelId?.endsWith('-agent') ?? false;
-  const isTeamChat = activeChat?.channelId?.endsWith('-team') ?? false;
-  const isAIChat = isAgentChat || isTeamChat;
+  const isAIChat = isAgentChat;
 
   return (
     <div className="flex h-full w-full bg-gray-50 dark:bg-gray-900">
@@ -234,7 +233,7 @@ const ChatPage: React.FC = () => {
         onEndChatSuccess={handleEndChatSuccess}
       />
 
-      {/* Visitor Info Panel - 仅在非 AI 会话（非 agent 和非 team）时显示 */}
+      {/* Visitor Info Panel - 仅在非 AI 会话（非 agent）时显示 */}
       {!isAIChat && <VisitorPanel activeChat={activeChat ?? undefined} />}
     </div>
   );
