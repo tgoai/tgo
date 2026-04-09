@@ -3,7 +3,7 @@
 import uuid
 from typing import List, Optional, Tuple, Dict
 
-from sqlalchemy import and_, func, select, text
+from sqlalchemy import and_, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -44,6 +44,9 @@ class AgentService:
             tool_ids = [tool.tool_id for tool in agent_data.tools]
             await self._validate_tools_belong_to_project(tool_ids, project_id)
 
+        if agent_data.is_default:
+            await self._clear_project_default_agents(project_id)
+
         # Create agent
         agent = Agent(
             project_id=project_id,
@@ -61,9 +64,6 @@ class AgentService:
 
         self.db.add(agent)
         await self.db.flush()  # Get agent ID
-
-        if agent.is_default:
-            await self._replace_project_default_agent(project_id, agent.id)
 
         # Create tool associations (many-to-many)
         if agent_data.tools:
@@ -241,7 +241,10 @@ class AgentService:
             setattr(agent, field, value)
 
         if agent_data.is_default is True:
-            await self._replace_project_default_agent(project_id, agent.id)
+            await self._clear_project_default_agents(
+                project_id,
+                exclude_agent_id=agent.id,
+            )
 
         # Update tools if provided
         if agent_data.tools is not None:
@@ -494,17 +497,31 @@ class AgentService:
     ) -> None:
         """Clear any other default agent before setting the requested default."""
 
-        stmt = select(Agent).where(
-            and_(
-                Agent.project_id == project_id,
-                Agent.deleted_at.is_(None),
-            )
+        await self._clear_project_default_agents(
+            project_id,
+            exclude_agent_id=new_default_agent_id,
         )
-        result = await self.db.execute(stmt)
-        project_agents = result.scalars().all()
 
-        for project_agent in project_agents:
-            project_agent.is_default = project_agent.id == new_default_agent_id
+    async def _clear_project_default_agents(
+        self,
+        project_id: uuid.UUID,
+        exclude_agent_id: Optional[uuid.UUID] = None,
+    ) -> None:
+        """Clear active default agents in a project before promoting another one."""
+
+        conditions = [
+            Agent.project_id == project_id,
+            Agent.deleted_at.is_(None),
+            Agent.is_default.is_(True),
+        ]
+        if exclude_agent_id is not None:
+            conditions.append(Agent.id != exclude_agent_id)
+
+        await self.db.execute(
+            update(Agent)
+            .where(and_(*conditions))
+            .values(is_default=False)
+        )
 
     async def _validate_collections_belong_to_project(
         self, collection_ids: List[str], project_id: uuid.UUID

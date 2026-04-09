@@ -23,6 +23,22 @@ class AgentLike(Protocol):
     updated_at: datetime | None
 
 
+class ProjectAgentLike(AgentLike, Protocol):
+    """Agent fields needed for project-level default rollout."""
+
+    is_default: bool
+    team_id: UUID | None
+    deleted_at: datetime | None
+
+
+class TeamLike(Protocol):
+    """Team fields needed for project-level default rollout."""
+
+    id: UUID
+    is_default: bool
+    deleted_at: datetime | None
+
+
 def merge_agent_config(
     agent_config: Mapping[str, JsonValue] | None,
     team_config: Mapping[str, JsonValue] | None,
@@ -63,6 +79,40 @@ def choose_rollout_default_agent(candidates: Sequence[AgentLike]) -> AgentLike |
             str(agent.id),
         ),
     )
+
+
+def choose_default_agent_for_project(
+    agents: Sequence[ProjectAgentLike],
+    teams: Sequence[TeamLike],
+) -> ProjectAgentLike | None:
+    """Choose the post-migration project default agent, if any."""
+
+    active_agents = [agent for agent in agents if agent.deleted_at is None]
+    if not active_agents:
+        return None
+
+    explicit_defaults = [agent for agent in active_agents if agent.is_default]
+    chosen_explicit_default = choose_rollout_default_agent(explicit_defaults)
+    if chosen_explicit_default is not None:
+        return chosen_explicit_default
+
+    default_team_ids = {
+        team.id
+        for team in teams
+        if team.is_default and team.deleted_at is None
+    }
+    if default_team_ids:
+        default_team_agents = [
+            agent for agent in active_agents if agent.team_id in default_team_ids
+        ]
+        chosen_default_team_agent = choose_rollout_default_agent(default_team_agents)
+        if chosen_default_team_agent is not None:
+            return chosen_default_team_agent
+
+    if len(active_agents) == 1:
+        return active_agents[0]
+
+    return None
 
 
 def _normalize_datetime(value: datetime | None) -> datetime:

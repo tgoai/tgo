@@ -162,6 +162,16 @@ class Agent(BaseModel):
         lazy="selectin",
     )
 
+    __table_args__ = (
+        Index(
+            "uq_ai_agents_default_per_project_active",
+            "project_id",
+            unique=True,
+            postgresql_where=sa.text("is_default = true AND deleted_at IS NULL"),
+            sqlite_where=sa.text("is_default = 1 AND deleted_at IS NULL"),
+        ),
+    )
+
     def __repr__(self) -> str:
         """String representation of the agent."""
         return f"<Agent(id={self.id}, name='{self.name}', project_id={self.project_id})>"
@@ -240,5 +250,4 @@ class AgentToolAssociation(BaseModel):
 
     def __repr__(self) -> str:  # pragma: no cover - convenience
         return f"<AgentToolAssociation(agent_id={self.agent_id}, tool_id={self.tool_id})>"
-
 
