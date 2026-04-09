@@ -168,10 +168,10 @@ class AIServiceClient:
         message: str,
         project_id: str,
         *,
+        agent_id: Optional[str] = None,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         stream: bool = False,
-        config: Optional[Dict[str, Any]] = None,
         mcp_url: Optional[str] = None,
         rag_url: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -180,12 +180,12 @@ class AIServiceClient:
             "message": message,
             "stream": stream,
         }
+        if agent_id:
+            payload["agent_id"] = agent_id
         if session_id:
             payload["session_id"] = session_id
         if user_id:
             payload["user_id"] = user_id
-        if config:
-            payload["config"] = config
         if mcp_url:
             payload["mcp_url"] = mcp_url
         if rag_url:
@@ -211,7 +211,6 @@ class AIServiceClient:
         agent_id: Optional[str] = None,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
         mcp_url: Optional[str] = None,
         rag_url: Optional[str] = None,
         enable_memory: Optional[bool] = None,
@@ -229,8 +228,6 @@ class AIServiceClient:
             payload["session_id"] = session_id
         if user_id:
             payload["user_id"] = user_id
-        if config:
-            payload["config"] = config
         if mcp_url:
             payload["mcp_url"] = mcp_url
         if rag_url:

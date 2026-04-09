@@ -1,7 +1,7 @@
 """Registry for mapping client_msg_no to AI run metadata.
 
 This is used to support cancelling running AI supervisor runs by client_msg_no.
-- ai_processor records the mapping when the stream emits team_run_started (run_id available)
+- ai_processor records the mapping when the stream emits agent_execution_started (run_id available)
 - HTTP endpoint can request cancellation by client_msg_no; if run_id not known yet, we mark pending
 - When run_id arrives and pending is set, ai_processor will immediately invoke cancel
 

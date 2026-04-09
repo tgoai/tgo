@@ -3,7 +3,7 @@
 import json
 import asyncio
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
@@ -155,16 +155,16 @@ async def forward_ai_event_to_wukongim(
     """Forward AI event to WuKongIM using the new Stream API.
 
     Flow:
-      team_run_started  → send_stream_message (anchor with is_stream=1)
-      team_run_content  → send_stream_event (stream.delta, raw mixed content)
-      team_run_completed → send_stream_event (stream.close + stream.finish)
-      team_run_failed   → send_stream_event (stream.error)
+      agent_execution_started  → send_stream_message (anchor with is_stream=1)
+      agent_content_chunk      → send_stream_event (stream.delta)
+      workflow_completed / agent_response_complete → close + finish
+      workflow_failed          → send_stream_event (stream.error)
     """
     try:
         data = event_data.get("data") or {}
         logger.info(f"Forwarding AI event {event_type} to WuKongIM: {data}")
 
-        if event_type in {"team_run_started"}:
+        if event_type == "agent_execution_started":
             # Send stream anchor message
             await wukongim_client.send_stream_message(
                 from_uid=from_uid,
@@ -174,13 +174,17 @@ async def forward_ai_event_to_wukongim(
                 payload={"type": 100, "content": "AI 正在思考中..."},
             )
 
-        elif event_type in {"team_run_content"}:
+        elif event_type == "agent_content_chunk":
             # Robust extraction of content from data
-            chunk_text = data.get("content") or data.get("text")
+            chunk_text = data.get("content_chunk") or data.get("content") or data.get("text")
             if not chunk_text and isinstance(data, dict):
                 inner_data = data.get("data", {})
                 if isinstance(inner_data, dict):
-                    chunk_text = inner_data.get("content") or inner_data.get("text")
+                    chunk_text = (
+                        inner_data.get("content_chunk")
+                        or inner_data.get("content")
+                        or inner_data.get("text")
+                    )
 
             if chunk_text is not None:
                 chunk_str = str(chunk_text)
@@ -198,7 +202,7 @@ async def forward_ai_event_to_wukongim(
                 )
                 return chunk_str
 
-        elif event_type in {"team_run_completed"}:
+        elif event_type in {"workflow_completed", "agent_response_complete"}:
             # Close the stream channel, then finish the entire message
             await wukongim_client.send_stream_event(
                 channel_id=channel_id,
@@ -219,7 +223,7 @@ async def forward_ai_event_to_wukongim(
                 from_uid=from_uid,
             )
 
-        elif event_type == "team_run_failed":
+        elif event_type == "workflow_failed":
             error_message = data.get("error") or "AI processing failed"
             await wukongim_client.send_stream_event(
                 channel_id=channel_id,
@@ -246,10 +250,8 @@ async def process_ai_stream_to_wukongim(
     client_msg_no: str,
     from_uid: str,
     session_id: Optional[str] = None,
-    team_id: Optional[str] = None,
     system_message: Optional[str] = None,
     expected_output: Optional[str] = None,
-    agent_ids: Optional[List[str]] = None,
     agent_id: Optional[str] = None,
 ):
     """Process AI stream and forward events to WuKongIM, while yielding events for SSE."""
@@ -260,11 +262,9 @@ async def process_ai_stream_to_wukongim(
 
     # 2) Run AI completion
     try:
-        async for _,data in ai_client.run_supervisor_agent_stream(
+        async for stream_event_type, data in ai_client.run_supervisor_agent_stream(
             project_id=project_id,
-            team_id=team_id,
             agent_id=agent_id,
-            agent_ids=agent_ids,
             user_id=user_id,
             message=message,
             session_id=session_id,
@@ -272,8 +272,10 @@ async def process_ai_stream_to_wukongim(
             system_message=system_message,
             expected_output=expected_output,
         ):
+            event_type = data.get("event_type") if isinstance(data, dict) else None
+            if not event_type:
+                event_type = stream_event_type
             # Forward to WuKongIM
-            event_type = data.get("event_type")
             content_chunk = await forward_ai_event_to_wukongim(
                 event_type=event_type,
                 event_data=data,
@@ -312,10 +314,8 @@ async def handle_ai_response_non_stream(
     client_msg_no: str,
     from_uid: str,
     session_id: Optional[str] = None,
-    team_id: Optional[str] = None,
     system_message: Optional[str] = None,
     expected_output: Optional[str] = None,
-    agent_ids: Optional[List[str]] = None,
     agent_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Handle AI completion in a non-streaming way, while still forwarding to WuKongIM."""
@@ -323,11 +323,9 @@ async def handle_ai_response_non_stream(
     last_data = {}
     
     try:
-        async for  _, data in ai_client.run_supervisor_agent_stream(
+        async for stream_event_type, data in ai_client.run_supervisor_agent_stream(
             project_id=project_id,
-            team_id=team_id,
             agent_id=agent_id,
-            agent_ids=agent_ids,
             user_id=visitor_id,
             message=message,
             session_id=session_id,
@@ -335,7 +333,9 @@ async def handle_ai_response_non_stream(
             system_message=system_message,
             expected_output=expected_output,
         ):
-            event_type = data.get("event_type")
+            event_type = data.get("event_type") if isinstance(data, dict) else None
+            if not event_type:
+                event_type = stream_event_type
             content_chunk = await forward_ai_event_to_wukongim(
                 event_type=event_type,
                 event_data=data,
@@ -372,17 +372,15 @@ async def run_background_ai_interaction(
     client_msg_no: str,
     from_uid: str,
     session_id: Optional[str] = None,
-    team_id: Optional[str] = None,
     system_message: Optional[str] = None,
     expected_output: Optional[str] = None,
-    agent_ids: Optional[List[str]] = None,
     agent_id: Optional[str] = None,
     started_event: Optional[asyncio.Event] = None,
 ):
     """Run AI interaction in the background.
     
     Args:
-        started_event: Optional asyncio.Event that will be set when team_run_started is received.
+        started_event: Optional asyncio.Event that will be set when agent execution starts.
     """
     async for event_payload in process_ai_stream_to_wukongim(
         project_id=project_id,
@@ -393,16 +391,14 @@ async def run_background_ai_interaction(
         client_msg_no=client_msg_no,
         from_uid=from_uid,
         session_id=session_id,
-        team_id=team_id,
         system_message=system_message,
         expected_output=expected_output,
-        agent_ids=agent_ids,
         agent_id=agent_id,
     ):
-        # Signal that AI processing has started
+            # Signal that AI processing has started
         if started_event and not started_event.is_set():
             event_type = event_payload.get("event_type")
-            if event_type == "team_run_started":
+            if event_type == "agent_execution_started":
                 started_event.set()
 
 
