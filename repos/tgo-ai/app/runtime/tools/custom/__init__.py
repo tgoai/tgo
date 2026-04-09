@@ -1,4 +1,4 @@
-"""Custom team-level tools for AI runtime.
+"""Custom agent-level tools for AI runtime.
 
 Available tools:
 - handoff: Request human support

@@ -11,15 +11,15 @@ from app.schemas.base import BaseSchema
 class ErrorDetail(BaseSchema):
     """Error detail information."""
 
-    code: str = Field(description="Error code", examples=["TEAM_NOT_FOUND"])
+    code: str = Field(description="Error code", examples=["AGENT_NOT_FOUND"])
     message: str = Field(
         description="Human-readable error message",
-        examples=["The specified team was not found"],
+        examples=["The specified agent was not found"],
     )
     details: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Additional error context and details",
-        examples=[{"team_id": "123e4567-e89b-12d3-a456-426614174000"}],
+        examples=[{"agent_id": "123e4567-e89b-12d3-a456-426614174000"}],
     )
 
 

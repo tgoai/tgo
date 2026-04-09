@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from app.models.collection import AgentCollection
     from app.models.workflow import AgentWorkflow
     from app.models.project import Project
-    from app.models.team import Team
     from app.models.llm_provider import LLMProvider
     from app.models.tool import Tool
 
@@ -33,13 +32,6 @@ class Agent(BaseModel):
         UUID(as_uuid=True),
         nullable=False,
         comment="Associated project ID (logical reference to API service)",
-    )
-
-    team_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("ai_teams.id", ondelete="SET NULL"),
-        nullable=True,
-        comment="Associated team ID for team-based organization",
     )
 
     llm_provider_id: Mapped[Optional[uuid.UUID]] = mapped_column(
@@ -124,12 +116,6 @@ class Agent(BaseModel):
     project: Mapped["Project"] = relationship(
         "Project",
         primaryjoin="foreign(Agent.project_id) == Project.id",
-        back_populates="agents",
-        lazy="selectin",
-    )
-
-    team: Mapped[Optional["Team"]] = relationship(
-        "Team",
         back_populates="agents",
         lazy="selectin",
     )
@@ -250,4 +236,3 @@ class AgentToolAssociation(BaseModel):
 
     def __repr__(self) -> str:  # pragma: no cover - convenience
         return f"<AgentToolAssociation(agent_id={self.agent_id}, tool_id={self.tool_id})>"
-

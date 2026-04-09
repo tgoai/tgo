@@ -1,8 +1,8 @@
 """LLM Provider credentials synchronized from tgo-api.
 
 This table stores per-project Large Language Model provider credentials and
-configuration (api_base_url, api_key, etc.). Agents and Teams can reference a
-provider record via llm_provider_id.
+configuration (api_base_url, api_key, etc.). Agents can reference a provider
+record via llm_provider_id.
 """
 from __future__ import annotations
 
@@ -80,4 +80,3 @@ class LLMProvider(BaseModel):
 
     def __repr__(self) -> str:
         return f"<LLMProvider(id={self.id}, project_id={self.project_id}, alias='{self.alias}', kind='{self.provider_kind}', vendor='{self.vendor}')>"
-

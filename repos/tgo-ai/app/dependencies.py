@@ -19,7 +19,6 @@ from app.models.project import Project
 from app.runtime.supervisor.application.service import SupervisorRuntimeService
 from app.runtime.tools.executor.service import ToolsRuntimeService
 from app.services.agent_service import AgentService
-from app.services.team_service import TeamService
 from app.services.llm_provider_service import LLMProviderService
 
 # Security scheme for JWT tokens
@@ -109,21 +108,6 @@ def get_pagination_params(
         Tuple of (limit, offset)
     """
     return limit, offset
-
-
-# Service Dependencies
-
-def get_team_service(db: AsyncSession = Depends(get_db)) -> TeamService:
-    """
-    Get TeamService instance.
-
-    Args:
-        db: Database session
-
-    Returns:
-        TeamService instance
-    """
-    return TeamService(db)
 
 
 def get_agent_service(db: AsyncSession = Depends(get_db)) -> AgentService:

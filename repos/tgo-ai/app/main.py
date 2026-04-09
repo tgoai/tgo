@@ -58,10 +58,6 @@ app = FastAPI(
             "description": "Authentication endpoints and utilities",
         },
         {
-            "name": "Teams",
-            "description": "Team management operations",
-        },
-        {
             "name": "Agents",
             "description": "AI agent management operations",
         },
@@ -99,13 +95,13 @@ def custom_openapi():
             "message": {
                 "type": "string",
                 "description": "Human-readable error message",
-                "examples": ["The specified team was not found"]
+                "examples": ["The specified agent was not found"]
             },
             "details": {
                 "type": "object",
                 "nullable": True,
                 "description": "Additional error context and details",
-                "examples": [{"team_id": "123e4567-e89b-12d3-a456-426614174000"}]
+                "examples": [{"agent_id": "123e4567-e89b-12d3-a456-426614174000"}]
             }
         },
         "required": ["code", "message", "details"]

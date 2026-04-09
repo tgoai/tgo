@@ -65,18 +65,6 @@ class SupervisorRunRequest(BaseSchema):
         description="Enable conversational memory for the executing agent",
     )
 
-    @property
-    def team_id(self) -> None:
-        return None
-
-    @property
-    def agent_ids(self) -> None:
-        return None
-
-    @property
-    def config(self) -> None:
-        return None
-
 
 class AgentExecutionResult(BaseSchema):
     """Result from a single agent execution."""

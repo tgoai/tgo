@@ -2,22 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-def _load_default_team_instructions() -> str:
-    """从 Markdown 文件加载默认的团队指令."""
-    prompt_path = Path(__file__).parent / "prompts" / "team_instructions.md"
-    if prompt_path.exists():
-        return prompt_path.read_text(encoding="utf-8")
-    return (
-        "协作规则：\n"
-        "- 团队成员主动协作，明确分工、共享实时进展。\n"
-        "- 回答保持准确精炼，必要时给出引用或后续建议。\n"
-        "- 若存在不确定性，说明原因并提出下一步行动。\n"
-    )
 
 
 class QueryAnalysisSettings(BaseSettings):
@@ -156,7 +142,3 @@ class SupervisorRuntimeSettings(BaseSettings):
 
     coordination: CoordinationSettings = Field(default_factory=CoordinationSettings)
     enable_streaming: bool = True
-    team_instructions: str = Field(
-        default_factory=_load_default_team_instructions,
-        description="Agno Team 级别的协作/行为指令（可通过 SUPERVISOR_RUNTIME__TEAM_INSTRUCTIONS 覆盖）",
-    )

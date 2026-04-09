@@ -12,8 +12,6 @@ from app.models.agent import Agent, AgentToolAssociation
 from app.models.collection import AgentCollection
 from app.models.workflow import AgentWorkflow
 from app.models.tool import Tool
-
-from app.models.team import Team
 from app.schemas.agent import AgentCreate, AgentUpdate
 from app.services.rag_service import rag_service_client
 from app.services.workflow_service import workflow_service_client
@@ -456,39 +454,6 @@ class AgentService:
         except Exception:
             await self.db.rollback()
             raise
-
-    async def _validate_team_belongs_to_project(
-        self, team_id: uuid.UUID, project_id: uuid.UUID
-    ) -> None:
-        """
-        Validate that a team belongs to the specified project.
-
-        Args:
-            team_id: Team ID
-            project_id: Project ID
-
-        Raises:
-            NotFoundError: If team not found
-            ValidationError: If team belongs to different project
-        """
-        stmt = select(Team).where(
-            and_(
-                Team.id == team_id,
-                Team.deleted_at.is_(None),
-            )
-        )
-        result = await self.db.execute(stmt)
-        team = result.scalar_one_or_none()
-
-        if not team:
-            raise NotFoundError("Team", team_id)
-
-        if team.project_id != project_id:
-            raise ValidationError(
-                "Team belongs to a different project",
-                "team_id",
-                {"team_project_id": str(team.project_id), "expected_project_id": str(project_id)},
-            )
 
     async def _replace_project_default_agent(
         self,

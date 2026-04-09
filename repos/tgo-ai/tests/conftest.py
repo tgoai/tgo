@@ -13,12 +13,11 @@ from sqlalchemy.pool import StaticPool
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import get_agent_service, get_team_service
+from app.dependencies import get_agent_service
 from app.main import app
 from app.models.base import BaseModel
 from app.models.project import Project
 from app.services.agent_service import AgentService
-from app.services.team_service import TeamService
 
 # Test database URL
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -84,9 +83,6 @@ def client(db_session: AsyncSession) -> TestClient:
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
 
-    def override_get_team_service() -> TeamService:
-        return TeamService(db_session)
-
     def override_get_agent_service() -> AgentService:
         return AgentService(db_session)
 
@@ -97,7 +93,6 @@ def client(db_session: AsyncSession) -> TestClient:
         yield
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_team_service] = override_get_team_service
     app.dependency_overrides[get_agent_service] = override_get_agent_service
 
     # Temporarily replace the lifespan
@@ -110,5 +105,4 @@ def client(db_session: AsyncSession) -> TestClient:
     # Restore original lifespan
     app.router.lifespan_context = original_lifespan
     app.dependency_overrides.clear()
-
 

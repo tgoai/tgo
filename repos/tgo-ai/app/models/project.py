@@ -13,7 +13,6 @@ from app.models.base import BaseModel
 if TYPE_CHECKING:
     from app.models.agent import Agent
     from app.models.collection import Collection
-    from app.models.team import Team
 
 
 class Project(BaseModel):
@@ -55,14 +54,6 @@ class Project(BaseModel):
     )
 
     # Relationships
-    teams: Mapped[List["Team"]] = relationship(
-        "Team",
-        primaryjoin="Project.id == foreign(Team.project_id)",
-        back_populates="project",
-        cascade="all, delete-orphan",
-        lazy="selectin",
-    )
-
     agents: Mapped[List["Agent"]] = relationship(
         "Agent",
         primaryjoin="Project.id == foreign(Agent.project_id)",

@@ -371,7 +371,7 @@ async def list_agents(
     status_code=status.HTTP_201_CREATED,
     responses=build_error_responses(
         [400, 404, 409],
-        {404: "Referenced team or collection not found", 409: "Agent name conflict"},
+        {404: "Referenced collection not found", 409: "Agent name conflict"},
     ),
 )
 async def create_agent(
@@ -427,7 +427,7 @@ async def get_agent(
     response_model=AgentResponse,
     responses=build_error_responses(
         [400, 404, 409],
-        {404: "Agent, team, or collection not found", 409: "Agent name conflict"},
+        {404: "Agent or collection not found", 409: "Agent name conflict"},
     ),
 )
 async def update_agent(

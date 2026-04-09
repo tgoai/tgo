@@ -90,7 +90,6 @@ class Agent(BaseModel):
     instruction: Optional[str] = Field(None, description="Agent system instruction")
     model: str = Field(..., description="LLM model name")
     config: Dict[str, Any] = Field(default_factory=dict, description="Agent configuration (temperature, max_tokens, markdown, etc.)")
-    team_id: Optional[str] = Field(None, description="Associated team ID")
     tools: List[AgentTool] = Field(default_factory=list, description="Agent tools")
     collections: List[AgentCollection] = Field(default_factory=list, description="Agent collections")
     workflows: List[AgentWorkflow] = Field(default_factory=list, description="Agent workflows")
@@ -130,42 +129,6 @@ class Agent(BaseModel):
                     capabilities.append(keyword)
 
         return list(set(capabilities))  # Remove duplicates
-
-    class Config:
-        """Pydantic model configuration."""
-        extra = "forbid"
-
-
-class Team(BaseModel):
-    """Model representing a team from the AI Service."""
-
-    id: str = Field(..., description="Team ID")
-    name: str = Field(..., description="Team name")
-    model: Optional[str] = Field(None, description="Team's default LLM model")
-    instruction: Optional[str] = Field(None, description="Team system prompt/instructions")
-    expected_output: Optional[str] = Field(None, description="Expected output format")
-    config: Dict[str, Any] = Field(default_factory=dict, description="Team configuration")
-    llm_provider_credentials: Optional[LLMProviderCredentials] = Field(
-        default=None,
-        description="Resolved LLM provider credentials for this team",
-    )
-
-    session_id: Optional[str] = Field(None, description="Team session identifier")
-    is_default: bool = Field(default=False, description="Whether this is the default team")
-    agents: List[Agent] = Field(default_factory=list, description="Team agents")
-    created_at: datetime = Field(..., description="Creation timestamp")
-    updated_at: datetime = Field(..., description="Last update timestamp")
-
-    def get_available_agents(self) -> List[Agent]:
-        """Get list of available (non-deleted) agents."""
-        return [agent for agent in self.agents if agent is not None]
-
-    def get_default_agent(self) -> Optional[Agent]:
-        """Get the default agent for this team."""
-        for agent in self.agents:
-            if agent.is_default:
-                return agent
-        return None
 
     class Config:
         """Pydantic model configuration."""
@@ -223,33 +186,6 @@ class AgentExecutionContext(BaseModel):
     rag_url: Optional[str] = Field(None, description="RAG runtime URL")
     enable_memory: bool = Field(False, description="Whether conversational memory is enabled")
     ui_mode: str = Field("json_render", description="UI rendering mode")
-
-    class Config:
-        """Pydantic model configuration."""
-        extra = "forbid"
-
-
-class CoordinationContext(BaseModel):
-    """Context information for agent coordination."""
-
-    team: Team = Field(..., description="Team information")
-    project_id: Optional[str] = Field(None, description="Project ID for cross-service integrations")
-    message: str = Field(..., description="User message")
-    system_message: Optional[str] = Field(None, description="Custom system message appended to team instructions for this run")
-
-    expected_output: Optional[str] = Field(None, description="Expected output format to guide consolidation for this run")
-
-    session_id: Optional[str] = Field(None, description="Session ID")
-    user_id: Optional[str] = Field(None, description="User ID")
-    execution_strategy: str = Field(..., description="Selected execution strategy")
-    max_agents: int = Field(..., description="Maximum agents to execute")
-    timeout: int = Field(..., description="Execution timeout")
-    require_consensus: bool = Field(..., description="Whether consensus is required")
-    mcp_url: Optional[str] = Field(None, description="URL of the MCP server for tool integration")
-    rag_url: Optional[str] = Field(None, description="URL of the RAG server for retrieval-augmented generation")
-    rag_api_key: Optional[str] = Field(None, description="API key for the RAG server")
-    enable_memory: bool = Field(False, description="Enable conversational memory for downstream agents")
-    ui_mode: str = Field("json_render", description="UI rendering mode: 'json_render'")
 
     class Config:
         """Pydantic model configuration."""

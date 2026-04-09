@@ -1,11 +1,3 @@
-"""Agno team integration for supervisor runtime."""
+"""Legacy Agno multi-run integration was removed with the old runtime."""
 
-from .builder import AgnoTeamBuilder, BuiltTeam
-from .runner import AgnoTeamRunner, TeamRunResult
-
-__all__ = [
-    "AgnoTeamBuilder",
-    "BuiltTeam",
-    "AgnoTeamRunner",
-    "TeamRunResult",
-]
+__all__: list[str] = []

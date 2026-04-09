@@ -14,23 +14,12 @@ from app.schemas.collection import (
     CollectionUpdate,
 )
 from app.schemas.error import Error, ErrorDetail
-from app.schemas.team import (
-    TeamCreate,
-    TeamResponse,
-    TeamUpdate,
-    TeamWithDetails,
-)
 
 __all__ = [
     # Base schemas
     "PaginationMetadata",
     "Error",
     "ErrorDetail",
-    # Team schemas
-    "TeamCreate",
-    "TeamUpdate",
-    "TeamResponse",
-    "TeamWithDetails",
     # Agent schemas
     "AgentCreate",
     "AgentUpdate",

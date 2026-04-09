@@ -62,7 +62,7 @@ _logger = get_logger(__name__)
 
 class StoreRemoteAgent(RemoteAgent):
     """
-    Custom RemoteAgent that allows overriding id and name for Team coordination.
+    Custom RemoteAgent that allows overriding id and name for direct agent runs.
     
     支持本地工具绑定：
     - tools: 与本地 Agent 一致的工具属性
@@ -1408,7 +1408,7 @@ class AgentBuilder:
 
         Unlike generic MCP toolkit wiring, this resolves device MCP tools at
         build time and returns function tools directly. This avoids runtime
-        toolkit initialization failures from aborting the whole team stream.
+        toolkit initialization failures from aborting the whole agent stream.
         """
         device_id = internal_agent.bound_device_id
         if not device_id:
