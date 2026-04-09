@@ -10,10 +10,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Mapping
-from dataclasses import dataclass
 from datetime import datetime
 import uuid
-from typing import Sequence, Union, cast
+from typing import NamedTuple, Sequence, Union, cast
 
 from alembic import op
 import sqlalchemy as sa
@@ -33,8 +32,7 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-@dataclass(frozen=True)
-class ProjectAgentState:
+class ProjectAgentState(NamedTuple):
     """Minimal agent state needed for deterministic default rollout."""
 
     id: uuid.UUID
@@ -45,8 +43,7 @@ class ProjectAgentState:
     deleted_at: datetime | None
 
 
-@dataclass(frozen=True)
-class ProjectTeamState:
+class ProjectTeamState(NamedTuple):
     """Minimal team state needed for deterministic default rollout."""
 
     id: uuid.UUID

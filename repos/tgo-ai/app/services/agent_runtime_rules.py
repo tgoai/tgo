@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Protocol, TypeVar, cast
 from uuid import UUID
 
 
@@ -39,6 +39,9 @@ class TeamLike(Protocol):
     deleted_at: datetime | None
 
 
+AgentLikeT = TypeVar("AgentLikeT", bound=AgentLike)
+
+
 def merge_agent_config(
     agent_config: Mapping[str, JsonValue] | None,
     team_config: Mapping[str, JsonValue] | None,
@@ -53,10 +56,11 @@ def merge_agent_config(
         merged[key] = _clone_json_value(team_mapping[key])
 
     for key, agent_value in agent_mapping.items():
-        if key in team_mapping and isinstance(agent_value, Mapping) and isinstance(team_mapping[key], Mapping):
+        team_value = team_mapping.get(key)
+        if isinstance(agent_value, Mapping) and isinstance(team_value, Mapping):
             merged[key] = merge_agent_config(
                 _ensure_json_mapping(agent_value),
-                _ensure_json_mapping(team_mapping[key]),
+                _ensure_json_mapping(team_value),
             )
             continue
 
@@ -65,7 +69,7 @@ def merge_agent_config(
     return merged
 
 
-def choose_rollout_default_agent(candidates: Sequence[AgentLike]) -> AgentLike | None:
+def choose_rollout_default_agent(candidates: Sequence[AgentLikeT]) -> AgentLikeT | None:
     """Pick the deterministic survivor for default-agent rollout."""
 
     if not candidates:
@@ -124,7 +128,7 @@ def _normalize_datetime(value: datetime | None) -> datetime:
 
 
 def _ensure_json_mapping(value: Mapping[str, JsonValue]) -> JsonObject:
-    return {key: _clone_json_value(item) for key, item in value.items()}
+    return cast(JsonObject, {key: _clone_json_value(item) for key, item in value.items()})
 
 
 def _clone_json_value(value: JsonValue) -> JsonValue:
