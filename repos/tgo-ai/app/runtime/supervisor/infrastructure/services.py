@@ -34,6 +34,7 @@ from app.runtime.tools.models import (
 )
 from app.runtime.tools.executor.service import ToolsRuntimeService
 from app.runtime.supervisor.streaming.workflow_events import WorkflowEventEmitter
+from app.services.agent_service import AgentService
 from app.services.team_service import TeamService
 from app.runtime.core.exceptions import (
     AgentExecutionError,
@@ -209,6 +210,7 @@ def _convert_agent(
         # Create internal agent
         return InternalAgent(
             id=agent.id,
+            project_id=str(agent.project_id),
             name=agent.name,
             instruction=agent.instruction,
             model=agent.model,
@@ -375,10 +377,11 @@ async def _convert_team(team: DBTeam, team_service: TeamService) -> InternalTeam
 
 
 class AIServiceClient:
-    """Adapter that exposes team data in coordinator-friendly format."""
+    """Adapter that exposes persisted agents in runtime-friendly format."""
 
-    def __init__(self, team_service: TeamService, project_id: uuid.UUID) -> None:
-        self._team_service = team_service
+    def __init__(self, agent_service: AgentService, project_id: uuid.UUID) -> None:
+        self._agent_service = agent_service
+        self._team_service = agent_service
         self._project_id = project_id
         self.logger = get_logger(__name__)
 
@@ -387,6 +390,60 @@ class AIServiceClient:
 
     async def __aexit__(self, exc_type, exc, tb) -> None:  # pragma: no cover - nothing to cleanup
         return None
+
+    async def get_agent(self, agent_id: str, auth_headers: Dict[str, str]) -> InternalAgent:
+        """Get a single agent with its tool associations and related resources."""
+        del auth_headers  # Interface parity with other service adapters
+
+        try:
+            agent_uuid = uuid.UUID(str(agent_id))
+        except (ValueError, TypeError) as exc:
+            raise TransformationError(
+                "Invalid agent ID format",
+                agent_id=str(agent_id),
+                error=str(exc),
+            ) from exc
+
+        try:
+            db_agent = await self._agent_service.get_agent(self._project_id, agent_uuid)
+        except Exception as exc:
+            raise TransformationError(
+                "Failed to fetch agent from database",
+                agent_id=str(agent_uuid),
+                project_id=str(self._project_id),
+                error=str(exc),
+            ) from exc
+
+        try:
+            from app.models.agent import AgentToolAssociation
+            from sqlalchemy import and_, select
+
+            stmt = select(AgentToolAssociation).where(
+                and_(
+                    AgentToolAssociation.agent_id == agent_uuid,
+                    AgentToolAssociation.deleted_at.is_(None),
+                )
+            )
+            result = await self._agent_service.db.execute(stmt)
+            associations = result.scalars().all()
+            tool_associations_map: Dict[uuid.UUID, Dict[str, any]] = {
+                assoc.tool_id: {
+                    "enabled": assoc.enabled,
+                    "permissions": assoc.permissions,
+                    "config": assoc.config,
+                }
+                for assoc in associations
+            }
+            return _convert_agent(db_agent, tool_associations_map=tool_associations_map)
+        except DataMappingError:
+            raise
+        except Exception as exc:
+            raise TransformationError(
+                "Failed to transform agent data",
+                agent_id=str(agent_uuid),
+                project_id=str(self._project_id),
+                error=str(exc),
+            ) from exc
 
     async def get_team_with_agents(self, team_id: str, auth_headers: Dict[str, str]) -> InternalTeam:
         """Get team with agents by team ID.

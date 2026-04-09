@@ -1,4 +1,4 @@
-"""Team-level human handoff tool for requesting human support."""
+"""Agent-level human handoff tool for requesting human support."""
 
 from __future__ import annotations
 
@@ -11,13 +11,14 @@ from .base import EventClient, ToolContext
 
 def create_handoff_tool(
     *,
-    team_id: str,
+    agent_id: str,
     session_id: str | None,
     user_id: str | None,
     project_id: str | None = None,
+    request_id: str | None = None,
 ) -> Function:
-    """Create a team-level tool that requests human support."""
-    ctx = ToolContext(team_id, session_id, user_id, project_id)
+    """Create an agent-level tool that requests human support."""
+    ctx = ToolContext(agent_id, session_id, user_id, project_id, request_id)
     client = EventClient(ctx)
 
     error_messages = {
@@ -45,7 +46,7 @@ def create_handoff_tool(
             return result.message
 
         return (
-            f"[handoff_requested] team={team_id} session={session_id or ''} "
+            f"[handoff_requested] agent={agent_id} session={session_id or ''} "
             f"urgency={urgency} reason={reason} (event sent)"
         )
 

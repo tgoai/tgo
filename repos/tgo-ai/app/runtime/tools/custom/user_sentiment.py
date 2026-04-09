@@ -1,4 +1,4 @@
-"""Team-level tool to track/update user sentiment/state information."""
+"""Agent-level tool to track/update user sentiment/state information."""
 
 from __future__ import annotations
 
@@ -32,13 +32,14 @@ def _parse_scale(val: Any) -> int:
 
 def create_user_sentiment_tool(
     *,
-    team_id: str,
+    agent_id: str,
     session_id: str | None,
     user_id: str | None,
     project_id: str | None = None,
+    request_id: str | None = None,
 ) -> Function:
-    """Create a team-level tool that updates user sentiment/state."""
-    ctx = ToolContext(team_id, session_id, user_id, project_id)
+    """Create an agent-level tool that updates user sentiment/state."""
+    ctx = ToolContext(agent_id, session_id, user_id, project_id, request_id)
     client = EventClient(ctx)
 
     error_messages = {

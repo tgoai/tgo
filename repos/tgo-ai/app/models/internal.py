@@ -85,6 +85,7 @@ class Agent(BaseModel):
     """Model representing an AI agent from the AI Service."""
 
     id: UUID = Field(..., description="Agent ID")
+    project_id: Optional[str] = Field(None, description="Associated project ID")
     name: str = Field(..., description="Agent name")
     instruction: Optional[str] = Field(None, description="Agent system instruction")
     model: str = Field(..., description="LLM model name")
@@ -194,6 +195,34 @@ class AgentExecutionResponse(BaseModel):
     success: bool = Field(default=True, description="Whether execution was successful")
     error: Optional[str] = Field(None, description="Error message if failed")
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Response metadata")
+
+    class Config:
+        """Pydantic model configuration."""
+        extra = "forbid"
+
+
+class AgentExecutionContext(BaseModel):
+    """Direct runtime context for a single executing agent."""
+
+    agent: Agent = Field(..., description="Resolved agent for this run")
+    project_id: str = Field(..., description="Owning project ID")
+    message: str = Field(..., description="User message")
+    system_message: Optional[str] = Field(
+        None,
+        description="Optional system message appended after the stored agent instruction",
+    )
+    expected_output: Optional[str] = Field(
+        None,
+        description="Optional expected output override for this run",
+    )
+    session_id: Optional[str] = Field(None, description="Conversation session ID")
+    user_id: Optional[str] = Field(None, description="End-user identifier")
+    request_id: str = Field(..., description="Trace identifier for this run")
+    timeout: int = Field(..., ge=1, description="Execution timeout in seconds")
+    mcp_url: Optional[str] = Field(None, description="MCP runtime URL")
+    rag_url: Optional[str] = Field(None, description="RAG runtime URL")
+    enable_memory: bool = Field(False, description="Whether conversational memory is enabled")
+    ui_mode: str = Field("json_render", description="UI rendering mode")
 
     class Config:
         """Pydantic model configuration."""

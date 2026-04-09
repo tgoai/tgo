@@ -611,6 +611,8 @@ class AgentBuilder:
             request.user_id,
             internal_agent=internal_agent,
             project_id=request.project_id,
+            agent_id=request.agent_id,
+            request_id=request.request_id,
         )
 
         # Build Agno Skills object if skills_enabled
@@ -749,6 +751,8 @@ class AgentBuilder:
         user_id: Optional[str],
         internal_agent: Optional["InternalAgent"] = None,
         project_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        request_id: Optional[str] = None,
     ) -> List[Any]:
         tools: List[Any] = []
 
@@ -821,6 +825,64 @@ class AgentBuilder:
                     error_type=type(exc).__name__,
                     device_id=getattr(internal_agent, "bound_device_id", None),
                 )
+
+        if agent_id:
+            try:
+                tools.extend(
+                    self._build_custom_tools(
+                        agent_id=agent_id,
+                        session_id=session_id,
+                        user_id=user_id,
+                        project_id=project_id,
+                        request_id=request_id,
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001
+                self._logger.warning(
+                    "Custom tool setup failed, continuing without custom tools",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                    agent_id=agent_id,
+                )
+
+        return tools
+
+    def _build_custom_tools(
+        self,
+        *,
+        agent_id: str,
+        session_id: Optional[str],
+        user_id: Optional[str],
+        project_id: Optional[str],
+        request_id: Optional[str],
+    ) -> List[Any]:
+        """Build agent-scoped custom tools for user operations and handoff."""
+        from app.runtime.tools.custom import (
+            create_handoff_tool,
+            create_user_info_tool,
+            create_user_sentiment_tool,
+            create_user_tag_tool,
+        )
+
+        tools: List[Any] = []
+        tool_context = {
+            "agent_id": agent_id,
+            "session_id": session_id,
+            "user_id": user_id,
+            "project_id": project_id,
+            "request_id": request_id,
+        }
+        for creator in (
+            create_handoff_tool,
+            create_user_info_tool,
+            create_user_sentiment_tool,
+            create_user_tag_tool,
+        ):
+            created = creator(**tool_context)
+            if isinstance(created, list):
+                tools.extend(created)
+            else:
+                tools.append(created)
 
         return tools
 

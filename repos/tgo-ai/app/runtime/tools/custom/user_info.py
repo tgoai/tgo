@@ -1,4 +1,4 @@
-"""Team-level tool to collect and update user information."""
+"""Agent-level tool to collect and update user information."""
 
 from __future__ import annotations
 
@@ -20,13 +20,14 @@ USER_INFO_FIELDS = (
 
 def create_user_info_tool(
     *,
-    team_id: str,
+    agent_id: str,
     session_id: str | None,
     user_id: str | None,
     project_id: str | None = None,
+    request_id: str | None = None,
 ) -> list[Function]:
     """Create a list of tools for managing user information."""
-    ctx = ToolContext(team_id, session_id, user_id, project_id)
+    ctx = ToolContext(agent_id, session_id, user_id, project_id, request_id)
     client = EventClient(ctx)
 
     error_messages = {

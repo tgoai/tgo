@@ -1,4 +1,4 @@
-"""Base utilities for team-level custom tools.
+"""Base utilities for agent-scoped custom tools.
 
 Provides common functionality:
 - Event posting to API Service
@@ -26,18 +26,23 @@ EVENTS_ENDPOINT = "/internal/ai/events"
 
 @dataclass
 class ToolContext:
-    """Context for team-level tools."""
+    """Context for agent-scoped tools."""
 
-    team_id: str
+    agent_id: str
     session_id: Optional[str]
     user_id: Optional[str]
     project_id: Optional[str] = None
+    request_id: Optional[str] = None
 
     def build_metadata(self, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Build payload metadata with tool context."""
-        metadata = {**(extra or {}), "team_id": self.team_id, "user_id": self.user_id}
+        metadata = {**(extra or {}), "agent_id": self.agent_id, "user_id": self.user_id}
         if self.project_id:
             metadata["project_id"] = self.project_id
+        if self.session_id:
+            metadata["session_id"] = self.session_id
+        if self.request_id:
+            metadata["request_id"] = self.request_id
         return metadata
 
 
@@ -92,7 +97,7 @@ class EventClient:
         if not self.is_configured:
             logger.warning(
                 "api_service_url not configured; skipping API Service event call",
-                extra={"team_id": self.ctx.team_id, "session_id": self.ctx.session_id},
+                extra={"agent_id": self.ctx.agent_id, "session_id": self.ctx.session_id},
             )
             return EventResult(success=False, message=error_messages["not_configured"])
 
@@ -130,7 +135,7 @@ class EventClient:
 
         logger.info(
             f"{event_type} event ingested",
-            extra={"team_id": self.ctx.team_id, "session_id": self.ctx.session_id},
+            extra={"agent_id": self.ctx.agent_id, "session_id": self.ctx.session_id},
         )
         return EventResult(success=True, message="")
 
@@ -144,4 +149,3 @@ class EventClient:
             f"Failed to ingest {event_type} event",
             extra={"status": resp.status_code, "details": details},
         )
-
