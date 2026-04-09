@@ -282,7 +282,7 @@ async def create_platform(
         api_key=generate_api_key(),
         config=platform_data.config,
         is_active=platform_data.is_active,
-        agent_ids=platform_data.agent_ids,
+        agent_id=platform_data.agent_id,
         ai_mode=platform_data.ai_mode.value if platform_data.ai_mode else None,
         fallback_to_ai_timeout=platform_data.fallback_to_ai_timeout,
     )

@@ -38,7 +38,7 @@ from app.schemas.setup import (
 from app.services.ai_client import ai_client
 from app.services.ai_provider_default_models import resolve_initial_model_seeds
 from app.services.wukongim_client import wukongim_client
-from app.utils.const import CHANNEL_TYPE_PROJECT_STAFF
+from app.utils.const import CHANNEL_TYPE_PROJECT_STAFF, SETUP_DEFAULT_AGENT_MODEL
 from app.utils.crypto import encrypt_str
 from app.utils.encoding import build_project_staff_channel_id
 
@@ -226,36 +226,37 @@ async def create_admin(
 
     logger.info(f"Created default project: {project.name} (ID: {project.id})")
 
-    # Create default AI team for this project (required, will rollback on failure)
+    # Create the bootstrap default AI agent for this project (required, will rollback on failure).
+    # The placeholder model is replaced after LLM setup selects a concrete default model.
     try:
-        team_data = {
-            "name": "Tgo AI Team",
+        agent_data = {
+            "name": "Tgo AI Agent",
+            "model": SETUP_DEFAULT_AGENT_MODEL,
             "is_default": True,
         }
-        team_result = await ai_client.create_team(
+        agent_result = await ai_client.create_agent(
             project_id=str(project.id),
-            team_data=team_data,
+            agent_data=agent_data,
         )
-        default_team_id = team_result.get("id")
-        if not default_team_id:
-            raise ValueError("AI service returned empty team ID")
-        project.default_team_id = str(default_team_id)
+        default_agent_id = agent_result.get("id")
+        if not default_agent_id:
+            raise ValueError("AI service returned empty agent ID")
         logger.info(
-            "Created default AI team for project",
+            "Created default AI agent for project",
             extra={
                 "project_id": str(project.id),
-                "team_id": default_team_id,
+                "agent_id": default_agent_id,
             },
         )
     except Exception as e:
         logger.error(
-            f"Failed to create default AI team: {e}",
+            f"Failed to create default AI agent: {e}",
             extra={"project_id": str(project.id)},
         )
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Failed to create default AI team: {e}. Please retry.",
+            detail=f"Failed to create default AI agent: {e}. Please retry.",
         )
 
     # Hash password
@@ -473,6 +474,38 @@ async def configure_llm(
     db.commit()
     db.refresh(ai_provider)
     db.refresh(setup)
+
+    if ai_provider.default_model:
+        try:
+            agents_result = await ai_client.list_agents(
+                project_id=str(project.id),
+                is_default=True,
+                limit=1,
+                offset=0,
+            )
+            agents = agents_result.get("data", []) if isinstance(agents_result, dict) else []
+            if agents:
+                default_agent = agents[0]
+                default_agent_id = default_agent.get("id")
+                if default_agent_id and default_agent.get("model") == SETUP_DEFAULT_AGENT_MODEL:
+                    await ai_client.update_agent(
+                        project_id=str(project.id),
+                        agent_id=str(default_agent_id),
+                        agent_data={"model": ai_provider.default_model},
+                    )
+                    logger.info(
+                        "Updated bootstrap default agent model after LLM setup",
+                        extra={
+                            "project_id": str(project.id),
+                            "agent_id": str(default_agent_id),
+                            "model": ai_provider.default_model,
+                        },
+                    )
+        except Exception as exc:
+            logger.warning(
+                "Failed to update bootstrap default agent model after LLM setup",
+                extra={"project_id": str(project.id), "error": str(exc)},
+            )
 
     logger.info(
         f"Created LLM provider: {ai_provider.provider}/{ai_provider.name} "

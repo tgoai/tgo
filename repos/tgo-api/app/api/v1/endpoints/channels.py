@@ -36,7 +36,6 @@ router = APIRouter()
 # Channel ID suffixes
 STAFF_SUFFIX = "-staff"
 AGENT_SUFFIX = "-agent"
-TEAM_SUFFIX = "-team"
 VISITOR_SUFFIX = "-vtr"
 
 
@@ -45,8 +44,8 @@ class ChannelInfoResponse(BaseModel):
     avatar: str = Field(..., description="Channel avatar URL")
     channel_id: str = Field(..., description="WuKongIM channel identifier")
     channel_type: int = Field(..., description="Channel type: 1 (personal), 251 (customer service)")
-    entity_type: Literal["visitor", "staff", "agent", "team"] = Field(
-        ..., description="Entity type represented by this channel: 'visitor', 'staff', 'agent', or 'team'"
+    entity_type: Literal["visitor", "staff", "agent"] = Field(
+        ..., description="Entity type represented by this channel: 'visitor', 'staff', or 'agent'"
     )
     extra: Optional[Dict[str, Any]] = Field(
         None,
@@ -56,10 +55,8 @@ class ChannelInfoResponse(BaseModel):
             "Scenario 2 – Personal Channel - Staff (channel_type == 1 AND channel_id ends with '-staff'):\n"
             "- extra contains staff metadata: staff_id, username, role.\n\n"
             "Scenario 3 – Personal Channel - Agent (channel_type == 1 AND channel_id ends with '-agent'):\n"
-            "- extra contains agent metadata from AI service: id, name, instruction, model, is_default, config, team_id, tools, collections.\n\n"
-            "Scenario 4 – Personal Channel - Team (channel_type == 1 AND channel_id ends with '-team'):\n"
-            "- extra contains team metadata from AI service: id, name, model, instruction, expected_output, is_default, agents.\n\n"
-            "Scenario 5 – Personal Channel - Visitor (channel_type == 1 AND channel_id does NOT end with '-staff', '-agent', or '-team'):\n"
+            "- extra contains agent metadata from AI service: id, name, instruction, model, is_default, config, tools, collections.\n\n"
+            "Scenario 4 – Personal Channel - Visitor (channel_type == 1 AND channel_id does NOT end with '-staff' or '-agent'):\n"
             "- Same as Scenario 1: extra contains the complete VisitorResponse as a dictionary."
         ),
         json_schema_extra={
@@ -83,13 +80,6 @@ class ChannelInfoResponse(BaseModel):
                     "is_default": True,
                     "tools": [],
                     "collections": []
-                },
-                {
-                    "id": "b2c3d4e5-6789-01ab-cdef-234567890abc",
-                    "name": "Customer Support Team",
-                    "model": "gpt-4",
-                    "is_default": True,
-                    "agents": []
                 },
             ]
         },
@@ -291,27 +281,8 @@ def _build_staff_channel_response(
                                     "model": "gpt-4",
                                     "is_default": True,
                                     "config": {"temperature": 0.7},
-                                    "team_id": None,
                                     "tools": [],
                                     "collections": []
-                                }
-                            }
-                        },
-                        "Personal Channel - Team": {
-                            "summary": "Personal Channel - Team",
-                            "value": {
-                                "name": "Customer Support Team",
-                                "avatar": "",
-                                "channel_id": "b2c3d4e5-6789-01ab-cdef-234567890abc-team",
-                                "channel_type": 1,
-                                "entity_type": "team",
-                                "extra": {
-                                    "id": "b2c3d4e5-6789-01ab-cdef-234567890abc",
-                                    "name": "Customer Support Team",
-                                    "instruction": "You are a customer support team...",
-                                    "model": "gpt-4",
-                                    "is_default": True,
-                                    "agents": []
                                 }
                             }
                         },
@@ -456,14 +427,6 @@ async def _handle_staff_auth_channel_info(
                 project_id=current_user.project_id,
             )
 
-        # Team channel
-        if channel_id.endswith(TEAM_SUFFIX):
-            return await _get_team_channel_info(
-                channel_id=channel_id,
-                channel_type=channel_type,
-                project_id=current_user.project_id,
-            )
-
         # Visitor channel (with -vtr suffix)
         if channel_id.endswith(VISITOR_SUFFIX):
             return _get_personal_visitor_channel_info(
@@ -496,16 +459,15 @@ async def _handle_platform_auth_channel_info(
     user_language: UserLanguage = "en",
 ) -> ChannelInfoResponse:
     """Handle channel info request for Platform API key authentication."""
-    # Only allow channel_type==1 and channel_id ending with '-staff', '-agent', or '-team'
+    # Only allow channel_type==1 and channel_id ending with '-staff' or '-agent'
     is_staff_channel = channel_type == 1 and channel_id.endswith(STAFF_SUFFIX)
     is_agent_channel = channel_type == 1 and channel_id.endswith(AGENT_SUFFIX)
-    is_team_channel = channel_type == 1 and channel_id.endswith(TEAM_SUFFIX)
 
-    if not (is_staff_channel or is_agent_channel or is_team_channel):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only staff, agent, and team personal channels are accessible with platform API key",
-            )
+    if not (is_staff_channel or is_agent_channel):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only staff and agent personal channels are accessible with platform API key",
+        )
 
     if is_staff_channel:
         staff_id_str = channel_id[:-len(STAFF_SUFFIX)]
@@ -534,14 +496,6 @@ async def _handle_platform_auth_channel_info(
     # Agent channel
     if is_agent_channel:
         return await _get_agent_channel_info(
-            channel_id=channel_id,
-            channel_type=channel_type,
-            project_id=platform.project_id,
-        )
-
-    # Team channel
-    if is_team_channel:
-        return await _get_team_channel_info(
             channel_id=channel_id,
             channel_type=channel_type,
             project_id=platform.project_id,
@@ -636,43 +590,6 @@ async def _get_agent_channel_info(
         channel_type=channel_type,
         entity_type="agent",
         extra=agent_data,
-    )
-
-
-async def _get_team_channel_info(
-    channel_id: str,
-    channel_type: int,
-    project_id: UUID,
-) -> ChannelInfoResponse:
-    """Get channel info for team personal channel."""
-    team_id_str = channel_id[:-len(TEAM_SUFFIX)]
-    try:
-        team_uuid = UUID(team_id_str)
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid team_id in channel")
-
-    # Fetch team from AI service
-    try:
-        team_data = await ai_client.get_team(
-            project_id=str(project_id),
-            team_id=str(team_uuid),
-            include_agents=True,
-        )
-    except HTTPException as e:
-        if e.status_code == 404:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
-        raise
-
-    name = team_data.get("name", "Unknown Team")
-    avatar = ""  # Teams don't have avatars
-
-    return ChannelInfoResponse(
-        name=name,
-        avatar=avatar,
-        channel_id=channel_id,
-        channel_type=channel_type,
-        entity_type="team",
-        extra=team_data,
     )
 
 

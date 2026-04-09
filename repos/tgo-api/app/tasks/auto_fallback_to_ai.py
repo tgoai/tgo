@@ -149,8 +149,9 @@ async def check_and_fallback_to_ai():
                         continue
 
                     # 5) Call AI synchronously and wait for result
-                    team_id = str(platform.project.default_team_id) if platform.project.default_team_id else "default"
-                    platform_agent_ids = [str(aid) for aid in platform.agent_ids] if platform.agent_ids else None
+                    agent_runtime_kwargs: dict[str, str] = {}
+                    if platform.agent_id is not None:
+                        agent_runtime_kwargs["agent_id"] = str(platform.agent_id)
                     
                     try:
                         # Call AI and wait for completion (not background task)
@@ -163,8 +164,7 @@ async def check_and_fallback_to_ai():
                             client_msg_no=response_client_msg_no,
                             from_uid=from_uid,
                             session_id=get_session_id(from_uid, channel_id, channel_type),
-                            team_id=team_id,
-                            agent_ids=platform_agent_ids
+                            **agent_runtime_kwargs,
                         )
                         
                         # 6) AI succeeded, update visitor state to prevent duplicate triggers

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Literal
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field
 
 from app.schemas.base import BaseSchema
 from app.utils.const import MessageType
@@ -116,16 +116,17 @@ class ChatCompletionRequest(BaseSchema):
 
 
 class StaffTeamChatRequest(BaseSchema):
-    """Request payload for staff-to-team/agent chat.
+    """Request payload for staff-to-agent chat.
 
     Notes:
-    - Either team_id or agent_id must be provided (exactly one)
-    - If team_id is provided, channel_id will be {team_id}-team
-    - If agent_id is provided, channel_id will be {agent_id}-agent
+    - agent_id is required
+    - channel_id will be {agent_id}-agent
     - Response is delivered via WuKongIM
     """
-    team_id: Optional[UUID] = Field(None, description="AI Team ID to chat with")
-    agent_id: Optional[UUID] = Field(None, description="AI Agent ID to chat with")
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: UUID = Field(..., description="AI Agent ID to chat with")
     message: str = Field(..., description="Message content to send")
     system_message: Optional[str] = Field(
         None, description="System message/prompt to guide the AI"
@@ -137,18 +138,9 @@ class StaffTeamChatRequest(BaseSchema):
         120, ge=1, le=600, description="Timeout in seconds for AI response"
     )
 
-    @model_validator(mode="after")
-    def validate_team_or_agent(self) -> "StaffTeamChatRequest":
-        """Ensure exactly one of team_id or agent_id is provided."""
-        if self.team_id is None and self.agent_id is None:
-            raise ValueError("Either team_id or agent_id must be provided")
-        if self.team_id is not None and self.agent_id is not None:
-            raise ValueError("Only one of team_id or agent_id should be provided, not both")
-        return self
-
 
 class StaffTeamChatResponse(BaseSchema):
-    """Response payload for staff-to-team/agent chat."""
+    """Response payload for staff-to-agent chat."""
     success: bool = Field(..., description="Whether the chat completed successfully")
     message: str = Field(..., description="Status message")
     client_msg_no: str = Field(..., description="Message correlation ID for tracking")
@@ -159,12 +151,13 @@ class StaffTeamChatResponse(BaseSchema):
 class UIUserActionRequest(BaseSchema):
     """Request payload when a user interacts with a rendered UI component."""
 
-    channel_id: str = Field(..., description="WuKongIM channel ID (e.g. '{team_id}-team' or '{visitor_id}-vtr')")
+    model_config = ConfigDict(extra="forbid")
+
+    channel_id: str = Field(..., description="WuKongIM channel ID (e.g. '{agent_id}-agent' or '{visitor_id}-vtr')")
     channel_type: int = Field(..., description="WuKongIM channel type")
     action_name: str = Field(..., description="UI action name (e.g. 'book_restaurant', 'submit_feedback')")
     context: Dict[str, Any] = Field(default_factory=dict, description="Action context key-value pairs from data bindings")
     surface_id: Optional[str] = Field(None, description="Optional UI surface identifier")
-    team_id: Optional[UUID] = Field(None, description="AI Team ID for routing")
     agent_id: Optional[UUID] = Field(None, description="AI Agent ID for routing")
 
 

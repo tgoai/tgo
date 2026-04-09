@@ -68,6 +68,13 @@ from app.utils.encoding import build_visitor_channel_id, parse_visitor_channel_i
 router = APIRouter()
 
 
+# Platform routing falls back to the project default agent in tgo-ai when unset.
+def _build_platform_agent_kwargs(platform: Platform) -> dict[str, str]:
+    if platform.agent_id is None:
+        return {}
+    return {"agent_id": str(platform.agent_id)}
+
+
 # ============================================================================
 # API Endpoints
 # ============================================================================
@@ -118,10 +125,10 @@ router = APIRouter()
 ### 成功事件
 | event_type | 说明 | data 结构 |
 |------------|------|-----------|
-| `team_run_started` | AI开始处理 | `{}` |
-| `team_run_content` | AI输出内容块 | `{"content": "文本块"}` |
-| `team_run_completed` | AI处理完成 | `{}` |
-| `workflow_completed` | AI处理完成 | `{}` |
+| `agent_execution_started` | AI开始处理 | `{}` |
+| `agent_content_chunk` | AI输出内容块 | `{"content_chunk": "文本块"}` |
+| `agent_response_complete` | AI回复完成 | `{}` |
+| `workflow_completed` | AI工作流完成 | `{}` |
 | `accepted` | 请求已接受（wukongim_only=true时） | `{"message": "Request accepted..."}` |
 
 ### 错误/状态事件
@@ -209,13 +216,13 @@ data: {"event_type": "error", "data": {"message": "AI service error: ..."}}
 
 ## SSE 响应格式示例
 ```
-data: {"event_type": "team_run_started", "data": {}}
+data: {"event_type": "agent_execution_started", "data": {}}
 
-data: {"event_type": "team_run_content", "data": {"content": "你好"}}
+data: {"event_type": "agent_content_chunk", "data": {"content_chunk": "你好"}}
 
-data: {"event_type": "team_run_content", "data": {"content": "，有什么"}}
+data: {"event_type": "agent_content_chunk", "data": {"content_chunk": "，有什么"}}
 
-data: {"event_type": "team_run_content", "data": {"content": "可以帮助您的？"}}
+data: {"event_type": "agent_content_chunk", "data": {"content_chunk": "可以帮助您的？"}}
 
 data: {"event_type": "workflow_completed", "data": {}}
 ```
@@ -231,17 +238,18 @@ const eventSource = new EventSource('/api/v1/chat/completion', {
   })
 });
 
-eventSource.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  switch (data.event_type) {
-    case 'team_run_content':
-      // 追加内容到界面
-      appendText(data.data.content);
-      break;
-    case 'workflow_completed':
-      // 完成处理
-      eventSource.close();
-      break;
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      switch (data.event_type) {
+        case 'agent_content_chunk':
+          // 追加内容到界面
+          appendText(data.data.content_chunk);
+          break;
+        case 'workflow_completed':
+        case 'agent_response_complete':
+          // 完成处理
+          eventSource.close();
+          break;
     case 'error':
     case 'queued':
       // 处理错误或排队状态
@@ -254,13 +262,13 @@ eventSource.onmessage = (event) => {
 """,
     responses={
         200: {
-            "description": "成功响应（流式或JSON）",
-            "content": {
-                "text/event-stream": {
-                    "example": 'data: {"event_type": "team_run_content", "data": {"content": "你好"}}\n\n'
-                },
-                "application/json": {
-                    "example": {
+                "description": "成功响应（流式或JSON）",
+                "content": {
+                    "text/event-stream": {
+                        "example": 'data: {"event_type": "agent_content_chunk", "data": {"content_chunk": "你好"}}\n\n'
+                    },
+                    "application/json": {
+                        "example": {
                         "success": True,
                         "message": "你好，有什么可以帮助您的？",
                         "visitor_id": "550e8400-e29b-41d4-a716-446655440000"
@@ -434,7 +442,7 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
         return StreamingResponse(disabled_gen(), media_type="text/event-stream")
 
     # 7) AI is enabled: directly call AI service and stream response
-    team_id = str(project.default_team_id) if project.default_team_id else "default"
+    agent_runtime_kwargs = _build_platform_agent_kwargs(platform)
     response_client_msg_no = f"ai_{uuid4().hex}"
 
     # Update visitor last message stats
@@ -443,9 +451,6 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
     visitor.last_client_msg_no = response_client_msg_no
     db.add(visitor)
     db.commit()
-
-    # Prepare agent_ids from platform
-    platform_agent_ids = [str(aid) for aid in platform.agent_ids] if platform.agent_ids else None
 
     # 8) If wukongim_only=True, start background processing and return immediately.
     # Do not block on stream start signal; otherwise requests may hang until timeout.
@@ -459,10 +464,9 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
             client_msg_no=response_client_msg_no,
             from_uid=wukongim_from_uid,
             session_id=session_id,
-            team_id=team_id,
             system_message=req.system_message,
             expected_output=req.expected_output,
-            agent_ids=platform_agent_ids,
+            **agent_runtime_kwargs,
         ))
 
         accepted_data = {
@@ -488,10 +492,9 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
             client_msg_no=response_client_msg_no,
             from_uid=wukongim_from_uid,
             session_id=session_id,
-            team_id=team_id,
             system_message=req.system_message,
             expected_output=req.expected_output,
-            agent_ids=platform_agent_ids,
+            **agent_runtime_kwargs,
         )
         
         if not result["success"]:
@@ -517,10 +520,9 @@ async def chat_completion(req: ChatCompletionRequest, db: Session = Depends(get_
             client_msg_no=response_client_msg_no,
             from_uid=wukongim_from_uid,
             session_id=session_id,
-            team_id=team_id,
             system_message=req.system_message,
             expected_output=req.expected_output,
-            agent_ids=platform_agent_ids,
+            **agent_runtime_kwargs,
         ):
             yield chat_service.sse_format(event_payload)
 
@@ -1014,7 +1016,7 @@ async def chat_completion_openai_compatible(
         )
 
     # 8) Call AI service directly
-    team_id = str(project.default_team_id) if project.default_team_id else "default"
+    agent_runtime_kwargs = _build_platform_agent_kwargs(platform)
     response_client_msg_no = f"ai_{uuid4().hex}"
 
     # Update visitor last message stats
@@ -1024,9 +1026,6 @@ async def chat_completion_openai_compatible(
     db.add(visitor)
     db.commit()
     
-    # Prepare agent_ids from platform
-    platform_agent_ids = [str(aid) for aid in platform.agent_ids] if platform.agent_ids else None
-
     # 9) Generate completion ID and timestamp
     completion_id = f"chatcmpl-{uuid4().hex[:24]}"
     created_timestamp = int(time.time())
@@ -1045,15 +1044,14 @@ async def chat_completion_openai_compatible(
                     client_msg_no=response_client_msg_no,
                     from_uid=wukongim_from_uid,
                     session_id=session_id,
-                    team_id=team_id,
                     system_message=system_message,
-                    agent_ids=platform_agent_ids,
+                    **agent_runtime_kwargs,
                 ):
                     event_type = event_payload.get("event_type")
                     data = event_payload.get("data") or {}
 
-                    if event_type == "team_run_content":
-                        chunk_text = data.get("content")
+                    if event_type == "agent_content_chunk":
+                        chunk_text = data.get("content_chunk") or data.get("content")
                         if chunk_text:
                             chunk = OpenAIChatCompletionChunk(
                                 id=completion_id,
@@ -1068,7 +1066,7 @@ async def chat_completion_openai_compatible(
                                 ],
                             )
                             yield f"data: {chunk.model_dump_json()}\n\n"
-                    elif event_type in ("workflow_completed", "team_run_completed"):
+                    elif event_type in ("workflow_completed", "agent_response_complete"):
                         final_chunk = OpenAIChatCompletionChunk(
                             id=completion_id,
                             created=created_timestamp,
@@ -1108,9 +1106,8 @@ async def chat_completion_openai_compatible(
         client_msg_no=response_client_msg_no,
         from_uid=wukongim_from_uid,
         session_id=session_id,
-        team_id=team_id,
         system_message=system_message,
-        agent_ids=platform_agent_ids,
+        **agent_runtime_kwargs,
     )
     
     if not result["success"]:
@@ -1138,21 +1135,20 @@ async def chat_completion_openai_compatible(
 @router.post(
     "/team",
     response_model=StaffTeamChatResponse,
-    summary="Staff chat with AI team or agent",
+    summary="Staff chat with AI agent",
     tags=["Chat"],
     description="""
-    Staff-to-team/agent chat endpoint.
+    Staff-to-agent chat endpoint.
 
-    This endpoint allows authenticated staff members to chat with AI teams or agents.
+    This endpoint allows authenticated staff members to chat with AI agents.
     The AI response is delivered via WuKongIM to the client.
 
     **Authentication**: JWT token required (staff authentication).
 
-    **Request**: Either `team_id` or `agent_id` must be provided (exactly one).
+    **Request**: `agent_id` is required.
 
     **Channel Format**:
-    - If `team_id` is provided: channel_id = `{team_id}-team`
-    - If `agent_id` is provided: channel_id = `{agent_id}-agent`
+    - `agent_id` maps to channel_id = `{agent_id}-agent`
 
     **Response Delivery**: AI response is sent via WuKongIM, not returned in this endpoint.
     This endpoint returns success/failure status after initiating AI processing.
@@ -1163,7 +1159,7 @@ async def staff_team_chat(
     db: Session = Depends(get_db),
     current_user: Staff = Depends(require_permission("chat:send")),
 ) -> StaffTeamChatResponse:
-    """Staff chat with AI team or agent. Requires chat:send permission.
+    """Staff chat with AI agent. Requires chat:send permission.
 
     - Auth: JWT token (staff authentication)
     - Behavior: Directly calls AI service and forwards response to WuKongIM
@@ -1177,20 +1173,12 @@ async def staff_team_chat(
             detail="Staff is not linked to a valid project"
         )
 
-    # 2) Build channel identifiers based on team_id or agent_id
-    if req.team_id:
-        channel_id = f"{req.team_id}-team"
-        target_team_id = str(req.team_id)
-        target_agent_id = None
-    else:
-        channel_id = f"{req.agent_id}-agent"
-        target_team_id = str(project.default_team_id) if project.default_team_id else None
-        target_agent_id = str(req.agent_id)
-
+    # 2) Build the target agent channel identifiers
+    channel_id = f"{req.agent_id}-agent"
     channel_type = 1  # Personal channel type
 
     # 3) Prepare correlation and session IDs
-    client_msg_no = f"staff_team_{uuid4().hex}"
+    client_msg_no = f"staff_agent_{uuid4().hex}"
     staff_uid = f"{current_user.id}-staff"
     session_id = get_session_id(staff_uid, channel_id, channel_type)
 
@@ -1207,7 +1195,7 @@ async def staff_team_chat(
     )
 
     # 5) Directly call AI service and forward to WuKongIM in background
-    # AI result sender should be team/agent (not current staff)
+    # AI result sender should be the target agent (not current staff)
     ai_sender_uid = channel_id
     
     asyncio.create_task(chat_service.run_background_ai_interaction(
@@ -1219,11 +1207,9 @@ async def staff_team_chat(
         client_msg_no=client_msg_no,
         from_uid=ai_sender_uid,
         session_id=session_id,
-        team_id=target_team_id,
         system_message=req.system_message,
         expected_output=req.expected_output,
-        agent_id=target_agent_id,
-        agent_ids=None,
+        agent_id=str(req.agent_id),
     ))
 
     # 6) Return success response immediately
@@ -1261,8 +1247,9 @@ async def handle_ui_user_action(
     staff_uid = f"{current_user.id}-staff"
     session_id = get_session_id(staff_uid, req.channel_id, req.channel_type)
 
-    target_team_id = str(req.team_id) if req.team_id else (str(project.default_team_id) if project.default_team_id else None)
-    target_agent_id = str(req.agent_id) if req.agent_id else None
+    agent_runtime_kwargs: dict[str, str] = {}
+    if req.agent_id is not None:
+        agent_runtime_kwargs["agent_id"] = str(req.agent_id)
     ai_sender_uid = req.channel_id
 
     asyncio.create_task(chat_service.run_background_ai_interaction(
@@ -1274,8 +1261,7 @@ async def handle_ui_user_action(
         client_msg_no=client_msg_no,
         from_uid=ai_sender_uid,
         session_id=session_id,
-        team_id=target_team_id,
-        agent_id=target_agent_id,
+        **agent_runtime_kwargs,
     ))
 
     return UIUserActionResponse(
@@ -1290,7 +1276,7 @@ async def handle_ui_user_action(
     summary="清除会话记忆",
     tags=["Chat"],
     description="""
-    清除智能体/团队会话的 AI 记忆，并发送系统消息通知。
+    清除智能体会话的 AI 记忆，并发送系统消息通知。
     
     该接口会将 `channel_id` + `channel_type` 转换为 AI 服务所需的 `session_id` 并调用清除。
     清除成功后，会向该频道发送一条 'memory_cleared' 类型的系统消息。
@@ -1302,7 +1288,7 @@ async def clear_chat_memory(
     current_user: Staff = Depends(require_permission("chat:send")),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
-    """清除智能体/团队会话的 AI 记忆。"""
+    """清除智能体会话的 AI 记忆。"""
     # 1) Build session_id for AI service
     staff_uid = f"{current_user.id}-staff"
     session_id = get_session_id(staff_uid, channel_id, channel_type)

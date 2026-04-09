@@ -3,6 +3,7 @@ from enum import IntEnum, Enum
 # WuKongIM channel types
 CHANNEL_TYPE_CUSTOMER_SERVICE = 251
 CHANNEL_TYPE_PROJECT_STAFF = 249  # 项目坐席群组频道
+SETUP_DEFAULT_AGENT_MODEL = "default"
 
 # member_type
 MEMBER_TYPE_STAFF = "staff"
