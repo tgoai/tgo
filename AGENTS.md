@@ -161,9 +161,15 @@ Infra: PostgreSQL + pgvector, Redis, WuKongIM, Celery (RAG/Workflow workers)
 ## Quick Start
 
 ```bash
-cp .env.dev.example .env.dev && make install
-make infra-up && make migrate
-make dev-api    # or: make dev-all
+cp .env.dev.example .env.dev
+make dev
+```
+
+Optional dev helpers:
+
+```bash
+make dev PROFILES=monitoring
+make dev DISABLE=tgo-rag-beat,tgo-workflow-worker
 ```
 
 ## Service AGENTS.md Entry Points

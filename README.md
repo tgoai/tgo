@@ -31,6 +31,22 @@ REF=latest curl -fsSL https://raw.githubusercontent.com/tgoai/tgo/main/bootstrap
 > REF=latest curl -fsSL https://gitee.com/tgoai/tgo/raw/main/bootstrap_cn.sh | bash
 > ```
 
+### Local Development
+
+Start the full development environment with Docker Compose:
+
+```bash
+cp .env.dev.example .env.dev
+make dev
+```
+
+Useful variants:
+
+```bash
+make dev PROFILES=monitoring
+make dev DISABLE=tgo-rag-beat,tgo-workflow-worker
+```
+
 ---
 
 For more details, please visit the [Documentation](https://tgo.ai).

@@ -48,6 +48,7 @@ services:
       WK_INTRANET_TCPADDR: wukongim:5100
       WK_MODE: release
       WK_EXTERNAL_IP: ${SERVER_HOST:-127.0.0.1}
+      WK_EXTERNAL_WSADDR: localhost:15200
       WK_WEBHOOK_HTTPADDR: http://tgo-api:8000/v1/integrations/wukongim/webhook
     volumes:
       - ./data/wukongim:/root/wukongim
@@ -85,6 +86,8 @@ services:
   # RAG Celery worker
   tgo-rag-worker:
     image: ghcr.io/tgoai/tgo/tgo-rag:latest
+    build:
+      context: ./repos/tgo-rag
     container_name: tgo-rag-worker
     hostname: tgo-rag-worker
     env_file:
@@ -116,6 +119,8 @@ services:
   # RAG Celery beat (scheduler)
   tgo-rag-beat:
     image: ghcr.io/tgoai/tgo/tgo-rag:latest
+    build:
+      context: ./repos/tgo-rag
     container_name: tgo-rag-beat
     env_file:
       - .env
@@ -144,6 +149,8 @@ services:
   # RAG service
   tgo-rag:
     image: ghcr.io/tgoai/tgo/tgo-rag:latest
+    build:
+      context: ./repos/tgo-rag
     container_name: tgo-rag
     env_file:
       - .env
@@ -168,6 +175,8 @@ services:
   # AI service
   tgo-ai:
     image: ghcr.io/tgoai/tgo/tgo-ai:latest
+    build:
+      context: ./repos/tgo-ai
     container_name: tgo-ai
     env_file:
       - .env
@@ -205,6 +214,8 @@ services:
   # Plugin Runtime service
   tgo-plugin-runtime:
     image: ghcr.io/tgoai/tgo/tgo-plugin-runtime:latest
+    build:
+      context: ./repos/tgo-plugin-runtime
     container_name: tgo-plugin-runtime
     env_file:
       - .env
@@ -234,6 +245,8 @@ services:
   # Device Control service (for AI agent remote device control)
   tgo-device-control:
     image: ghcr.io/tgoai/tgo/tgo-device-control:latest
+    build:
+      context: ./repos/tgo-device-control
     container_name: tgo-device-control
     env_file:
       - .env
@@ -265,6 +278,8 @@ services:
   # API service
   tgo-api:
     image: ghcr.io/tgoai/tgo/tgo-api:latest
+    build:
+      context: ./repos/tgo-api
     container_name: tgo-api
     env_file:
       - .env
@@ -311,6 +326,8 @@ services:
   # Platform service
   tgo-platform:
     image: ghcr.io/tgoai/tgo/tgo-platform:latest
+    build:
+      context: ./repos/tgo-platform
     container_name: tgo-platform
     env_file:
       - .env
@@ -338,6 +355,8 @@ services:
   # Workflow service
   tgo-workflow:
     image: ghcr.io/tgoai/tgo/tgo-workflow:latest
+    build:
+      context: ./repos/tgo-workflow
     container_name: tgo-workflow
     env_file:
       - .env
@@ -363,6 +382,8 @@ services:
   # Workflow Celery worker
   tgo-workflow-worker:
     image: ghcr.io/tgoai/tgo/tgo-workflow:latest
+    build:
+      context: ./repos/tgo-workflow
     container_name: tgo-workflow-worker
     env_file:
       - .env
@@ -382,7 +403,7 @@ services:
     command: >
       sh -c "celery -A celery_app.celery worker --loglevel=info -Q workflow"
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery.*worker' || exit 1"]
+      test: ["CMD-SHELL", "/app/.venv/bin/celery -A celery_app.celery inspect ping -d \"celery@$$(hostname)\" --timeout=10 > /dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -392,6 +413,8 @@ services:
   # Customer service web (React build -> nginx)
   tgo-web:
     image: ghcr.io/tgoai/tgo/tgo-web:latest
+    build:
+      context: ./repos/tgo-web
     container_name: tgo-web
     env_file:
       - .env
@@ -406,6 +429,8 @@ services:
   # Widget app (React build -> nginx)
   tgo-widget-js:
     image: ghcr.io/tgoai/tgo/tgo-widget-js:latest
+    build:
+      context: ./repos/tgo-widget-js
     container_name: tgo-widget-js
     env_file:
       - .env
@@ -458,3 +483,5 @@ services:
 
 volumes:
   plugin-socket:
+  tgo-web-node-modules:
+  tgo-widget-node-modules:

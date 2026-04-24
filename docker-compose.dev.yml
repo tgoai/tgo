@@ -1,133 +1,337 @@
-# Docker Compose for local development - Infrastructure only
-# This file starts only the infrastructure services (PostgreSQL, Redis, WuKongIM)
-# while backend and frontend services run locally with hot-reload.
-#
-# Usage: make infra-up (or: docker compose -f docker-compose.dev.yml up -d)
-
 name: tgo-dev
 
+x-backend-env: &backend-env
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  DEBUG: ${DEBUG:-true}
+  WATCHFILES_FORCE_POLLING: "true"
+  POSTGRES_HOST: postgres
+  REDIS_HOST: redis
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
+
+x-backend-dev: &backend-dev
+  env_file:
+    - .env.dev
+  working_dir: /workspace
+  restart: unless-stopped
+
 services:
-  # Postgres with pgvector extension for RAG
   postgres:
-    image: pgvector/pgvector:pg16
-    container_name: tgo-dev-postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-tgo}
-      POSTGRES_USER: ${POSTGRES_USER:-tgo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tgo}
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+    env_file:
+      - .env.dev
     ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+      - "${POSTGRES_PORT:-5432}:5432"
 
-  # Redis cache
   redis:
-    image: redis:7-alpine
-    container_name: tgo-dev-redis
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - ./data/redis:/data
     ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+      - "${REDIS_PORT:-6379}:6379"
 
-  # WuKongIM service
   wukongim:
-    image: registry.cn-shanghai.aliyuncs.com/wukongim/wukongim:v2.2.4-dev
-    container_name: tgo-dev-wukongim
+    env_file:
+      - .env.dev
     environment:
-      # WuKongIM cluster configuration
-      WK_CLUSTER_NODEID: 1001
-      WK_CLUSTER_SERVERADDR: wukongim:11110
-      WK_CLUSTER_APIURL: http://wukongim:5001
-      WK_INTRANET_TCPADDR: wukongim:5100
-      WK_MODE: release
-      WK_EXTERNAL_IP: ${SERVER_HOST:-127.0.0.1}
-      # Point to local tgo-api running on host machine
-      WK_WEBHOOK_HTTPADDR: http://host.docker.internal:8000/v1/integrations/wukongim/webhook
-    volumes:
-      - ./data/wukongim:/root/wukongim
+      WK_EXTERNAL_WSADDR: ${WK_EXTERNAL_WSADDR:-localhost:5200}
+      WK_WEBHOOK_HTTPADDR: http://tgo-api:8000/v1/integrations/wukongim/webhook
     ports:
-      - "5001:5001"   # api
-      - "5100:5100"   # tcp
-      - "5200:5200"   # websocket
-      - "5300:5300"   # admin
+      - "5001:5001"
+
+  tgo-rag:
+    <<: *backend-dev
+    environment:
+      <<: *backend-env
+      REDIS_URL: redis://redis:6379/2
+    volumes:
+      - ./repos/tgo-rag:/workspace
+      - ./data/tgo-rag/uploads:/workspace/uploads
+    ports:
+      - "${TGO_RAG_PORT:-18082}:8082"
+    command:
+      - /app/.venv/bin/uvicorn
+      - src.rag_service.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8082"
+      - --reload
+
+  tgo-rag-worker:
+    <<: *backend-dev
+    environment:
+      <<: *backend-env
+      REDIS_URL: redis://redis:6379/2
+    volumes:
+      - ./repos/tgo-rag:/workspace
+      - ./data/tgo-rag/uploads:/workspace/uploads
+    command:
+      - /bin/sh
+      - -lc
+      - /app/.venv/bin/celery -A src.rag_service.tasks.celery_app worker --loglevel=info --hostname=worker@tgo-rag-worker -Q document_processing,embedding,website_crawling,qa_processing,celery
+
+  tgo-rag-beat:
+    <<: *backend-dev
+    environment:
+      <<: *backend-env
+      REDIS_URL: redis://redis:6379/2
+    volumes:
+      - ./repos/tgo-rag:/workspace
+      - ./data/tgo-rag/uploads:/workspace/uploads
+    command:
+      - /bin/sh
+      - -lc
+      - /app/.venv/bin/celery -A src.rag_service.tasks.celery_app beat --loglevel=info
+
+  tgo-ai:
+    <<: *backend-dev
+    environment:
+      <<: *backend-env
+      REDIS_URL: redis://redis:6379/1
+      API_SERVICE_URL: http://tgo-api:8000
+      RAG_SERVICE_URL: http://tgo-rag:8082
+      WORKFLOW_SERVICE_URL: http://tgo-workflow:8000
+      PLUGIN_RUNTIME_URL: http://tgo-plugin-runtime:8090
+      DEVICE_CONTROL_SERVICE_URL: http://tgo-device-control:8085
+    volumes:
+      - ./repos/tgo-ai:/workspace
+      - ./data/skills:/data/skills
+    ports:
+      - "${TGO_AI_PORT:-8081}:8081"
+    command:
+      - /app/.venv/bin/uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8081"
+      - --reload
+
+  tgo-plugin-runtime:
+    <<: *backend-dev
+    environment:
+      <<: *backend-env
+      AI_SERVICE_URL: http://tgo-ai:8081
+    volumes:
+      - ./repos/tgo-plugin-runtime:/workspace
+      - ./data/plugins:/var/lib/tgo/plugins
+      - plugin-socket:/var/run/tgo
+    ports:
+      - "${TGO_PLUGIN_RUNTIME_PORT:-8090}:8090"
+      - "8005:8005"
+    command:
+      - /app/.venv/bin/uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8090"
+      - --reload
+
+  tgo-device-control:
+    <<: *backend-dev
+    environment:
+      <<: *backend-env
+      REDIS_URL: redis://redis:6379/3
+      AI_SERVICE_URL: http://tgo-ai:8081
+      API_SERVICE_URL: http://tgo-api:8000
+    volumes:
+      - ./repos/tgo-device-control:/workspace
+      - ./data/tgo-device-control/screenshots:/var/lib/tgo/device-control/screenshots
+    ports:
+      - "${TGO_DEVICE_CONTROL_PORT:-8085}:8085"
+    command:
+      - /app/.venv/bin/uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8085"
+      - --reload
+
+  tgo-platform:
+    <<: *backend-dev
+    environment:
+      <<: *backend-env
+      REDIS_URL: redis://redis:6379/0
+      API_BASE_URL: http://tgo-api:8000
+    volumes:
+      - ./repos/tgo-platform:/workspace
+    ports:
+      - "${TGO_PLATFORM_PORT:-8003}:8003"
+    command:
+      - /app/.venv/bin/uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8003"
+      - --reload
+
+  tgo-workflow:
+    <<: *backend-dev
+    environment:
+      <<: *backend-env
+      REDIS_URL: redis://redis:6379/2
+      AI_SERVICE_URL: http://tgo-ai:8081
+      ALLOWED_ORIGINS: '["*"]'
+    volumes:
+      - ./repos/tgo-workflow:/workspace
+    ports:
+      - "${TGO_WORKFLOW_PORT:-8004}:8000"
+    command:
+      - /app/.venv/bin/uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+
+  tgo-workflow-worker:
+    <<: *backend-dev
+    environment:
+      <<: *backend-env
+      REDIS_URL: redis://redis:6379/2
+      AI_SERVICE_URL: http://tgo-ai:8081
+      ALLOWED_ORIGINS: '["*"]'
+    volumes:
+      - ./repos/tgo-workflow:/workspace
+    command:
+      - /bin/sh
+      - -lc
+      - /app/.venv/bin/celery -A celery_app.celery worker --loglevel=info -Q workflow
+
+  tgo-api:
+    <<: *backend-dev
+    environment:
+      <<: *backend-env
+      REDIS_URL: redis://redis:6379/0
+      PLATFORM_SERVICE_URL: http://tgo-platform:8003
+      AI_SERVICE_URL: http://tgo-ai:8081
+      RAG_SERVICE_URL: http://tgo-rag:8082
+      PLUGIN_RUNTIME_URL: http://tgo-plugin-runtime:8090
+      DEVICE_CONTROL_SERVICE_URL: http://tgo-device-control:8085
+      WORKFLOW_SERVICE_URL: http://tgo-workflow:8000
+      WUKONGIM_SERVICE_URL: http://wukongim:5001
+      WUKONGIM_ENABLED: "true"
+    volumes:
+      - ./repos/tgo-api:/workspace
+      - ./data/tgo-api/uploads:/workspace/uploads
+    ports:
+      - "${TGO_API_PORT:-8000}:8000"
+    command:
+      - /app/.venv/bin/uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+
+  tgo-web:
+    image: node:20-bookworm-slim
+    working_dir: /workspace
+    env_file:
+      - .env.dev
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+      VITE_WIDGET_PREVIEW_URL: ${VITE_WIDGET_PREVIEW_URL:-http://localhost:5174}
+      VITE_WIDGET_SCRIPT_BASE: ${VITE_WIDGET_SCRIPT_BASE:-http://localhost:5174/tgo-widget-sdk.js}
+      VITE_WIDGET_DEMO_URL: ${VITE_WIDGET_DEMO_URL:-http://localhost:5174/demo.html}
+      VITE_DEBUG_MODE: ${VITE_DEBUG_MODE:-true}
+    volumes:
+      - ./repos/tgo-web:/workspace
+      - tgo-web-node-modules:/workspace/node_modules
+    ports:
+      - "${TGO_WEB_PORT:-5173}:5173"
+    command:
+      - sh
+      - -lc
+      - |
+        if ! command -v yarn >/dev/null 2>&1; then
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+        fi
+        if [ ! -d node_modules/vite ]; then
+          yarn install --frozen-lockfile --non-interactive --network-timeout 600000
+        fi
+        yarn dev --host 0.0.0.0 --port 5173
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -Y off -O /dev/null http://localhost:5001/health > /dev/null 2>&1 || exit 1"]
-      interval: 10s
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:5173/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
-    # Enable host.docker.internal on Linux
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      start_period: 20s
 
-  # Celery Flower (optional, for monitoring Celery tasks)
-  flower:
-    image: mher/flower:2.0
-    container_name: tgo-dev-flower
+  tgo-widget-js:
+    image: node:20-bookworm-slim
+    working_dir: /workspace
+    env_file:
+      - .env.dev
     environment:
-      CELERY_BROKER_URL: redis://redis:6379/2
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
-      FLOWER_PORT: 5555
+      CHOKIDAR_USEPOLLING: "true"
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    volumes:
+      - ./repos/tgo-widget-js:/workspace
+      - tgo-widget-node-modules:/workspace/node_modules
+    ports:
+      - "${TGO_WIDGET_PORT:-5174}:5174"
+    command:
+      - sh
+      - -lc
+      - |
+        if ! command -v yarn >/dev/null 2>&1; then
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+        fi
+        if [ ! -d node_modules/vite ]; then
+          yarn install --frozen-lockfile --non-interactive --network-timeout 600000
+        fi
+        yarn dev --host 0.0.0.0 --port 5174
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:5174/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  tgo-celery-flower:
+    env_file:
+      - .env.dev
     ports:
       - "5555:5555"
+    profiles:
+      - monitoring
+
+  adminer:
+    image: adminer:latest
+    container_name: tgo-dev-adminer
+    ports:
+      - "8089:8080"
     depends_on:
-      redis:
+      postgres:
         condition: service_healthy
     profiles:
       - monitoring
     restart: unless-stopped
 
-  # Adminer for database management
-  adminer:
-    image: adminer:latest
-    container_name: tgo-dev-adminer
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Device Control AgentOS (Computer Use Agent)
-  # This service exposes the Computer Use Agent via Agno AgentOS protocol
   tgo-device-control-agentos:
     build:
       context: ./repos/tgo-device-control
       dockerfile: Dockerfile.agentos
     container_name: tgo-dev-device-control-agentos
+    env_file:
+      - .env.dev
     environment:
-      # AgentOS Configuration
       AGENTOS_ENABLED: "true"
       AGENTOS_PORT: 7778
       AGENTOS_HOST: 0.0.0.0
-      # Planning Model (requires OpenAI API key)
       PLANNING_MODEL: gpt-4o
       GROUNDING_MODEL: openai
       MAX_AGENT_ROUNDS: 20
-      # Database (shared with main device-control service)
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
-      # Redis
       REDIS_URL: redis://redis:6379/0
-      # OpenAI API Key (required for agent models)
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
-      # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      DEBUG: ${DEBUG:-false}
     ports:
       - "7778:7778"
     depends_on:
@@ -146,3 +350,149 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  migrate-api:
+    image: ghcr.io/tgoai/tgo/tgo-api:latest
+    env_file:
+      - .env.dev
+    environment:
+      <<: *backend-env
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
+      REDIS_URL: redis://redis:6379/0
+      PLATFORM_SERVICE_URL: http://tgo-platform:8003
+      AI_SERVICE_URL: http://tgo-ai:8081
+      RAG_SERVICE_URL: http://tgo-rag:8082
+      PLUGIN_RUNTIME_URL: http://tgo-plugin-runtime:8090
+      DEVICE_CONTROL_SERVICE_URL: http://tgo-device-control:8085
+      WORKFLOW_SERVICE_URL: http://tgo-workflow:8000
+      WUKONGIM_SERVICE_URL: http://wukongim:5001
+    working_dir: /workspace
+    volumes:
+      - ./repos/tgo-api:/workspace
+    command:
+      - /app/.venv/bin/alembic
+      - upgrade
+      - head
+
+  migrate-ai:
+    image: ghcr.io/tgoai/tgo/tgo-ai:latest
+    env_file:
+      - .env.dev
+    environment:
+      <<: *backend-env
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
+      REDIS_URL: redis://redis:6379/1
+      API_SERVICE_URL: http://tgo-api:8000
+      RAG_SERVICE_URL: http://tgo-rag:8082
+      WORKFLOW_SERVICE_URL: http://tgo-workflow:8000
+      PLUGIN_RUNTIME_URL: http://tgo-plugin-runtime:8090
+      DEVICE_CONTROL_SERVICE_URL: http://tgo-device-control:8085
+    working_dir: /workspace
+    volumes:
+      - ./repos/tgo-ai:/workspace
+    command:
+      - /app/.venv/bin/alembic
+      - upgrade
+      - head
+
+  migrate-rag:
+    image: ghcr.io/tgoai/tgo/tgo-rag:latest
+    env_file:
+      - .env.dev
+    environment:
+      <<: *backend-env
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
+      REDIS_URL: redis://redis:6379/2
+    working_dir: /workspace
+    volumes:
+      - ./repos/tgo-rag:/workspace
+      - ./data/tgo-rag/uploads:/workspace/uploads
+    command:
+      - /app/.venv/bin/alembic
+      - upgrade
+      - head
+
+  migrate-platform:
+    image: ghcr.io/tgoai/tgo/tgo-platform:latest
+    env_file:
+      - .env.dev
+    environment:
+      <<: *backend-env
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
+      REDIS_URL: redis://redis:6379/0
+      API_BASE_URL: http://tgo-api:8000
+    working_dir: /workspace
+    volumes:
+      - ./repos/tgo-platform:/workspace
+    command:
+      - /app/.venv/bin/alembic
+      - upgrade
+      - head
+
+  migrate-workflow:
+    image: ghcr.io/tgoai/tgo/tgo-workflow:latest
+    env_file:
+      - .env.dev
+    environment:
+      <<: *backend-env
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
+      REDIS_URL: redis://redis:6379/2
+      AI_SERVICE_URL: http://tgo-ai:8081
+    working_dir: /workspace
+    volumes:
+      - ./repos/tgo-workflow:/workspace
+    command:
+      - /app/.venv/bin/alembic
+      - upgrade
+      - head
+
+  migrate-plugin:
+    image: ghcr.io/tgoai/tgo/tgo-plugin-runtime:latest
+    env_file:
+      - .env.dev
+    environment:
+      <<: *backend-env
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
+      AI_SERVICE_URL: http://tgo-ai:8081
+    working_dir: /workspace
+    volumes:
+      - ./repos/tgo-plugin-runtime:/workspace
+      - ./data/plugins:/var/lib/tgo/plugins
+      - plugin-socket:/var/run/tgo
+    command:
+      - /app/.venv/bin/alembic
+      - upgrade
+      - head
+
+  migrate-device:
+    image: ghcr.io/tgoai/tgo/tgo-device-control:latest
+    env_file:
+      - .env.dev
+    environment:
+      <<: *backend-env
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
+      REDIS_URL: redis://redis:6379/3
+      AI_SERVICE_URL: http://tgo-ai:8081
+      API_SERVICE_URL: http://tgo-api:8000
+    working_dir: /workspace
+    volumes:
+      - ./repos/tgo-device-control:/workspace
+      - ./data/tgo-device-control/screenshots:/var/lib/tgo/device-control/screenshots
+    command:
+      - /app/.venv/bin/alembic
+      - upgrade
+      - head
