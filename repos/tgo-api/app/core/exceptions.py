@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from fastapi import HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -230,11 +231,13 @@ async def validation_exception_handler(
     request_id = str(uuid4())
 
     if isinstance(exc, RequestValidationError):
-        error_list = exc.errors()
+        error_list = jsonable_encoder(exc.errors())
     elif isinstance(exc, PydanticValidationError):
-        error_list = exc.errors()
+        error_list = jsonable_encoder(exc.errors())
     else:
-        error_list = [{"type": exc.__class__.__name__, "msg": str(exc)}]
+        error_list = jsonable_encoder(
+            [{"type": exc.__class__.__name__, "msg": str(exc)}]
+        )
 
     logger.warning(
         "Validation Exception",
@@ -257,7 +260,7 @@ async def validation_exception_handler(
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=error_response.model_dump(),
+        content=jsonable_encoder(error_response.model_dump()),
     )
 
 

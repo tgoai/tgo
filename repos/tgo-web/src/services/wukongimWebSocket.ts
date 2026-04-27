@@ -1,5 +1,5 @@
 import { WKIM, WKIMChannelType, WKIMEvent, ReasonCode } from 'easyjssdk';
-import { Message, WuKongIMMessage } from '../types';
+import { Message, MessagePayloadType, WuKongIMMessage } from '../types';
 import { WuKongIMUtils } from './wukongimApi';
 import { CHANNEL_TYPE, WS_EVENT_TYPE } from '@/constants';
 
@@ -102,6 +102,16 @@ export type VisitorProfileUpdatedHandler = (evt: VisitorProfileUpdatedEvent) => 
 export type QueueUpdatedEvent = { raw?: any };
 export type QueueUpdatedHandler = (evt: QueueUpdatedEvent) => void;
 
+type CommandMessage = {
+  cmd: string;
+  param?: Record<string, unknown>;
+  channelId: string;
+  channelType: number;
+};
+
+const VISITOR_ONLINE_EVENT_TYPE = 'visitor.online';
+const VISITOR_OFFLINE_EVENT_TYPE = 'visitor.offline';
+
 /**
  * WuKongIM WebSocket Service Manager
  * Handles real-time messaging through WuKongIM EasySDK-JS
@@ -135,6 +145,134 @@ export class WuKongIMWebSocketService {
 
   // Track manual disconnection to prevent unnecessary reconnections
   private manualDisconnect = false;
+
+  private tryExtractCommandMessage(message: unknown): CommandMessage | null {
+    if (!message || typeof message !== 'object') return null;
+
+    const raw = message as Record<string, unknown>;
+    const rawPayload = raw.payload;
+    const payloadRecord =
+      rawPayload && typeof rawPayload === 'object'
+        ? (rawPayload as Record<string, unknown>)
+        : typeof rawPayload === 'string'
+          ? (WuKongIMUtils.tryParsePayloadString(rawPayload) as Record<string, unknown> | null)
+          : null;
+    if (!payloadRecord) return null;
+
+    if (payloadRecord.type !== MessagePayloadType.COMMAND) return null;
+    if (typeof payloadRecord.cmd !== 'string' || !payloadRecord.cmd) return null;
+
+    const channelId =
+      typeof raw.channelId === 'string'
+        ? raw.channelId
+        : typeof raw.channel_id === 'string'
+          ? raw.channel_id
+          : '';
+    const channelTypeValue =
+      typeof raw.channelType === 'number'
+        ? raw.channelType
+        : typeof raw.channel_type === 'number'
+          ? raw.channel_type
+          : NaN;
+
+    if (!channelId || !Number.isFinite(channelTypeValue)) {
+      return null;
+    }
+
+    const param =
+      payloadRecord.param && typeof payloadRecord.param === 'object'
+        ? (payloadRecord.param as Record<string, unknown>)
+        : undefined;
+
+    return {
+      cmd: payloadRecord.cmd,
+      param,
+      channelId,
+      channelType: channelTypeValue,
+    };
+  }
+
+  private handleCommandMessage(message: unknown): boolean {
+    const command = this.tryExtractCommandMessage(message);
+    if (!command) return false;
+
+    const eventType = command.cmd;
+    const rawData = command.param;
+
+    if (
+      eventType === VISITOR_ONLINE_EVENT_TYPE
+      || eventType === VISITOR_OFFLINE_EVENT_TYPE
+    ) {
+      const presenceChannelId =
+        typeof rawData?.channel_id === 'string'
+          ? rawData.channel_id
+          : typeof rawData?.channelId === 'string'
+            ? rawData.channelId
+            : command.channelId;
+      const presenceChannelType =
+        typeof rawData?.channel_type === 'number'
+          ? rawData.channel_type
+          : typeof rawData?.channelType === 'number'
+            ? rawData.channelType
+            : command.channelType;
+      const visitorId =
+        typeof rawData?.visitor_id === 'string'
+          ? rawData.visitor_id
+          : typeof rawData?.visitorId === 'string'
+            ? rawData.visitorId
+            : undefined;
+      const timestamp =
+        typeof rawData?.timestamp === 'string'
+          ? rawData.timestamp
+          : null;
+      const isOnline =
+        eventType === VISITOR_ONLINE_EVENT_TYPE
+          ? true
+          : eventType === VISITOR_OFFLINE_EVENT_TYPE
+            ? false
+            : Boolean(rawData?.is_online);
+
+      this.notifyVisitorPresenceHandlers({
+        visitorId,
+        channelId: presenceChannelId,
+        channelType: presenceChannelType,
+        isOnline,
+        timestamp,
+        eventType,
+        raw: rawData,
+      });
+      return true;
+    }
+
+    if (eventType === WS_EVENT_TYPE.QUEUE_UPDATED) {
+      this.notifyQueueUpdatedHandlers({ raw: rawData });
+      return true;
+    }
+
+    if (eventType !== WS_EVENT_TYPE.VISITOR_PROFILE_UPDATED) {
+      console.warn('🔌 Unsupported WuKongIM command message ignored:', {
+        cmd: eventType,
+        channelId: command.channelId,
+        channelType: command.channelType,
+      });
+      return true;
+    }
+
+    const visitorId =
+      typeof rawData?.visitor_id === 'string'
+        ? rawData.visitor_id
+        : typeof rawData?.visitorId === 'string'
+          ? rawData.visitorId
+          : undefined;
+
+    this.notifyVisitorProfileUpdatedHandlers({
+      visitorId,
+      channelId: command.channelId,
+      channelType: command.channelType,
+      raw: rawData,
+    });
+    return true;
+  }
 
 
   /**
@@ -367,7 +505,7 @@ export class WuKongIMWebSocketService {
         wkimChannelType,
         clientMsgNo,
         payloadType: typeof payload,
-        payload: payload
+        payload,
       });
 
       // Send message with clientMsgNo in options to ensure server uses the same ID
@@ -585,10 +723,14 @@ export class WuKongIMWebSocketService {
     this.eventHandlers.message = (message: any) => {
       console.log('🔌 WuKongIM message received (single handler):', {
         messageId: message?.messageId || message?.id,
-        content: typeof message?.content === 'string' ? message.content.substring(0, 50) + '...' : message?.content,
-        channelId: message?.channelId
+        content: typeof message?.content === 'string' ? `${message.content.substring(0, 50)}...` : message?.content,
+        channelId: message?.channelId,
       });
       try {
+        if (this.handleCommandMessage(message)) {
+          return;
+        }
+
         // Convert WuKongIM message to internal format
         const convertedMessage = this.convertWuKongIMMessage(message);
         this.notifyMessageHandlers(convertedMessage);
@@ -623,7 +765,7 @@ export class WuKongIMWebSocketService {
         id: event?.id,
         type: event?.type,
         timestamp: event?.timestamp,
-        dataPreview: typeof event?.data === 'string' ? event.data.substring(0, 50) + '...' : event?.data
+        dataPreview: typeof event?.data === 'string' ? `${event.data.substring(0, 50)}...` : event?.data,
       });
 
       try {

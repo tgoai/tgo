@@ -18,7 +18,7 @@ services:
 
   # wukongim
   wukongim:
-    image: registry.cn-shanghai.aliyuncs.com/wukongim/wukongim:v2.2.3-dev
+    image: registry.cn-shanghai.aliyuncs.com/wukongim/wukongim:v2.2.5-20260422
 
   # TGO application services - using Alibaba Cloud ACR
   tgo-rag-worker:

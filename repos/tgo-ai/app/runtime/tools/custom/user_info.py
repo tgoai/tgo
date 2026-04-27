@@ -49,9 +49,11 @@ def create_user_info_tool(
         if not ctx.project_id:
             return "配置错误：未提供项目 ID。"
 
-        # Use the base URL from client
-        base_url = client._base_url.rstrip("/")
-        url = f"{base_url}/internal/users/{user_id}"
+        internal_base_url = client.internal_base_url
+        if not internal_base_url:
+            return error_messages["not_configured"]
+
+        url = f"{internal_base_url.rstrip('/')}/internal/users/{user_id}"
         params = {"project_id": ctx.project_id}
 
         try:
@@ -98,7 +100,7 @@ def create_user_info_tool(
 
         result = await client.post_event(
             "user_info.update",
-            {"user": user_data, "metadata": metadata},
+            {"visitor": user_data, "metadata": metadata},
             error_messages=error_messages,
         )
 

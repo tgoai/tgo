@@ -813,6 +813,7 @@ export enum MessagePayloadType {
   IMAGE = 2,
   FILE = 3,
   RICH_TEXT = 12,
+  COMMAND = 99,
   STREAM = 100,  // 流消息类型（AI 流式输出开始）
   JSON_RENDER = 200, // json-render 富交互消息
   // 系统消息类型范围：1000-2000
@@ -903,7 +904,20 @@ export interface PayloadJSONRender {
   parts: Array<{ type: string; data?: unknown; text?: string }>;
 }
 
-export type MessagePayload = PayloadText | PayloadImage | PayloadFile | PayloadRichText | PayloadSystem | PayloadJSONRender;
+export interface PayloadCommand {
+  type: MessagePayloadType.COMMAND;
+  cmd: string;
+  param?: Record<string, unknown>;
+}
+
+export type MessagePayload =
+  | PayloadText
+  | PayloadImage
+  | PayloadFile
+  | PayloadRichText
+  | PayloadSystem
+  | PayloadJSONRender
+  | PayloadCommand;
 
 
 export interface Message {
@@ -1314,8 +1328,10 @@ export interface WuKongIMMessageHeader {
 }
 
 export interface WuKongIMMessagePayload {
-  content: string; // Message content
+  content?: string; // Message content
   type: number; // Message type
+  cmd?: string;
+  param?: Record<string, unknown>;
 }
 
 export interface StreamEventSnapshot {

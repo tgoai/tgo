@@ -333,12 +333,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       offMsg = IMService.onMessage((m) => {
         // skip self echoes
         if (!m.fromUid || m.fromUid === uidForIM) return
+        const payload = toPayloadFromAny(m?.payload)
+        if (payload.type === 99) return
         // prefetch staff info by sender uid (personal channel)
         try { void get().fetchStaffInfo(m.fromUid) } catch {}
         const chat: ChatMessage = {
           id: String(m.messageId),
           role: 'agent',
-          payload: toPayloadFromAny(m?.payload),
+          payload,
           time: new Date(m.timestamp * 1000),
           messageSeq: typeof m.messageSeq === 'number' ? m.messageSeq : undefined,
           clientMsgNo: m?.clientMsgNo,

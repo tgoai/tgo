@@ -34,6 +34,7 @@ if [ ! -f .env.dev ] && [ -f .env.dev.example ]; then
 fi
 
 HELP_OUTPUT="$(make help 2>/dev/null)"
+SUMMARY_OUTPUT="$(ENV_FILE=.env.dev RUNNING_SERVICES=$'postgres\nredis\ntgo-api\nadminer' ./scripts/dev/summary.sh 2>/dev/null || true)"
 
 echo "========================================="
 echo "  Dev Environment Workflow Regression"
@@ -78,6 +79,24 @@ run_test "help no longer advertises dev-all" \
 
 run_test "help no longer advertises stop-all" \
   "! printf '%s\n' \"$HELP_OUTPUT\" | grep -q 'stop-all'"
+
+run_test "dev summary script prints postgres login info" \
+  "printf '%s\n' \"$SUMMARY_OUTPUT\" | grep -q 'Postgres: postgresql://tgo:tgo@localhost:5432/tgo'"
+
+run_test "dev summary script prints adminer access info" \
+  "printf '%s\n' \"$SUMMARY_OUTPUT\" | grep -q 'Adminer: http://localhost:8089'"
+
+run_test "dev summary script prints API access info" \
+  "printf '%s\n' \"$SUMMARY_OUTPUT\" | grep -q 'API: http://localhost:8000'"
+
+run_test "dev summary only shows running services" \
+  "! printf '%s\n' \"$SUMMARY_OUTPUT\" | grep -q 'AI: http://localhost:8081'"
+
+run_test "dev summary can inspect running compose services" \
+  "ENV_FILE=.env.dev ./scripts/dev/summary.sh >/dev/null"
+
+run_test "make dev prints the dev summary" \
+  "rg -q './scripts/dev/summary.sh' Makefile"
 
 echo ""
 echo "========================================="

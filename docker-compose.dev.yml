@@ -29,7 +29,7 @@ services:
     env_file:
       - .env.dev
     environment:
-      WK_EXTERNAL_WSADDR: ${WK_EXTERNAL_WSADDR:-localhost:5200}
+      WK_EXTERNAL_WSADDR: ${WK_EXTERNAL_WSADDR:-ws://127.0.0.1:5200}
       WK_WEBHOOK_HTTPADDR: http://tgo-api:8000/v1/integrations/wukongim/webhook
     ports:
       - "5001:5001"
@@ -85,6 +85,7 @@ services:
       <<: *backend-env
       REDIS_URL: redis://redis:6379/1
       API_SERVICE_URL: http://tgo-api:8000
+      API_INTERNAL_SERVICE_URL: http://tgo-api:8001
       RAG_SERVICE_URL: http://tgo-rag:8082
       WORKFLOW_SERVICE_URL: http://tgo-workflow:8000
       PLUGIN_RUNTIME_URL: http://tgo-plugin-runtime:8090
@@ -203,6 +204,7 @@ services:
     environment:
       <<: *backend-env
       REDIS_URL: redis://redis:6379/0
+      INTERNAL_SERVICE_HOST: 0.0.0.0
       PLATFORM_SERVICE_URL: http://tgo-platform:8003
       AI_SERVICE_URL: http://tgo-ai:8081
       RAG_SERVICE_URL: http://tgo-rag:8082
@@ -217,13 +219,12 @@ services:
     ports:
       - "${TGO_API_PORT:-8000}:8000"
     command:
-      - /app/.venv/bin/uvicorn
-      - app.main:app
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
-      - --reload
+      - /bin/sh
+      - -lc
+      - >
+        /app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+        /app/.venv/bin/uvicorn app.internal:internal_app --host 0.0.0.0 --port 8001 --reload &
+        wait
 
   tgo-web:
     image: node:20-bookworm-slim
@@ -387,6 +388,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@postgres:5432/${POSTGRES_DB:-tgo}
       REDIS_URL: redis://redis:6379/1
       API_SERVICE_URL: http://tgo-api:8000
+      API_INTERNAL_SERVICE_URL: http://tgo-api:8001
       RAG_SERVICE_URL: http://tgo-rag:8082
       WORKFLOW_SERVICE_URL: http://tgo-workflow:8000
       PLUGIN_RUNTIME_URL: http://tgo-plugin-runtime:8090

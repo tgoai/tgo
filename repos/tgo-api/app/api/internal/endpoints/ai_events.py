@@ -823,10 +823,11 @@ async def ingest_ai_event_internal(
             detail=f"Project not found for user: {project_id}",
         )
 
-    # Override event.user_id with real_user_id for handlers that expect UUID
-    # But wait, handlers currently use event.user_id. 
-    # Let's keep a copy of original event if needed, but here we can just pass what's needed.
-    
+    # Downstream handlers expect the canonical visitor/staff ID string without
+    # the transport suffix (e.g. "-vtr"), but the schema field remains str.
+    canonical_user_id = str(real_user_id)
+    event.user_id = canonical_user_id
+
     event_type = event.event_type.strip().lower()
 
     logger.info(
@@ -845,8 +846,6 @@ async def ingest_ai_event_internal(
         if user_type != "visitor":
             return {"event_type": event_type, "result": {"message": "Manual service request only supported for visitors"}}
         
-        # Handler expects event.user_id to be the visitor ID
-        event.user_id = real_user_id
         result = await _handle_manual_service_request(event, project, db)
         return {"event_type": event_type, "result": result}
 
@@ -855,7 +854,6 @@ async def ingest_ai_event_internal(
             # 客服信息更新逻辑留白
             return {"event_type": event_type, "result": {"message": "Staff info update not implemented yet"}}
             
-        event.user_id = real_user_id
         result = await _handle_visitor_info_update(event, project, db)
         return {"event_type": event_type, "result": result}
 
@@ -864,7 +862,6 @@ async def ingest_ai_event_internal(
             # 客服情感分析逻辑留白
             return {"event_type": event_type, "result": {"message": "Staff sentiment update not implemented yet"}}
             
-        event.user_id = real_user_id
         result = await _handle_visitor_sentiment_update(event, project, db)
         return {"event_type": event_type, "result": result}
 
@@ -873,7 +870,6 @@ async def ingest_ai_event_internal(
             # 客服标签逻辑留白
             return {"event_type": event_type, "result": {"message": "Staff tag add not implemented yet"}}
             
-        event.user_id = real_user_id
         result = _handle_visitor_tag(event, project, db)
         return {"event_type": event_type, "result": result}
 
@@ -885,4 +881,3 @@ async def ingest_ai_event_internal(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=f"Unsupported AI event_type: {event.event_type}",
     )
-

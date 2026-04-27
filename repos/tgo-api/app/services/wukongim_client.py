@@ -42,7 +42,7 @@ class EventType:
 class WuKongIMClient:
     """Client for WuKongIM instant messaging service."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize WuKongIM client."""
         self.base_url = settings.WUKONGIM_SERVICE_URL.rstrip("/")
         self.timeout = settings.WUKONGIM_SERVICE_TIMEOUT
@@ -62,30 +62,91 @@ class WuKongIMClient:
             # Decode base64 string
             decoded_bytes = base64.b64decode(payload)
             decoded_str = decoded_bytes.decode('utf-8')
+            json_payload = self._normalize_decoded_payload(
+                decoded_str,
+                raw_payload=payload,
+            )
 
-            # Parse JSON
-            json_payload = json.loads(decoded_str)
-
-            logger.debug(f"Successfully decoded message payload")
+            logger.debug("Successfully decoded message payload")
             return json_payload
 
         except (binascii.Error, UnicodeDecodeError) as e:
             logger.warning(f"Failed to decode base64 payload: {e}")
             # Return original payload in a structured format
-            return {"raw_payload": payload, "decode_error": "base64_decode_failed"}
+            return {
+                "raw_payload": payload,
+                "decode_error": "base64_decode_failed",
+            }
 
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse JSON from decoded payload: {e}")
             # Return decoded string in a structured format
             try:
                 decoded_str = base64.b64decode(payload).decode('utf-8')
-                return {"raw_content": decoded_str, "decode_error": "json_parse_failed"}
+                return {
+                    "raw_content": decoded_str,
+                    "decode_error": "json_parse_failed",
+                }
             except Exception:
-                return {"raw_payload": payload, "decode_error": "complete_decode_failed"}
+                return {
+                    "raw_payload": payload,
+                    "decode_error": "complete_decode_failed",
+                }
 
         except Exception as e:
             logger.error(f"Unexpected error decoding payload: {e}")
             return {"raw_payload": payload, "decode_error": "unexpected_error"}
+
+    def _normalize_decoded_payload(
+        self,
+        decoded_payload: str,
+        *,
+        raw_payload: str,
+    ) -> Dict[str, Any]:
+        """Normalize mixed WuKongIM payload encodings into a JSON object."""
+        current: object = decoded_payload
+
+        # SDK-originated messages may arrive as JSON strings that contain another
+        # base64-encoded payload, while HTTP-originated messages are regular JSON.
+        for _ in range(4):
+            if isinstance(current, dict):
+                return current
+
+            if not isinstance(current, str):
+                return {
+                    "raw_payload": raw_payload,
+                    "decode_error": "unsupported_payload_type",
+                }
+
+            try:
+                parsed_payload = json.loads(current)
+            except json.JSONDecodeError:
+                parsed_payload = None
+
+            if isinstance(parsed_payload, dict):
+                return parsed_payload
+            if isinstance(parsed_payload, str):
+                current = parsed_payload
+                continue
+
+            try:
+                current = base64.b64decode(current).decode("utf-8")
+            except (binascii.Error, UnicodeDecodeError):
+                return {
+                    "raw_content": current,
+                    "decode_error": "json_parse_failed",
+                }
+
+        if isinstance(current, str):
+            return {
+                "raw_content": current,
+                "decode_error": "json_parse_failed",
+            }
+
+        return {
+            "raw_payload": raw_payload,
+            "decode_error": "unsupported_payload_type",
+        }
 
     async def _make_request(
         self,
@@ -158,53 +219,37 @@ class WuKongIMClient:
         client_msg_no: Optional[str] = None,
         from_uid: Optional[str] = None,
         force: bool = True,
-    ) -> Dict[str, Any]:
-        """Send a custom event through WuKongIM (streaming/text or custom)."""
+    ) -> Optional[WuKongIMMessageSendResponse]:
+        """Send a legacy custom event as a command message."""
         if not self.enabled:
             logger.debug("WuKongIM integration is disabled; skipping send_event")
-            return {}
-
-        if isinstance(data, (dict, list)):
-            serialized_data = json.dumps(data, ensure_ascii=False)
-        elif data is None:
-            serialized_data = ""
-        else:
-            serialized_data = str(data)
-
-        request_data: Dict[str, Any] = {
-            "channel_id": channel_id,
-            "channel_type": channel_type,
-            "event": {
-                "id": client_msg_no,
-                "type": event_type,
-                "data": serialized_data,
-                "timestamp": int(datetime.now().timestamp()),
-            },
-        }
-
-        if client_msg_no:
-            request_data["client_msg_no"] = client_msg_no
-        if from_uid:
-            request_data["from_uid"] = from_uid
+            return None
 
         logger.debug(
-            "Sending WuKongIM event",
+            "Sending WuKongIM event as command message",
             extra={
                 "from_uid": from_uid,
                 "channel_id": channel_id,
                 "event_type": event_type,
+                "force": force,
             },
         )
 
-        params = {
-            "force": "1" if force else "0",
+        payload: Dict[str, Any] = {
+            "type": 99,
+            "cmd": event_type,
+            "param": data if data is not None else {},
         }
 
-        return await self._make_request(
-            method="POST",
-            endpoint="/event",
-            json_data=request_data,
-            params=params,
+        return await self.send_message(
+            payload=payload,
+            from_uid=from_uid,
+            channel_id=channel_id,
+            channel_type=channel_type,
+            client_msg_no=client_msg_no,
+            no_persist=True,
+            red_dot=False,
+            sync_once=True,
         )
 
 

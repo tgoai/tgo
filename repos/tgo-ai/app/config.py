@@ -81,6 +81,10 @@ class Settings(BaseSettings):
         default="http://localhost:8080",
         description="Base URL for the core API service (events ingestion)",
     )
+    api_internal_service_url: str = Field(
+        default="http://localhost:8001",
+        description="Base URL for the core API internal service (no-auth internal endpoints)",
+    )
 
     # Plugin Runtime Configuration
     plugin_runtime_url: str = Field(

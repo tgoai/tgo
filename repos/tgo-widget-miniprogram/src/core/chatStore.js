@@ -173,11 +173,13 @@ ChatStore.prototype._bindIMEvents = function () {
   if (offMsg) { try { offMsg() } catch (e) {} ; offMsg = null }
   offMsg = IMService.onMessage(function (m) {
     if (!m.fromUid || m.fromUid === uidForIM) return
+    var payload = types.toPayloadFromAny(m && m.payload)
+    if (payload && payload.type === 99) return
 
     var chat = {
       id: String(m.messageId),
       role: 'agent',
-      payload: types.toPayloadFromAny(m && m.payload),
+      payload: payload,
       time: new Date(m.timestamp * 1000),
       messageSeq: typeof m.messageSeq === 'number' ? m.messageSeq : undefined,
       clientMsgNo: m.clientMsgNo,

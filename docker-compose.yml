@@ -36,7 +36,7 @@ services:
 
   # WuKongIM service
   wukongim:
-    image: registry.cn-shanghai.aliyuncs.com/wukongim/wukongim:v2.2.3-dev
+    image: ghcr.io/wukongim/wukongim:v2.2.5-20260422
     container_name: tgo-wukongim
     env_file:
       - .env
@@ -187,6 +187,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-tgo}
       # Internal service URLs (fixed, not user-configurable)
       API_SERVICE_URL: http://tgo-api:8000
+      API_INTERNAL_SERVICE_URL: http://tgo-api:8001
       RAG_SERVICE_URL: http://tgo-rag:8082
       WORKFLOW_SERVICE_URL: http://tgo-workflow:8000
       PLUGIN_RUNTIME_URL: http://tgo-plugin-runtime:8090
@@ -293,6 +294,7 @@ services:
     environment:
       # Service-specific: port and Redis DB
       PORT: 8000
+      INTERNAL_SERVICE_HOST: 0.0.0.0
       REDIS_URL: redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/0
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgo}:${POSTGRES_PASSWORD:-tgo}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-tgo}
       API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost/api}

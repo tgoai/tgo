@@ -33,7 +33,6 @@ DISABLE_LIST := $(strip $(subst $(comma),$(space),$(DISABLE)))
 RUN_SERVICES := $(filter-out $(DISABLE_LIST),$(CORE_APP_SERVICES) $(PROFILE_SERVICES))
 
 CYAN := \033[36m
-GREEN := \033[32m
 YELLOW := \033[33m
 RED := \033[31m
 RESET := \033[0m
@@ -74,7 +73,7 @@ dev: check-env
 	@ENV_FILE=$(ENV_FILE) ./scripts/dev/init.sh
 	@echo "$(CYAN)Starting application services...$(RESET)"
 	@$(COMPOSE) up -d $(RUN_SERVICES)
-	@echo "$(GREEN)TGO dev environment is ready.$(RESET)"
+	@ENV_FILE=$(ENV_FILE) PROFILES='$(PROFILES)' ./scripts/dev/summary.sh
 
 down: check-env
 	@$(COMPOSE_ALL_PROFILES) down --remove-orphans

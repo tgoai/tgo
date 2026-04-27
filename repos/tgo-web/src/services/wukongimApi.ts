@@ -10,21 +10,23 @@ import { CHANNEL_TYPE, DEFAULT_CHANNEL_TYPE, MESSAGE_SENDER_TYPE, PlatformType, 
 
 import { useAuthStore } from '@/stores';
 import { toAbsoluteApiUrl } from '@/utils/url';
-import type {
-  WuKongIMConversationSyncRequest,
-  WuKongIMConversationSyncResponse,
-  WuKongIMMessagePayload,
-  WuKongIMMessageSyncRequest,
-  WuKongIMMessageSyncResponse,
-  WuKongIMEnhancedMessage,
-  WuKongIMMessage,
-  MessageSenderType,
-  Message,
-  MessagePayload,
-  PayloadRichTextImage,
-  PayloadSystem,
+import {
+  MessagePayloadType,
+  isSystemMessageType,
+  type WuKongIMConversationSyncRequest,
+  type WuKongIMConversationSyncResponse,
+  type WuKongIMMessagePayload,
+  type WuKongIMMessageSyncRequest,
+  type WuKongIMMessageSyncResponse,
+  type WuKongIMEnhancedMessage,
+  type WuKongIMMessage,
+  type MessageSenderType,
+  type Message,
+  type MessagePayload,
+  type PayloadCommand,
+  type PayloadRichTextImage,
+  type PayloadSystem,
 } from '../types';
-import { MessagePayloadType, isSystemMessageType } from '../types';
 
 
 /**
@@ -510,6 +512,12 @@ export class WuKongIMUtils {
       fileMeta = { file_url: url || url0, file_name: name, file_size: size };
     } else if (payloadType === MessagePayloadType.TEXT) {
       typedPayload = { type: MessagePayloadType.TEXT, content };
+    } else if (payloadType === MessagePayloadType.COMMAND) {
+      typedPayload = {
+        type: MessagePayloadType.COMMAND,
+        cmd: payloadObj?.cmd || '',
+        param: payloadObj?.param,
+      } as PayloadCommand;
     } else if (payloadType === MessagePayloadType.STREAM) {
       // For completed stream messages loaded from history, treat as TEXT so they render properly
       typedPayload = { type: MessagePayloadType.TEXT, content };
@@ -526,8 +534,8 @@ export class WuKongIMUtils {
     }
 
     // Determine if this is a streaming message that's still in progress
-    let hasStreamData = !!wkMessage.event_meta?.has_events;
-    let isStreamingInProgress = hasStreamData && (wkMessage.event_meta?.open_event_count ?? 0) > 0;
+    const hasStreamData = !!wkMessage.event_meta?.has_events;
+    const isStreamingInProgress = hasStreamData && (wkMessage.event_meta?.open_event_count ?? 0) > 0;
 
     // Parse mixed content (text + json-render spec fences) from historical snapshot
     let uiParts: Array<{ type: string; text?: string; data?: unknown }> | undefined;
@@ -535,7 +543,7 @@ export class WuKongIMUtils {
       try {
         const parts: Array<{ type: string; text?: string; data?: unknown }> = [];
         const parser = createMixedStreamParser({
-          onText: (text) => parts.push({ type: 'text', text: text + '\n' }),
+          onText: (text) => parts.push({ type: 'text', text: `${text}\n` }),
           onPatch: (patch) => parts.push({ type: 'data-spec', data: { type: 'patch', patch } }),
         });
         // Normalise so ```spec is always at the start of its own line.
@@ -556,7 +564,7 @@ export class WuKongIMUtils {
             try {
               // snapshot.text is concatenated JSON arrays, e.g. '[{...}][{...}]'
               // Normalise to a single array: replace '][' with ','
-              const normalised = '[' + jsonRenderEvent.snapshot.text.replace(/\]\s*\[/g, ',') + ']';
+              const normalised = `[${jsonRenderEvent.snapshot.text.replace(/\]\s*\[/g, ',')}]`;
               // The text may already be wrapped in [], producing '[[{...},{...}]]' — flatten:
               const outer = JSON.parse(normalised);
               const flat = Array.isArray(outer) ? outer.flat(Infinity) : [outer];
@@ -611,8 +619,8 @@ export class WuKongIMUtils {
       messageSeq: wkMessage.message_seq || (wkMessage as any).messageSeq,
       fromUid: wkMessage.from_uid || (wkMessage as any).fromUid,
       channelId: wkMessage.channel_id || (wkMessage as any).channelId,
-      channelType: channelType,
-      payloadType: payloadType,
+      channelType,
+      payloadType,
       payload: typedPayload,
       metadata: {
         sender_avatar: (wkMessage as any).sender_avatar,

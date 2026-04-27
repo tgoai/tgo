@@ -70,12 +70,19 @@ class EventClient:
 
     def __init__(self, ctx: ToolContext):
         self.ctx = ctx
-        self._base_url = getattr(settings, "api_service_url", None)
+        self._base_url = getattr(settings, "api_internal_service_url", None) or getattr(
+            settings, "api_service_url", None
+        )
 
     @property
     def is_configured(self) -> bool:
         """Check if API service URL is configured."""
         return bool(self._base_url)
+
+    @property
+    def internal_base_url(self) -> Optional[str]:
+        """Return the configured internal API base URL."""
+        return self._base_url
 
     async def post_event(
         self,
