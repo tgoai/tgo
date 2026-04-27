@@ -48,7 +48,9 @@ services:
       WK_INTRANET_TCPADDR: wukongim:5100
       WK_MODE: release
       WK_EXTERNAL_IP: ${SERVER_HOST:-127.0.0.1}
-      WK_EXTERNAL_WSADDR: localhost:15200
+      WK_EXTERNAL_WSADDR: ${WK_EXTERNAL_WSADDR:-}
+      WK_EXTERNAL_WSSADDR: ${WK_EXTERNAL_WSSADDR:-}
+      WK_TOKENAUTHON: ${WK_TOKENAUTHON:-false}
       WK_WEBHOOK_HTTPADDR: http://tgo-api:8000/v1/integrations/wukongim/webhook
     volumes:
       - ./data/wukongim:/root/wukongim
