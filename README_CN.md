@@ -119,7 +119,7 @@ make dev DISABLE=tgo-rag-beat,tgo-workflow-worker
 ## 🏗️ 系统架构
 
 <p align="center">
-  <img src="resources/architecture.svg" width="100%" alt="TGO 系统架构图">
+  <img src="resources/architecture.png" width="100%" alt="TGO 系统架构图">
 </p>
 
 ## 产品预览

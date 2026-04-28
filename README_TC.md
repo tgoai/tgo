@@ -103,7 +103,7 @@ REF=latest curl -fsSL https://raw.githubusercontent.com/tgoai/tgo/main/bootstrap
 ## 🏗️ 系統架構
 
 <p align="center">
-  <img src="resources/architecture.svg" width="100%" alt="TGO 系統架構圖">
+  <img src="resources/architecture_tc.png" width="100%" alt="TGO 系統架構圖">
 </p>
 
 ## 產品預覽

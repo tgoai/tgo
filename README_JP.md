@@ -98,7 +98,7 @@ REF=latest curl -fsSL https://raw.githubusercontent.com/tgoai/tgo/main/bootstrap
 ## 🏗️ システムアーキテクチャ
 
 <p align="center">
-  <img src="resources/architecture_en.svg" width="100%" alt="TGO システムアーキテクチャ">
+  <img src="resources/architecture_jp.png" width="100%" alt="TGO システムアーキテクチャ">
 </p>
 
 ## 製品プレビュー

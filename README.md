@@ -119,7 +119,7 @@ For more details, please visit the [Documentation](https://tgo.ai).
 ## 🏗️ System Architecture
 
 <p align="center">
-  <img src="resources/architecture_en.svg" width="100%" alt="TGO System Architecture">
+  <img src="resources/architecture_en.png" width="100%" alt="TGO System Architecture">
 </p>
 
 ## Product Preview
