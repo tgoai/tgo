@@ -1,13 +1,32 @@
 """Platform schemas."""
 
-from typing import Any, Dict, List, Optional
+from collections.abc import Mapping
+from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, computed_field
+from pydantic import ConfigDict, Field, computed_field, model_validator
 
 from app.models.platform import PlatformType, PlatformAIMode
 from app.schemas.base import BaseSchema, PaginatedResponse, SoftDeleteMixin, TimestampMixin
 from app.core.config import settings
+
+
+def _normalize_legacy_agent_ids(data: object) -> object:
+    """Accept legacy agent_ids payloads without exposing that schema field."""
+
+    if not isinstance(data, Mapping) or "agent_ids" not in data:
+        return data
+
+    normalized = dict(data)
+    legacy_agent_ids = normalized.pop("agent_ids")
+    if "agent_id" not in normalized:
+        if isinstance(legacy_agent_ids, list):
+            normalized["agent_id"] = (
+                legacy_agent_ids[0] if legacy_agent_ids else None
+            )
+        else:
+            normalized["agent_id"] = legacy_agent_ids
+    return normalized
 
 
 class PlatformBase(BaseSchema):
@@ -44,6 +63,11 @@ class PlatformBase(BaseSchema):
         ge=0,
         description="Timeout in seconds before AI takes over when ai_mode=assist. 0 means AI never takes over."
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_agent_ids(cls, data: object) -> object:
+        return _normalize_legacy_agent_ids(data)
 
 
 class PlatformAISettings(BaseSchema):
@@ -98,6 +122,11 @@ class PlatformUpdate(BaseSchema):
         description="Timeout in seconds before AI takes over when ai_mode=assist. 0 means AI never takes over."
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_agent_ids(cls, data: object) -> object:
+        return _normalize_legacy_agent_ids(data)
+
 
 class PlatformInDB(PlatformBase, TimestampMixin, SoftDeleteMixin):
     """Schema for platform in database."""
@@ -129,7 +158,7 @@ class PlatformListItemResponse(BaseSchema, TimestampMixin, SoftDeleteMixin):
     ai_mode: Optional[PlatformAIMode] = Field(None, description="AI mode: auto, assist, or off")
     fallback_to_ai_timeout: Optional[int] = Field(None, description="Timeout in seconds before AI takes over when ai_mode=assist")
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def logo_url(self) -> Optional[str]:
         """Public URL to retrieve the platform logo via API.
@@ -144,7 +173,7 @@ class PlatformListItemResponse(BaseSchema, TimestampMixin, SoftDeleteMixin):
         v1 = settings.API_V1_STR.rstrip("/")
         return f"{base}{v1}/platforms/{self.id}/logo"
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def chat_url(self) -> Optional[str]:
         """Chat completion URL for custom platforms.
@@ -166,7 +195,7 @@ class PlatformResponse(PlatformInDB):
     display_name: str = Field("", description="Display name with fallback to platform type name")
 
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def logo_url(self) -> Optional[str]:
         """Public URL to retrieve the platform logo via API.
@@ -181,7 +210,7 @@ class PlatformResponse(PlatformInDB):
         v1 = settings.API_V1_STR.rstrip("/")
         return f"{base}{v1}/platforms/{self.id}/logo"
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def chat_url(self) -> Optional[str]:
         """Chat completion URL for custom platforms.
@@ -193,8 +222,8 @@ class PlatformResponse(PlatformInDB):
             base = settings.API_BASE_URL.rstrip("/")
             return f"{base}/v1/chat/completions"
         return None
-    
-    @computed_field  # type: ignore[misc]
+
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def callback_url(self) -> str:
         """Webhook callback URL for this platform.

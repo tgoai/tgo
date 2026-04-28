@@ -6,13 +6,13 @@ import { FiChevronDown, FiChevronRight, FiX } from 'react-icons/fi';
 
 interface PlatformAISettingsProps {
   platform: Platform;
-  /** Current agent IDs selection (controlled) */
+  /** Current agent selection (controlled as an array for existing callers) */
   agentIds: string[];
   /** Current AI mode (controlled) */
   aiMode: PlatformAIMode;
   /** Current fallback timeout in seconds (controlled) */
   fallbackTimeout: number | null;
-  /** Callback when agent IDs change */
+  /** Callback when selected agent changes */
   onAgentIdsChange: (agentIds: string[]) => void;
   /** Callback when AI mode changes */
   onAIModeChange: (mode: PlatformAIMode) => void;
@@ -25,7 +25,7 @@ interface PlatformAISettingsProps {
 /**
  * Reusable AI Settings component for platform configuration
  * Includes:
- * - Multi-select dropdown for AI agents
+ * - Single-select dropdown for AI agents
  * - Radio buttons for AI mode (auto/assist/off)
  * - Timeout input for assist mode
  */
@@ -74,12 +74,13 @@ const PlatformAISettings: React.FC<PlatformAISettingsProps> = ({
     return agents.filter(agent => agentIds.includes(agent.id));
   }, [agents, agentIds]);
 
-  // Handle agent selection toggle
+  // Handle agent selection toggle. Backend routing supports one platform agent.
   const toggleAgent = (agentId: string) => {
     if (agentIds.includes(agentId)) {
-      onAgentIdsChange(agentIds.filter(id => id !== agentId));
+      onAgentIdsChange([]);
     } else {
-      onAgentIdsChange([...agentIds, agentId]);
+      onAgentIdsChange([agentId]);
+      setDropdownOpen(false);
     }
   };
 
@@ -121,7 +122,7 @@ const PlatformAISettings: React.FC<PlatformAISettingsProps> = ({
       {/* Collapsible Content */}
       {expanded && (
         <div className="space-y-4 mt-4 animate-fadeIn">
-          {/* AI Agents Multi-select */}
+          {/* AI Agent selector */}
           <div>
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
               {t('platforms.aiSettings.agents', 'AI 员工')}
@@ -180,10 +181,10 @@ const PlatformAISettings: React.FC<PlatformAISettingsProps> = ({
                         }`}
                       >
                         <input
-                          type="checkbox"
+                          type="radio"
                           checked={agentIds.includes(agent.id)}
                           onChange={() => {}}
-                          className="w-4 h-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                          className="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
                         />
                         <span className="text-gray-700 dark:text-gray-200">{agent.name}</span>
                         {agent.description && (
@@ -199,8 +200,8 @@ const PlatformAISettings: React.FC<PlatformAISettingsProps> = ({
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {agentIds.length === 0
-                ? t('platforms.aiSettings.agentsHintDefault', '未选择时默认使用所有 AI 员工。')
-                : t('platforms.aiSettings.agentsHint', '选择分配给此平台的 AI 员工，支持多选。')}
+                ? t('platforms.aiSettings.agentsHintDefault', '未选择时默认使用项目默认 AI 员工。')
+                : t('platforms.aiSettings.agentsHint', '选择分配给此平台的 AI 员工。')}
             </p>
           </div>
 
@@ -283,4 +284,3 @@ const PlatformAISettings: React.FC<PlatformAISettingsProps> = ({
 };
 
 export default PlatformAISettings;
-

@@ -20,6 +20,7 @@ export interface PlatformCreateRequest {
   type: PlatformType;
   config?: Record<string, any> | null;
   is_active?: boolean; // default true
+  agent_id?: string | null;
 }
 
 // OpenAPI: PlatformResponse
@@ -30,6 +31,7 @@ export interface PlatformResponse {
   display_name?: string; // display name for UI (preferred over name)
   type: PlatformType;
   is_supported?: boolean; // whether this platform type is currently supported
+  icon?: string | null; // SVG icon markup for the platform type
   // Some APIs also return api_key at the top level (e.g., website widget)
   api_key?: string | null; // optional API key (top-level)
   config?: Record<string, any> | null;
@@ -37,11 +39,12 @@ export interface PlatformResponse {
   // Read-only fields from API
   callback_url?: string; // public callback URL for this platform
   logo_url?: string | null; // public URL to retrieve the platform logo
+  chat_url?: string | null; // chat completion URL for custom platforms
   deleted_at?: string | null;
   created_at: string;
   updated_at: string;
   // AI settings (top-level fields)
-  agent_ids?: string[] | null; // List of AI Agent IDs assigned to this platform
+  agent_id?: string | null; // AI Agent ID assigned to this platform
   ai_mode?: PlatformAIMode | null; // AI mode: auto, assist, or off
   fallback_to_ai_timeout?: number | null; // Timeout in seconds before AI takes over (assist mode)
 }
@@ -52,7 +55,7 @@ export interface PlatformUpdateRequest {
   config?: Record<string, any> | null;
   is_active?: boolean | null;
   // AI settings
-  agent_ids?: string[] | null;
+  agent_id?: string | null;
   ai_mode?: PlatformAIMode | null;
   fallback_to_ai_timeout?: number | null;
 }
@@ -190,4 +193,3 @@ export interface PlatformListQueryParams {
   limit?: number;
   offset?: number;
 }
-

@@ -106,7 +106,7 @@ const WebhookIncoming: React.FC<WebhookIncomingProps> = ({ config, onUpdate }) =
   };
 
   const handleRegenerateSecret = (): void => {
-    const newSecret = 'sk_test_' + Math.random().toString(36).substring(2, 15);
+    const newSecret = `sk_test_${Math.random().toString(36).substring(2, 15)}`;
     onUpdate?.({ ...config, secretKey: newSecret });
     console.log('Secret regenerated');
   };
@@ -286,21 +286,21 @@ const PlatformConfig: React.FC<PlatformConfigProps> = ({ platform, onUpdate, onT
   const updatePlatform = usePlatformStore(s => s.updatePlatform);
 
   // AI Settings state
-  const [aiAgentIds, setAiAgentIds] = useState<string[]>(platform?.agent_ids ?? []);
+  const [aiAgentIds, setAiAgentIds] = useState<string[]>(platform?.agent_id ? [platform.agent_id] : []);
   const [aiMode, setAiMode] = useState<PlatformAIMode>(platform?.ai_mode ?? 'auto');
   const [fallbackTimeout, setFallbackTimeout] = useState<number | null>(platform?.fallback_to_ai_timeout ?? null);
 
   useEffect(() => {
     if (platform) {
-      setAiAgentIds(platform.agent_ids ?? []);
+      setAiAgentIds(platform.agent_id ? [platform.agent_id] : []);
       setAiMode(platform.ai_mode ?? 'auto');
       setFallbackTimeout(platform.fallback_to_ai_timeout ?? null);
     }
-  }, [platform?.agent_ids, platform?.ai_mode, platform?.fallback_to_ai_timeout]);
+  }, [platform, platform?.agent_id, platform?.ai_mode, platform?.fallback_to_ai_timeout]);
 
   const hasAISettingsChanged = useMemo(() => {
     if (!platform) return false;
-    const origAgentIds = platform.agent_ids ?? [];
+    const origAgentIds = platform.agent_id ? [platform.agent_id] : [];
     const origMode = platform.ai_mode ?? 'auto';
     const origTimeout = platform.fallback_to_ai_timeout ?? null;
     const agentIdsChanged = JSON.stringify(aiAgentIds.sort()) !== JSON.stringify([...origAgentIds].sort());
@@ -313,7 +313,7 @@ const PlatformConfig: React.FC<PlatformConfigProps> = ({ platform, onUpdate, onT
     if (!platform) return;
     try {
       await updatePlatform(platform.id, {
-        agent_ids: aiAgentIds.length > 0 ? aiAgentIds : null,
+        agent_id: aiAgentIds[0] ?? null,
         ai_mode: aiMode,
         fallback_to_ai_timeout: aiMode === 'assist' ? fallbackTimeout : null,
       });
@@ -427,4 +427,3 @@ const PlatformConfig: React.FC<PlatformConfigProps> = ({ platform, onUpdate, onT
 };
 
 export default PlatformConfig;
-

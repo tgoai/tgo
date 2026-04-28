@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
 from pydantic import ValidationError
 
 from app.models.platform import Platform
 from app.models.project import Project
-from app.schemas.ai import AgentCreateRequest, AgentResponse, AgentUpdateRequest
-from app.schemas.platform_schema import PlatformAISettings
+from app.schemas.ai import (
+    AgentCreateRequest,
+    AgentResponse,
+    AgentUpdateRequest,
+)
+from app.schemas.platform_schema import (
+    PlatformAISettings,
+    PlatformUpdate,
+)
 
 
 def test_platform_ai_settings_uses_single_agent_id() -> None:
@@ -20,6 +29,18 @@ def test_platform_ai_settings_uses_single_agent_id() -> None:
 
     assert str(payload.agent_id) == "123e4567-e89b-12d3-a456-426614174000"
     assert "agent_ids" not in PlatformAISettings.model_fields
+
+
+def test_platform_update_normalizes_legacy_agent_ids() -> None:
+    """Legacy agent_ids updates should normalize to the single agent_id field."""
+
+    agent_id = uuid4()
+
+    payload = PlatformUpdate.model_validate({"agent_ids": [str(agent_id)]})
+
+    assert payload.agent_id == agent_id
+    assert "agent_ids" not in PlatformUpdate.model_fields
+    assert payload.model_dump(exclude_unset=True) == {"agent_id": agent_id}
 
 
 def test_platform_model_has_single_agent_id_column() -> None:

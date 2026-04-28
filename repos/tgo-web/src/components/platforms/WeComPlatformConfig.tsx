@@ -37,25 +37,25 @@ const WeComPlatformConfig: React.FC<Props> = ({ platform }) => {
   const hasNameChanged = useMemo(() => platformName.trim() !== platform.name, [platformName, platform.name]);
 
   // AI Settings state
-  const [aiAgentIds, setAiAgentIds] = useState<string[]>(platform.agent_ids ?? []);
+  const [aiAgentIds, setAiAgentIds] = useState<string[]>(platform.agent_id ? [platform.agent_id] : []);
   const [aiMode, setAiMode] = useState<PlatformAIMode>(platform.ai_mode ?? 'auto');
   const [fallbackTimeout, setFallbackTimeout] = useState<number | null>(platform.fallback_to_ai_timeout ?? null);
 
   useEffect(() => {
-    setAiAgentIds(platform.agent_ids ?? []);
+    setAiAgentIds(platform.agent_id ? [platform.agent_id] : []);
     setAiMode(platform.ai_mode ?? 'auto');
     setFallbackTimeout(platform.fallback_to_ai_timeout ?? null);
-  }, [platform.agent_ids, platform.ai_mode, platform.fallback_to_ai_timeout]);
+  }, [platform.agent_id, platform.ai_mode, platform.fallback_to_ai_timeout]);
 
   const hasAISettingsChanged = useMemo(() => {
-    const origAgentIds = platform.agent_ids ?? [];
+    const origAgentIds = platform.agent_id ? [platform.agent_id] : [];
     const origMode = platform.ai_mode ?? 'auto';
     const origTimeout = platform.fallback_to_ai_timeout ?? null;
     const agentIdsChanged = JSON.stringify(aiAgentIds.sort()) !== JSON.stringify([...origAgentIds].sort());
     const modeChanged = aiMode !== origMode;
     const timeoutChanged = fallbackTimeout !== origTimeout;
     return agentIdsChanged || modeChanged || timeoutChanged;
-  }, [aiAgentIds, aiMode, fallbackTimeout, platform.agent_ids, platform.ai_mode, platform.fallback_to_ai_timeout]);
+  }, [aiAgentIds, aiMode, fallbackTimeout, platform.agent_id, platform.ai_mode, platform.fallback_to_ai_timeout]);
 
   const canSave = hasConfigChanges || hasNameChanged || hasAISettingsChanged;
 
@@ -122,7 +122,7 @@ const WeComPlatformConfig: React.FC<Props> = ({ platform }) => {
         updates.name = platformName.trim();
       }
       if (hasAISettingsChanged) {
-        updates.agent_ids = aiAgentIds.length > 0 ? aiAgentIds : null;
+        updates.agent_id = aiAgentIds[0] ?? null;
         updates.ai_mode = aiMode;
         updates.fallback_to_ai_timeout = aiMode === 'assist' ? fallbackTimeout : null;
       }
@@ -145,7 +145,7 @@ const WeComPlatformConfig: React.FC<Props> = ({ platform }) => {
     <main className="flex flex-col flex-1 min-h-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <header className="px-6 py-4 border-b border-gray-200/80 dark:border-gray-700/80 flex justify-between items-center bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg sticky top-0 z-10">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('platforms.wecom.header.title', {"name":displayName})}</h2>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('platforms.wecom.header.title', { name: displayName })}</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('platforms.wecom.header.subtitle', '配置企业微信（WeCom）对接所需的凭据与回调。')}</p>
         </div>
         <div className="flex items-center gap-3">
@@ -448,4 +448,3 @@ AESKey: your_43_chars_encoding_aes_key`}</pre>
 };
 
 export default WeComPlatformConfig;
-

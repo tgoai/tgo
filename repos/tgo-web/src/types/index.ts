@@ -20,7 +20,7 @@ export interface Platform {
   // Chat completion URL for custom platforms (only returned for type='custom')
   chat_url?: string | null;
   // AI settings (top-level fields, not nested in config)
-  agent_ids?: string[] | null; // List of AI Agent IDs assigned to this platform
+  agent_id?: string | null; // AI Agent ID assigned to this platform
   ai_mode?: PlatformAIMode | null; // AI mode: auto, assist, or off
   fallback_to_ai_timeout?: number | null; // Timeout in seconds before AI takes over when ai_mode=assist
 }

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { Platform, PlatformConfig, PlatformType } from '@/types';
-import platformsApiService, { PlatformResponse } from '@/services/platformsApi';
+import platformsApiService, { type PlatformResponse, type PlatformUpdateRequest } from '@/services/platformsApi';
 import { useOnboardingStore } from './onboardingStore';
 
 interface PlatformState {
@@ -159,7 +159,7 @@ export const usePlatformStore = create<PlatformState>()(
           set({ isUpdating: true }, false, 'updatePlatform');
           try {
             // Map UI updates to API payload
-            const payload: any = {};
+            const payload: PlatformUpdateRequest = {};
             if (Object.prototype.hasOwnProperty.call(updates, 'name')) {
               payload.name = updates.name;
             }
@@ -167,8 +167,8 @@ export const usePlatformStore = create<PlatformState>()(
               payload.config = updates.config as Record<string, any>;
             }
             // AI settings fields (top-level, not nested in config)
-            if (Object.prototype.hasOwnProperty.call(updates, 'agent_ids')) {
-              payload.agent_ids = updates.agent_ids;
+            if (Object.prototype.hasOwnProperty.call(updates, 'agent_id')) {
+              payload.agent_id = updates.agent_id;
             }
             if (Object.prototype.hasOwnProperty.call(updates, 'ai_mode')) {
               payload.ai_mode = updates.ai_mode;
@@ -177,7 +177,7 @@ export const usePlatformStore = create<PlatformState>()(
               payload.fallback_to_ai_timeout = updates.fallback_to_ai_timeout;
             }
 
-            // If we are updating config OR name during a "save" operation, 
+            // If we are updating config OR name during a "save" operation,
             // we should generally ensure the platform is active.
             // For explicit status toggles, we follow the passed status.
             if (Object.prototype.hasOwnProperty.call(updates, 'status')) {
@@ -202,20 +202,20 @@ export const usePlatformStore = create<PlatformState>()(
                   return {
                     id: p.id,
                     name: p.name,
-                    icon: (p as any).icon || '',
+                    icon: p.icon || '',
                     iconColor: '',
                     status,
                     statusText,
                     statusColor,
-                    type: (p as any).type as any,
+                    type: p.type,
                     description: state.platforms.find(pp => pp.id === p.id)?.description || '',
                     config: ({ ...(p.config || {}), ...(p.api_key ? { apiKey: p.api_key } : {}) }) as PlatformConfig,
-                    callback_url: (p as any).callback_url || '',
-                    logo_url: (p as any).logo_url ?? null,
+                    callback_url: p.callback_url || '',
+                    logo_url: p.logo_url ?? null,
                     // AI settings
-                    agent_ids: (p as any).agent_ids ?? null,
-                    ai_mode: (p as any).ai_mode ?? null,
-                    fallback_to_ai_timeout: (p as any).fallback_to_ai_timeout ?? null,
+                    agent_id: p.agent_id ?? null,
+                    ai_mode: p.ai_mode ?? null,
+                    fallback_to_ai_timeout: p.fallback_to_ai_timeout ?? null,
                   };
                 };
 
@@ -255,23 +255,23 @@ export const usePlatformStore = create<PlatformState>()(
             const mapped: Platform = {
               id: p.id,
               name: p.name,
-              display_name: (p as any).display_name,
-              icon: (p as any).icon || '',
+              display_name: p.display_name,
+              icon: p.icon || '',
               iconColor: '',
               status,
               statusText,
               statusColor,
-              type: (p as any).type as any,
-              is_supported: (p as any).is_supported,
+              type: p.type,
+              is_supported: p.is_supported,
               description: state.platforms.find(pp => pp.id === p.id)?.description || '',
               config: ({ ...(p.config || {}), ...(p.api_key ? { apiKey: p.api_key } : {}) }) as PlatformConfig,
-              callback_url: (p as any).callback_url || '',
-              logo_url: (p as any).logo_url ?? null,
-              chat_url: (p as any).chat_url ?? null,
+              callback_url: p.callback_url || '',
+              logo_url: p.logo_url ?? null,
+              chat_url: p.chat_url ?? null,
               // AI settings
-              agent_ids: (p as any).agent_ids ?? null,
-              ai_mode: (p as any).ai_mode ?? null,
-              fallback_to_ai_timeout: (p as any).fallback_to_ai_timeout ?? null,
+              agent_id: p.agent_id ?? null,
+              ai_mode: p.ai_mode ?? null,
+              fallback_to_ai_timeout: p.fallback_to_ai_timeout ?? null,
             };
             set({
               platforms: state.platforms.some(pp => pp.id === platformId)
@@ -590,22 +590,22 @@ export const usePlatformStore = create<PlatformState>()(
                 return {
                   id: p.id,
                   name: p.name,
-                  display_name: (p as any).display_name,
-                  icon: (p as any).icon || '',
+                  display_name: p.display_name,
+                  icon: p.icon || '',
                   iconColor: '',
                   status,
                   statusText,
                   statusColor,
-                  type: (p as any).type as any,
-                  is_supported: (p as any).is_supported,
+                  type: p.type,
+                  is_supported: p.is_supported,
                   description: '',
                   config: ({ ...(p.config || {}), ...(p.api_key ? { apiKey: p.api_key } : {}) }) as PlatformConfig,
-                  callback_url: (p as any).callback_url || '',
-                  logo_url: (p as any).logo_url ?? null,
+                  callback_url: p.callback_url || '',
+                  logo_url: p.logo_url ?? null,
                   // AI settings
-                  agent_ids: (p as any).agent_ids ?? null,
-                  ai_mode: (p as any).ai_mode ?? null,
-                  fallback_to_ai_timeout: (p as any).fallback_to_ai_timeout ?? null,
+                  agent_id: p.agent_id ?? null,
+                  ai_mode: p.ai_mode ?? null,
+                  fallback_to_ai_timeout: p.fallback_to_ai_timeout ?? null,
                 };
               });
 
@@ -636,4 +636,3 @@ export const usePlatformStore = create<PlatformState>()(
     { name: 'platform-store' }
   )
 );
-

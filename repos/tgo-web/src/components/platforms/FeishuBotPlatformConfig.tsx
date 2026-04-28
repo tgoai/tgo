@@ -37,25 +37,25 @@ const FeishuBotPlatformConfig: React.FC<Props> = ({ platform }) => {
   const hasNameChanged = useMemo(() => platformName.trim() !== platform.name, [platformName, platform.name]);
 
   // AI Settings state
-  const [aiAgentIds, setAiAgentIds] = useState<string[]>(platform.agent_ids ?? []);
+  const [aiAgentIds, setAiAgentIds] = useState<string[]>(platform.agent_id ? [platform.agent_id] : []);
   const [aiMode, setAiMode] = useState<PlatformAIMode>(platform.ai_mode ?? 'auto');
   const [fallbackTimeout, setFallbackTimeout] = useState<number | null>(platform.fallback_to_ai_timeout ?? null);
 
   useEffect(() => {
-    setAiAgentIds(platform.agent_ids ?? []);
+    setAiAgentIds(platform.agent_id ? [platform.agent_id] : []);
     setAiMode(platform.ai_mode ?? 'auto');
     setFallbackTimeout(platform.fallback_to_ai_timeout ?? null);
-  }, [platform.agent_ids, platform.ai_mode, platform.fallback_to_ai_timeout]);
+  }, [platform.agent_id, platform.ai_mode, platform.fallback_to_ai_timeout]);
 
   const hasAISettingsChanged = useMemo(() => {
-    const origAgentIds = platform.agent_ids ?? [];
+    const origAgentIds = platform.agent_id ? [platform.agent_id] : [];
     const origMode = platform.ai_mode ?? 'auto';
     const origTimeout = platform.fallback_to_ai_timeout ?? null;
     const agentIdsChanged = JSON.stringify(aiAgentIds.sort()) !== JSON.stringify([...origAgentIds].sort());
     const modeChanged = aiMode !== origMode;
     const timeoutChanged = fallbackTimeout !== origTimeout;
     return agentIdsChanged || modeChanged || timeoutChanged;
-  }, [aiAgentIds, aiMode, fallbackTimeout, platform.agent_ids, platform.ai_mode, platform.fallback_to_ai_timeout]);
+  }, [aiAgentIds, aiMode, fallbackTimeout, platform.agent_id, platform.ai_mode, platform.fallback_to_ai_timeout]);
 
   const canSave = hasConfigChanges || hasNameChanged || hasAISettingsChanged;
 
@@ -110,7 +110,7 @@ const FeishuBotPlatformConfig: React.FC<Props> = ({ platform }) => {
         updates.name = platformName.trim();
       }
       if (hasAISettingsChanged) {
-        updates.agent_ids = aiAgentIds.length > 0 ? aiAgentIds : null;
+        updates.agent_id = aiAgentIds[0] ?? null;
         updates.ai_mode = aiMode;
         updates.fallback_to_ai_timeout = aiMode === 'assist' ? fallbackTimeout : null;
       }
