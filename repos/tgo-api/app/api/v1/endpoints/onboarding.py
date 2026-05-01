@@ -107,8 +107,8 @@ async def get_onboarding_progress(
         # Step 5 is 'notify' type - read from database (may be skipped by user)
         step_statuses[4] = progress.step_5_completed
 
-        # Check if all action steps (1-4) are completed
-        if all(step_statuses):
+        # Done when steps 1-4 pass; step 5 is notify-only (not auto-detected).
+        if all(step_statuses[:4]):
             progress.is_completed = True
             progress.completed_at = datetime.now(timezone.utc)
 
